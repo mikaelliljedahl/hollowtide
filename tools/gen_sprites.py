@@ -354,7 +354,6 @@ def main() -> None:
     save(tileset(), "tileset_cave.png")
     save(object_strip("weapon_pickup_hd.png", 6, (128, 128), (88, 80)), "weapon_pickup.png")
     save(object_strip("beam_shot_hd.png", 4, (64, 32), (60, 26)), "beam_shot.png")
-    save(object_strip("crawler_hd.png", 8, (128, 128), (116, 64)), "crawler.png")
 
 
 if __name__ == "__main__":

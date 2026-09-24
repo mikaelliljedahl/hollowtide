@@ -14,7 +14,7 @@ deleted. Their runtime replacements are the original D19 arsenal art listed belo
 
 - `tools/source_art/tileset_cave_hd.png`: detailed cave original, 1448×1086. Older reports describe
   GPT Image use; full generation ID is missing.
-- `tools/source_art/player_*_hd.png`, `crawler_hd.png`, `orb_hd.png`, weapon/projectile sources:
+- `tools/source_art/player_*_hd.png`, `orb_hd.png`, weapon/projectile sources:
   existing originals from earlier project image work, used for runtime sprites and identity references.
 - `tools/source_art/cave_concept.png`: legacy mood/composition reference, not active module source.
 
