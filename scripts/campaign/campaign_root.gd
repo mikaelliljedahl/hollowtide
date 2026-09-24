@@ -179,8 +179,7 @@ func travel_blocker() -> StringName:
 		var boss := node as CombatBoss
 		if boss == null or boss.health <= 0:
 			continue
-		var bounds := boss.arena_bounds
-		if bounds.size == Vector2.ZERO or bounds.has_point(player.global_position):
+		if boss._in_arena(player.global_position):
 			return BLOCK_BOSS
 	for node in tree.get_nodes_in_group(&"worldfx_rising_shaft"):
 		var shaft := node as RisingShaft

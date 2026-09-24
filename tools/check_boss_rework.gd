@@ -51,6 +51,7 @@ func _run() -> void:
 	for boss_id in BOSS_IDS:
 		await _stage_thresholds(boss_id)
 	await _transition_cancels_telegraph()
+	await _engages_on_floor_line()
 	for boss_id in BOSS_IDS:
 		for stage in range(1, Patterns.DESPERATION_STAGE + 1):
 			await _attack_cycle(boss_id, stage)
@@ -187,6 +188,30 @@ func _transition_cancels_telegraph() -> void:
 	_check(not released[0], "the dropped attack never fires")
 	_check(_live_projectiles() == projectiles_before, "the stage breather fires nothing")
 	_despawn(boss)
+	await _frames(2)
+
+
+## Arenas end on the floor line, so a player whose feet stand exactly on it must count as inside:
+## the boss engages and attacks, and common enemies treat the same point as inside their leash.
+func _engages_on_floor_line() -> void:
+	var boss := _spawn_in_arena(&"stone_guardian")
+	_probe.global_position = Vector2(1500.0, ARENA.end.y)
+	var telegraphed := [false]
+	boss.attack_telegraphed.connect(func(_attack: StringName) -> void: telegraphed[0] = true)
+	await _frames(int(3.0 * PHYSICS_HZ))
+	_check(bool(boss.get("_player_engaged")), "boss engages a player on the arena floor line")
+	_check(telegraphed[0], "boss attacks a player on the arena floor line")
+	_check(
+		not boss.call("_in_arena", Vector2(1500.0, ARENA.end.y + 40.0)),
+		"a point well below the arena floor is outside"
+	)
+	var enemy := EnemyFactory.create(&"hopper") as CombatEnemy
+	add_child(enemy)
+	enemy.configure_arena(ARENA)
+	_check(enemy._in_arena(Vector2(1500.0, ARENA.end.y)), "enemy leash holds the arena floor line")
+	enemy.queue_free()
+	_despawn(boss)
+	_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
 	await _frames(2)
 
 

@@ -430,7 +430,10 @@ func _die() -> void:
 
 
 func _in_arena(point: Vector2) -> bool:
-	return arena_bounds.size == Vector2.ZERO or arena_bounds.has_point(point)
+	if arena_bounds.size == Vector2.ZERO:
+		return true
+	var margin := CombatEnemy.ARENA_FLOOR_MARGIN
+	return arena_bounds.grow_individual(0.0, 0.0, 0.0, margin).has_point(point)
 
 
 func _clamp_to_arena(point: Vector2) -> Vector2:
