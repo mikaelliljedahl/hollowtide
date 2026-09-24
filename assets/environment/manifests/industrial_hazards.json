@@ -1,0 +1,59 @@
+{
+  "outputs": {
+    "industrial_fire": {
+      "anchor_y": 250,
+      "frame_size_px": [
+        256,
+        256
+      ],
+      "frames": 4,
+      "path": "res://assets/environment/vfx/industrial_fire.png",
+      "runtime_owner": "res://scripts/dev/dev_hazard.gd",
+      "sha256": "14fade228de5a1ef66562135ad047ffc02980375e366364f674359b6d86f9880",
+      "size_px": [
+        1024,
+        256
+      ],
+      "status": "runtime"
+    },
+    "industrial_steam": {
+      "anchor_y": 250,
+      "frame_size_px": [
+        256,
+        256
+      ],
+      "frames": 4,
+      "path": "res://assets/environment/vfx/industrial_steam.png",
+      "runtime_owner": "res://scripts/dev/dev_hazard.gd",
+      "sha256": "588f0bb03565c2ccda80ff8c08a01814b383408577ec09276dee53f770c0195f",
+      "size_px": [
+        1024,
+        256
+      ],
+      "status": "runtime"
+    }
+  },
+  "proof": {
+    "path": "res://proofs/industrial_hazards/industrial_hazards_dark.png",
+    "sha256": "b0fd80001f889a84d2b41226734a79769540b4874341373959b5600c1886a766",
+    "size_px": [
+      1024,
+      512
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "authorship": "original Hollowtide vector art; no external or private-reference assets",
+    "path": "res://tools/source_art/devmode/industrial_hazards.svg",
+    "sha256": "734cc14c6a3a1dad2814d7064ce4815c13370171c121308602cebd232d894eeb",
+    "size_px": [
+      1024,
+      512
+    ]
+  },
+  "supersedes": [
+    "res://assets/environment/vfx/fire_small.png",
+    "res://assets/environment/vfx/fire_vent.png",
+    "res://assets/environment/vfx/steam_embers.png"
+  ]
+}

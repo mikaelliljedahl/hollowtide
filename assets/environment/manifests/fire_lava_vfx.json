@@ -1,0 +1,177 @@
+{
+  "accepted_use": {
+    "fire_small": "superseded source-sheet study; not runtime",
+    "fire_vent": "superseded source-sheet study; not runtime",
+    "lava_surface": "runtime fixed liquid surface",
+    "steam_embers": "superseded source-sheet study; not runtime"
+  },
+  "alpha_method": "retained partial alpha; edge unpremultiply and red/green/yellow/brown matte despill",
+  "frames": {
+    "fire_small": {
+      "anchors_px": [
+        [
+          128,
+          192
+        ],
+        [
+          128,
+          192
+        ],
+        [
+          128,
+          192
+        ],
+        [
+          128,
+          192
+        ]
+      ],
+      "source_row": 0
+    },
+    "fire_vent": {
+      "anchors_px": [
+        [
+          128,
+          208
+        ],
+        [
+          128,
+          208
+        ],
+        [
+          128,
+          208
+        ],
+        [
+          128,
+          208
+        ]
+      ],
+      "source_row": 1
+    },
+    "lava_surface": {
+      "anchors_px": [
+        [
+          256,
+          192
+        ],
+        [
+          256,
+          192
+        ],
+        [
+          256,
+          192
+        ],
+        [
+          256,
+          192
+        ]
+      ],
+      "edge_alpha": "continuous multiplicative crop feather; no alpha threshold",
+      "fixed_baseline_y": 192,
+      "source_crops_px": [
+        [
+          36,
+          48,
+          374,
+          184
+        ],
+        [
+          30,
+          48,
+          368,
+          184
+        ],
+        [
+          18,
+          48,
+          358,
+          184
+        ],
+        [
+          10,
+          48,
+          345,
+          184
+        ]
+      ],
+      "source_row": 2,
+      "tail_repair": "excluded semi-opaque source-sheet field below and beside each liquid motif"
+    },
+    "steam_embers": {
+      "anchors_px": [
+        [
+          128,
+          160
+        ],
+        [
+          128,
+          160
+        ],
+        [
+          128,
+          160
+        ],
+        [
+          128,
+          160
+        ]
+      ],
+      "source_row": 3
+    }
+  },
+  "outputs": {
+    "res://assets/environment/vfx/fire_small.png": {
+      "sha256": "94b7054885afe9e8671d522c3ce48a2aed751a555d731a136fa3c2b9aeda34f4",
+      "size_px": [
+        1024,
+        256
+      ]
+    },
+    "res://assets/environment/vfx/fire_vent.png": {
+      "sha256": "9c1ef3392ede2523e91cb7aa0752c733be1ffb3a021a3486f8fe8351e93352fe",
+      "size_px": [
+        1024,
+        256
+      ]
+    },
+    "res://assets/environment/vfx/lava_surface.png": {
+      "sha256": "1f9f331d487be0fbac972265d240c284d88a93b497fcfce52d24a59bcf6baca2",
+      "size_px": [
+        2048,
+        256
+      ]
+    },
+    "res://assets/environment/vfx/steam_embers.png": {
+      "sha256": "dc8dfcb0c079c93651067354f97fcdcea0120562729997e25f3b02bbe77bf109",
+      "size_px": [
+        1024,
+        256
+      ]
+    }
+  },
+  "proofs": [
+    "res://proofs/environment_kits/fire_lava_dark.png",
+    "res://proofs/environment_kits/fire_lava_light.png"
+  ],
+  "runtime_wiring": "res://scripts/dev/dev_hazard.gd",
+  "schema_version": 1,
+  "source": {
+    "cell_size_px": [
+      384,
+      256
+    ],
+    "grid": [
+      4,
+      4
+    ],
+    "mode": "RGBA",
+    "path": "res://tools/source_art/devmode/fire_lava_vfx_hd.png",
+    "sha256": "e24134b626f2918b05ffe7e9d62796ca64ec83560a98a551e92faadb1644dde5",
+    "size_px": [
+      1536,
+      1024
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "area_id": "fringe",
+  "tint": [
+    0.62,
+    0.72,
+    0.8
+  ],
+  "fog": [
+    0.36,
+    0.5,
+    0.58
+  ],
+  "glow": null,
+  "particles": "drip",
+  "far_parallax": 0.18,
+  "far_modulate": [
+    0.66,
+    0.7,
+    0.74
+  ],
+  "mid_modulate": [
+    0.42,
+    0.47,
+    0.52
+  ],
+  "mid_parallax": 0.42,
+  "material": {
+    "fill": "res://assets/environment/areas/fringe/fringe_fill.png",
+    "top": "res://assets/environment/areas/fringe/fringe_top.png",
+    "top_cap_l": "res://assets/environment/areas/fringe/fringe_top_cap_l.png",
+    "top_cap_r": "res://assets/environment/areas/fringe/fringe_top_cap_r.png",
+    "bottom": "res://assets/environment/areas/fringe/fringe_bottom.png",
+    "bottom_cap_l": "res://assets/environment/areas/fringe/fringe_bottom_cap_l.png",
+    "bottom_cap_r": "res://assets/environment/areas/fringe/fringe_bottom_cap_r.png",
+    "side_l": "res://assets/environment/areas/fringe/fringe_side_l.png",
+    "side_r": "res://assets/environment/areas/fringe/fringe_side_r.png"
+  },
+  "strip": {
+    "top_height": 128,
+    "top_line": 32,
+    "bottom_height": 160,
+    "bottom_line": 48,
+    "side_width": 128,
+    "side_line": 96,
+    "cap_width": 32
+  },
+  "background": {
+    "far": {
+      "path": "res://assets/environment/areas/fringe/fringe_far.png",
+      "top_color": [
+        0.0556,
+        0.0814,
+        0.1054
+      ],
+      "bottom_color": [
+        0.0519,
+        0.0784,
+        0.1035
+      ]
+    },
+    "mid": {
+      "path": "res://assets/environment/areas/fringe/fringe_mid.png",
+      "top_color": [
+        0.1007,
+        0.1305,
+        0.1054
+      ],
+      "bottom_color": [
+        0.0612,
+        0.0826,
+        0.1028
+      ]
+    }
+  },
+  "props": [
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_00.png",
+      "kind": "hang",
+      "size_px": [
+        459,
+        568
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_01.png",
+      "kind": "hang",
+      "size_px": [
+        417,
+        591
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_02.png",
+      "kind": "hang",
+      "size_px": [
+        302,
+        600
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_03.png",
+      "kind": "stand",
+      "size_px": [
+        398,
+        255
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_04.png",
+      "kind": "stand",
+      "size_px": [
+        400,
+        278
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_05.png",
+      "kind": "stand",
+      "size_px": [
+        249,
+        346
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/fringe/fringe_prop_06.png",
+      "kind": "stand",
+      "size_px": [
+        313,
+        147
+      ]
+    }
+  ],
+  "fluid": null
+}

@@ -1,0 +1,59 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/pickups/pickup.gd" id="1_pickup_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/devmode/beam.png" id="2_pickup_texture"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
+radius = 20.0
+
+[sub_resource type="Gradient" id="Gradient_pickup_light"]
+colors = PackedColorArray(0.4, 0.9, 1, 0.85, 0.4, 0.9, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_pickup_light"]
+gradient = SubResource("Gradient_pickup_light")
+width = 96
+height = 96
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+fill = 1
+
+[node name="Pickup" type="Area2D"]
+collision_layer = 4
+collision_mask = 2
+monitoring = true
+monitorable = true
+script = ExtResource("1_pickup_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_pickup")
+
+[node name="Icon" type="Sprite2D" parent="."]
+texture = ExtResource("2_pickup_texture")
+hframes = 1
+vframes = 1
+frame = 0
+region_enabled = false
+scale = Vector2(0.78, 0.78)
+
+[node name="PickupBurst" type="CPUParticles2D" parent="."]
+emitting = false
+amount = 24
+lifetime = 0.6
+one_shot = true
+explosiveness = 0.9
+randomness = 0.35
+direction = Vector2(0, -1)
+spread = 180.0
+gravity = Vector2(0, 90)
+initial_velocity_min = 28.0
+initial_velocity_max = 68.0
+scale_amount_min = 1.0
+scale_amount_max = 2.0
+color = Color(0.623529, 1, 0.941176, 1)
+
+[node name="PickupLight" type="PointLight2D" parent="."]
+texture = SubResource("GradientTexture2D_pickup_light")
+texture_scale = 1.2
+energy = 1.4
+color = Color(0.4, 0.9, 1, 1)
+shadow_enabled = false

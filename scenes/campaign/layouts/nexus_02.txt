@@ -1,0 +1,29 @@
+id: nexus_02
+area: nexus
+name: Whisper Loft
+origin: 150 34
+# loft: rising out of the High Jump crack and heading for the energy tank seals the crack behind.
+ambush: 2 3 20 7 wave=grasshopper,grasshopper wave2=spitter,vent_flyer,grasshopper trigger=3,5,6,5 spawns=10,3,12,7 id=loft
+legend:
+  1 pickup energy_tank energy_01
+  2 pickup missile_tank missile_01
+  w gate wave
+  v enemy vent_flyer w=10 h=5
+grid:
+##############################
+##############################
+##############################
+##......#........#....#.....##
+##......#.............#.....##
+##.............v......#.....##
+##....................#.....##
+##....................w.....##
+##...1................w..2..##
+##....................w.....##
+###########..#################
+###########..#################
+###########..#################
+###########..#################
+###########..#################
+###########..#################
+###########..#################

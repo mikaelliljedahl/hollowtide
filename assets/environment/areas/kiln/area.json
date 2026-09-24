@@ -1,0 +1,141 @@
+{
+  "area_id": "kiln",
+  "tint": [
+    0.55,
+    0.42,
+    0.38
+  ],
+  "fog": [
+    0.9,
+    0.42,
+    0.18
+  ],
+  "glow": [
+    1.0,
+    0.41568627450980394,
+    0.12156862745098039
+  ],
+  "particles": "embers",
+  "far_parallax": 0.12,
+  "far_modulate": [
+    0.6,
+    0.56,
+    0.54
+  ],
+  "mid_modulate": [
+    0.42,
+    0.36,
+    0.34
+  ],
+  "mid_parallax": 0.34,
+  "material": {
+    "fill": "res://assets/environment/areas/kiln/kiln_fill.png",
+    "top": "res://assets/environment/areas/kiln/kiln_top.png",
+    "top_cap_l": "res://assets/environment/areas/kiln/kiln_top_cap_l.png",
+    "top_cap_r": "res://assets/environment/areas/kiln/kiln_top_cap_r.png",
+    "bottom": "res://assets/environment/areas/kiln/kiln_bottom.png",
+    "bottom_cap_l": "res://assets/environment/areas/kiln/kiln_bottom_cap_l.png",
+    "bottom_cap_r": "res://assets/environment/areas/kiln/kiln_bottom_cap_r.png",
+    "side_l": "res://assets/environment/areas/kiln/kiln_side_l.png",
+    "side_r": "res://assets/environment/areas/kiln/kiln_side_r.png"
+  },
+  "strip": {
+    "top_height": 128,
+    "top_line": 32,
+    "bottom_height": 160,
+    "bottom_line": 48,
+    "side_width": 128,
+    "side_line": 96,
+    "cap_width": 32
+  },
+  "background": {
+    "far": {
+      "path": "res://assets/environment/areas/kiln/kiln_far.png",
+      "top_color": [
+        0.0943,
+        0.0428,
+        0.0342
+      ],
+      "bottom_color": [
+        0.0668,
+        0.0236,
+        0.0105
+      ]
+    },
+    "mid": {
+      "path": "res://assets/environment/areas/kiln/kiln_mid.png",
+      "top_color": [
+        0.1569,
+        0.0919,
+        0.0737
+      ],
+      "bottom_color": [
+        0.1271,
+        0.0589,
+        0.0428
+      ]
+    }
+  },
+  "props": [
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_00.png",
+      "kind": "hang",
+      "size_px": [
+        283,
+        371
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_01.png",
+      "kind": "hang",
+      "size_px": [
+        268,
+        370
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_02.png",
+      "kind": "vent_fire",
+      "size_px": [
+        405,
+        253
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_03.png",
+      "kind": "vent_steam",
+      "size_px": [
+        365,
+        138
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_04.png",
+      "kind": "stand",
+      "size_px": [
+        180,
+        324
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_05.png",
+      "kind": "stand",
+      "size_px": [
+        200,
+        236
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/kiln/kiln_prop_06.png",
+      "kind": "stand",
+      "size_px": [
+        275,
+        132
+      ]
+    }
+  ],
+  "fluid": {
+    "path": "res://assets/environment/areas/kiln/kiln_fluid.png",
+    "surface_y": 24
+  }
+}

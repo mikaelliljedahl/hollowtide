@@ -1,0 +1,8 @@
+# Legacy Godot scripts group @onready references before public state.
+# Keep that harmless layout; lint still checks names, syntax, unused args and size.
+disable:
+- class-definitions-order
+max-public-methods: 40
+max-returns: 12
+max-line-length: 120
+max-file-lines: 1000

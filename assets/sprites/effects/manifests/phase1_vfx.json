@@ -1,0 +1,939 @@
+{
+  "audited_cells": {
+    "base_core": {
+      "audited_boxes_px": [
+        [
+          0,
+          0,
+          384,
+          256
+        ],
+        [
+          384,
+          0,
+          768,
+          256
+        ],
+        [
+          768,
+          0,
+          1152,
+          256
+        ],
+        [
+          1152,
+          0,
+          1536,
+          256
+        ]
+      ],
+      "common_scale": 0.4036697247706422,
+      "visible_boxes_px": [
+        [
+          84,
+          80,
+          302,
+          191
+        ],
+        [
+          85,
+          85,
+          299,
+          189
+        ],
+        [
+          86,
+          81,
+          296,
+          189
+        ],
+        [
+          88,
+          81,
+          303,
+          190
+        ]
+      ]
+    },
+    "base_impact": {
+      "audited_boxes_px": [
+        [
+          0,
+          256,
+          384,
+          512
+        ],
+        [
+          384,
+          256,
+          768,
+          512
+        ],
+        [
+          768,
+          256,
+          1152,
+          512
+        ],
+        [
+          1152,
+          256,
+          1536,
+          512
+        ]
+      ],
+      "common_scale": 0.7096774193548387,
+      "visible_boxes_px": [
+        [
+          132,
+          66,
+          256,
+          181
+        ],
+        [
+          121,
+          51,
+          259,
+          194
+        ],
+        [
+          115,
+          46,
+          270,
+          198
+        ],
+        [
+          128,
+          51,
+          252,
+          196
+        ]
+      ]
+    },
+    "ice_core": {
+      "audited_boxes_px": [
+        [
+          0,
+          512,
+          384,
+          768
+        ],
+        [
+          384,
+          512,
+          768,
+          768
+        ],
+        [
+          768,
+          512,
+          1152,
+          768
+        ],
+        [
+          1152,
+          512,
+          1536,
+          768
+        ]
+      ],
+      "common_scale": 0.350597609561753,
+      "visible_boxes_px": [
+        [
+          67,
+          68,
+          318,
+          182
+        ],
+        [
+          67,
+          72,
+          317,
+          190
+        ],
+        [
+          68,
+          69,
+          317,
+          180
+        ],
+        [
+          67,
+          74,
+          317,
+          182
+        ]
+      ]
+    },
+    "ice_impact": {
+      "audited_boxes_px": [
+        [
+          0,
+          768,
+          384,
+          1024
+        ],
+        [
+          384,
+          768,
+          768,
+          1024
+        ],
+        [
+          768,
+          768,
+          1152,
+          1024
+        ],
+        [
+          1152,
+          768,
+          1536,
+          1024
+        ]
+      ],
+      "common_scale": 0.6432748538011696,
+      "visible_boxes_px": [
+        [
+          114,
+          63,
+          251,
+          186
+        ],
+        [
+          109,
+          49,
+          280,
+          192
+        ],
+        [
+          111,
+          46,
+          271,
+          196
+        ],
+        [
+          123,
+          63,
+          270,
+          194
+        ]
+      ]
+    },
+    "player_crouch.png": {
+      "audited_box_px": [
+        0,
+        0,
+        384,
+        512
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        101.0,
+        295
+      ],
+      "visible_box_px": [
+        89,
+        140,
+        296,
+        435
+      ]
+    },
+    "player_crouch_armed.png": {
+      "audited_box_px": [
+        384,
+        0,
+        768,
+        512
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        89.0,
+        295
+      ],
+      "visible_box_px": [
+        65,
+        139,
+        353,
+        434
+      ]
+    },
+    "player_crouch_hurt.png": {
+      "audited_box_px": [
+        1152,
+        512,
+        1536,
+        1024
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        98,
+        281
+      ],
+      "visible_box_px": [
+        81,
+        157,
+        300,
+        438
+      ]
+    },
+    "player_crouch_shoot_horizontal.png": {
+      "audited_box_px": [
+        768,
+        0,
+        1152,
+        512
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        60,
+        252
+      ],
+      "visible_box_px": [
+        75,
+        183,
+        364,
+        435
+      ]
+    },
+    "player_run_sprint.png": {
+      "audited_box_px": [
+        1152,
+        0,
+        1536,
+        512
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        270.0,
+        387
+      ],
+      "visible_box_px": [
+        3,
+        49,
+        347,
+        436
+      ]
+    },
+    "player_run_sprint_armed.png": {
+      "audited_box_px": [
+        0,
+        512,
+        384,
+        1024
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        266.0,
+        395
+      ],
+      "visible_box_px": [
+        23,
+        39,
+        368,
+        434
+      ]
+    },
+    "player_shoot_horizontal_air.png": {
+      "audited_box_px": [
+        768,
+        512,
+        1152,
+        1024
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "accepted",
+      "support_source_px": [
+        12.0,
+        348
+      ],
+      "visible_box_px": [
+        16,
+        19,
+        350,
+        367
+      ]
+    },
+    "player_wall_slide.png": {
+      "audited_box_px": [
+        384,
+        512,
+        768,
+        1024
+      ],
+      "common_scale": 0.49104859335038364,
+      "status": "rejected",
+      "support_source_px": [
+        194,
+        410
+      ],
+      "visible_box_px": [
+        61,
+        24,
+        320,
+        434
+      ]
+    },
+    "wave_core": {
+      "audited_boxes_px": [
+        [
+          0,
+          0,
+          444,
+          444
+        ],
+        [
+          444,
+          0,
+          887,
+          444
+        ],
+        [
+          887,
+          0,
+          1330,
+          444
+        ],
+        [
+          1330,
+          0,
+          1774,
+          444
+        ],
+        [
+          0,
+          444,
+          444,
+          887
+        ],
+        [
+          444,
+          444,
+          887,
+          887
+        ],
+        [
+          887,
+          444,
+          1330,
+          887
+        ],
+        [
+          1330,
+          444,
+          1774,
+          887
+        ]
+      ],
+      "common_scale": 0.2914572864321608,
+      "visible_boxes_px": [
+        [
+          128,
+          146,
+          330,
+          303
+        ],
+        [
+          120,
+          132,
+          344,
+          310
+        ],
+        [
+          105,
+          131,
+          341,
+          317
+        ],
+        [
+          93,
+          130,
+          343,
+          315
+        ],
+        [
+          101,
+          120,
+          358,
+          315
+        ],
+        [
+          89,
+          119,
+          359,
+          318
+        ],
+        [
+          99,
+          134,
+          340,
+          314
+        ],
+        [
+          123,
+          145,
+          328,
+          298
+        ]
+      ]
+    },
+    "wave_impact": {
+      "audited_boxes_px": [
+        [
+          0,
+          362,
+          362,
+          724
+        ],
+        [
+          362,
+          362,
+          724,
+          724
+        ],
+        [
+          724,
+          362,
+          1086,
+          724
+        ],
+        [
+          1086,
+          362,
+          1448,
+          724
+        ],
+        [
+          0,
+          724,
+          362,
+          1086
+        ],
+        [
+          362,
+          724,
+          724,
+          1086
+        ],
+        [
+          724,
+          724,
+          1086,
+          1086
+        ],
+        [
+          1086,
+          724,
+          1448,
+          1086
+        ]
+      ],
+      "common_scale": 0.4641350210970464,
+      "visible_boxes_px": [
+        [
+          92,
+          84,
+          272,
+          266
+        ],
+        [
+          87,
+          75,
+          267,
+          268
+        ],
+        [
+          81,
+          72,
+          276,
+          276
+        ],
+        [
+          75,
+          64,
+          279,
+          287
+        ],
+        [
+          79,
+          55,
+          273,
+          271
+        ],
+        [
+          83,
+          50,
+          278,
+          269
+        ],
+        [
+          77,
+          43,
+          283,
+          280
+        ],
+        [
+          90,
+          72,
+          261,
+          263
+        ]
+      ]
+    },
+    "wave_muzzle": {
+      "audited_boxes_px": [
+        [
+          0,
+          0,
+          362,
+          362
+        ],
+        [
+          362,
+          0,
+          724,
+          362
+        ],
+        [
+          724,
+          0,
+          1086,
+          362
+        ],
+        [
+          1086,
+          0,
+          1448,
+          362
+        ]
+      ],
+      "common_scale": 0.36721311475409835,
+      "visible_boxes_px": [
+        [
+          96,
+          140,
+          257,
+          239
+        ],
+        [
+          26,
+          116,
+          253,
+          257
+        ],
+        [
+          34,
+          90,
+          339,
+          275
+        ],
+        [
+          33,
+          114,
+          318,
+          248
+        ]
+      ]
+    }
+  },
+  "matting": "per-cell bilinear low-frequency RGB background estimated from transparent border corners; source alpha primary; residual/luminance recovery; edge-only despill; no chroma key, thresholded alpha, or palette conversion",
+  "pillow": "12.3.0",
+  "player_anchor": {
+    "canvas_px": [
+      256,
+      256
+    ],
+    "common_scale": 0.49104859335038364,
+    "reference_height_px": 192,
+    "support_row": 240
+  },
+  "proofs": {
+    "cave": [
+      "res://proofs/phase1_vfx/cave_native.png",
+      "res://proofs/phase1_vfx/cave_4x.png"
+    ],
+    "dark": [
+      "res://proofs/phase1_vfx/dark_native.png",
+      "res://proofs/phase1_vfx/dark_4x.png"
+    ],
+    "light": [
+      "res://proofs/phase1_vfx/light_native.png",
+      "res://proofs/phase1_vfx/light_4x.png"
+    ]
+  },
+  "rejected": {
+    "player_wall_slide.png": "Rejected: back-facing pose lacks wall plane/contact read; fallback remains safer."
+  },
+  "review": {
+    "accepted_frames": {
+      "base_core": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3"
+      ],
+      "base_impact": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3"
+      ],
+      "ice_core": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3"
+      ],
+      "ice_impact": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3"
+      ],
+      "player": [
+        "player_crouch.png",
+        "player_crouch_armed.png",
+        "player_crouch_hurt.png",
+        "player_crouch_shoot_horizontal.png",
+        "player_run_sprint.png",
+        "player_run_sprint_armed.png",
+        "player_shoot_horizontal_air.png"
+      ],
+      "wave_core": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3",
+        "frame_4",
+        "frame_5",
+        "frame_6",
+        "frame_7"
+      ],
+      "wave_impact": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3",
+        "frame_4",
+        "frame_5",
+        "frame_6",
+        "frame_7"
+      ],
+      "wave_muzzle": [
+        "frame_0",
+        "frame_1",
+        "frame_2",
+        "frame_3"
+      ]
+    },
+    "human_visual_approval": false,
+    "pending": [
+      "real-level gameplay timing",
+      "normal-camera cave contrast",
+      "user visual acceptance"
+    ],
+    "rejected_frames": {
+      "player_wall_slide.png": "Rejected: back-facing pose lacks wall plane/contact read; fallback remains safer."
+    },
+    "wave_core_frame_7": "Accepted: source contraction visually closes into similarly compact frame_0 under one sequence-wide scale; no isolated tiny loop pop."
+  },
+  "runtime_outputs": {
+    "res://assets/sprites/effects/base_core.png": {
+      "delivery_status": "runtime",
+      "frames": 4,
+      "runtime_owner": "res://scripts/combat/beam_shot.gd",
+      "sha256": "97510466463972bc605edc73b2cb692d3c063f653fc7ffc6c628e8ec59f4c362",
+      "size_px": [
+        384,
+        64
+      ]
+    },
+    "res://assets/sprites/effects/base_impact.png": {
+      "delivery_status": "runtime",
+      "frames": 4,
+      "runtime_owner": "res://scripts/combat/beam_fx_impact.gd",
+      "sha256": "905cd16998a9f0a6737623411bfc5790f13b6ac7b46ffc24420feaf808efc497",
+      "size_px": [
+        512,
+        128
+      ]
+    },
+    "res://assets/sprites/effects/ice_core.png": {
+      "delivery_status": "runtime",
+      "frames": 4,
+      "runtime_owner": "res://scripts/combat/beam_shot.gd",
+      "sha256": "8c72164a740629ed2f46331350dd3f16a625a1e8db7c2504189cd7be71a93876",
+      "size_px": [
+        384,
+        64
+      ]
+    },
+    "res://assets/sprites/effects/ice_impact.png": {
+      "delivery_status": "runtime",
+      "frames": 4,
+      "runtime_owner": "res://scripts/combat/beam_fx_impact.gd",
+      "sha256": "77abbbe2ecdfc7933f44ee097ae1e2d00dabd34ba08da66fe5e704f50426b676",
+      "size_px": [
+        512,
+        128
+      ]
+    },
+    "res://assets/sprites/effects/wave_core.png": {
+      "delivery_status": "runtime",
+      "frames": 8,
+      "runtime_owner": "res://scripts/combat/beam_shot.gd",
+      "sha256": "9fabb8f0c664d5b264692317d184f5a6c914890f74b061699711382802797fdd",
+      "size_px": [
+        768,
+        64
+      ]
+    },
+    "res://assets/sprites/effects/wave_impact.png": {
+      "delivery_status": "runtime",
+      "frames": 8,
+      "runtime_owner": "res://scripts/combat/beam_fx_impact.gd",
+      "sha256": "f8f9f152df4d0b4abd7a898c2cb2e9e13a13db5b4926b560fe34e819f22f14f0",
+      "size_px": [
+        1024,
+        128
+      ]
+    },
+    "res://assets/sprites/effects/wave_muzzle.png": {
+      "delivery_status": "runtime",
+      "frames": 4,
+      "runtime_owner": "res://scripts/combat/beam_fx_muzzle.gd",
+      "sha256": "71f9b897ec6f2012d62adcc6185a14a071046c57d11a66de3bf9088d201156e2",
+      "size_px": [
+        512,
+        128
+      ]
+    },
+    "res://assets/sprites/player_crouch.png": {
+      "delivery_status": "runtime",
+      "frames": 1,
+      "runtime_owner": "res://scripts/player/player.gd",
+      "sha256": "fe537f7a8541818ef291c429502a1ec481a8fa0126f362dc1f455db20938a0b3",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/player_crouch_armed.png": {
+      "delivery_status": "runtime",
+      "frames": 1,
+      "runtime_owner": "res://scripts/player/player.gd",
+      "sha256": "595b0bceefd45adc8fcd56d3161c28e801afa5f54a7617da2671e210721f6c37",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/player_crouch_hurt.png": {
+      "delivery_status": "superseded",
+      "frames": 1,
+      "sha256": "f80c6328ec023ef8c9d0957f762f0a2f48c6809d2f50d5cf8dd4ebfc2df5f1a0",
+      "size_px": [
+        256,
+        256
+      ],
+      "status_reason": "runtime damage uses blink/knockback without a dedicated hurt pose"
+    },
+    "res://assets/sprites/player_crouch_shoot_horizontal.png": {
+      "delivery_status": "runtime",
+      "frames": 1,
+      "runtime_owner": "res://scripts/player/player.gd",
+      "sha256": "d857029b91758b8c39438f85ba2424c45fe7e8c12855c15e61316fcfabf9eff5",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/player_run_sprint.png": {
+      "delivery_status": "superseded",
+      "frames": 1,
+      "sha256": "0277c1649dd4232c9e774cc90d9d14d04f06f7bdece45671a4bd798fbd2c82a6",
+      "size_px": [
+        256,
+        256
+      ],
+      "status_reason": "replaced by authored eight-frame player_sprint.png"
+    },
+    "res://assets/sprites/player_run_sprint_armed.png": {
+      "delivery_status": "superseded",
+      "frames": 1,
+      "sha256": "ac59904dc35943e409d3ecb8dbbbc389e3f64ac55fcdd3c27f944039728c9f96",
+      "size_px": [
+        256,
+        256
+      ],
+      "status_reason": "replaced by authored eight-frame player_sprint_armed.png"
+    },
+    "res://assets/sprites/player_shoot_horizontal_air.png": {
+      "delivery_status": "runtime",
+      "frames": 1,
+      "runtime_owner": "res://scripts/player/player.gd",
+      "sha256": "0cd123f47ecc1183346a180f1171335f2f0b4aec11a8553b1fe11354967a56f1",
+      "size_px": [
+        256,
+        256
+      ]
+    }
+  },
+  "schema_version": 1,
+  "sources": {
+    "beam_family": {
+      "grid": [
+        4,
+        4
+      ],
+      "path": "res://tools/source_art/devmode/beam_family_vfx_hd.png",
+      "sha256": "ad8c129ab1c5615185c96f4eb0ce1684bac33a74a5f9f8d04926d80484afe26e",
+      "size_px": [
+        1536,
+        1024
+      ]
+    },
+    "player_extra": {
+      "grid": [
+        4,
+        2
+      ],
+      "path": "res://tools/source_art/devmode/player_movement_extra_hd.png",
+      "sha256": "e979c7b6fbc72aec3b24585b0618c9143bff2c2c8b27b04ffdcd909c25e5e111",
+      "size_px": [
+        1536,
+        1024
+      ]
+    },
+    "wave_core": {
+      "grid": [
+        4,
+        2
+      ],
+      "path": "res://tools/source_art/devmode/wave_core_hd.png",
+      "sha256": "71a0778c8620de4e27695a1e07b0f12ec06e348b92aad84c57a1ad1b3f8e672e",
+      "size_px": [
+        1774,
+        887
+      ]
+    },
+    "wave_interactions": {
+      "grid": [
+        4,
+        3
+      ],
+      "path": "res://tools/source_art/devmode/wave_interactions_hd.png",
+      "sha256": "bbe120cc20a1352f23a722bc3d94cdbde82b1f5c610765f82547c2fc8df0aad2",
+      "size_px": [
+        1448,
+        1086
+      ]
+    }
+  }
+}

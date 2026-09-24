@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="512" viewBox="0 0 1536 512">
+  <defs>
+    <linearGradient id="jade" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9bc58d"/><stop offset=".45" stop-color="#335c4c"/><stop offset="1" stop-color="#162b2b"/></linearGradient>
+    <linearGradient id="jadeHi" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d2e6b6"/><stop offset=".35" stop-color="#60896c"/><stop offset="1" stop-color="#213b37"/></linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9aa6ad"/><stop offset=".25" stop-color="#53616b"/><stop offset=".68" stop-color="#252e38"/><stop offset="1" stop-color="#111822"/></linearGradient>
+    <linearGradient id="stoneHi" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ced5d2"/><stop offset=".42" stop-color="#65747b"/><stop offset="1" stop-color="#29313b"/></linearGradient>
+    <linearGradient id="lava" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff39c"/><stop offset=".23" stop-color="#ffb22f"/><stop offset=".62" stop-color="#e54316"/><stop offset="1" stop-color="#72170f"/></linearGradient>
+    <radialGradient id="amber"><stop stop-color="#fffbd2"/><stop offset=".28" stop-color="#ffb31f"/><stop offset=".7" stop-color="#f05213"/><stop offset="1" stop-color="#4b0e0b"/></radialGradient>
+    <radialGradient id="cyan"><stop stop-color="#efffff"/><stop offset=".25" stop-color="#58edf1"/><stop offset=".68" stop-color="#128493"/><stop offset="1" stop-color="#123842"/></radialGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="rock"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="73" result="n"/><feComposite in="n" in2="SourceGraphic" operator="in" result="t"/><feBlend in="SourceGraphic" in2="t" mode="soft-light"/></filter>
+  </defs>
+
+  <!-- Grasshopper: low mineral insect with long articulated hind legs. -->
+  <g transform="translate(0 0)">
+    <ellipse cx="256" cy="419" rx="178" ry="23" fill="#071014" opacity=".55" filter="url(#shadow)"/>
+    <g stroke="#101b1d" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M198 313 L103 353 L62 429 L141 392"/>
+      <path d="M314 313 L409 353 L452 429 L369 392"/>
+    </g>
+    <g stroke="url(#jadeHi)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M198 313 L103 353 L62 429 L141 392"/>
+      <path d="M314 313 L409 353 L452 429 L369 392"/>
+    </g>
+    <g stroke="#233b35" stroke-width="14" stroke-linecap="round" fill="none">
+      <path d="M180 340 L126 417"/><path d="M332 340 L389 417"/>
+      <path d="M205 355 L177 432"/><path d="M307 355 L335 432"/>
+    </g>
+    <path d="M151 299 C165 246 216 214 280 218 C344 222 382 261 365 318 C349 371 300 392 228 383 C169 376 137 347 151 299Z" fill="url(#jade)" stroke="#172728" stroke-width="9"/>
+    <path d="M179 296 C207 249 277 239 336 267 C310 276 276 294 257 332 C233 310 207 301 179 296Z" fill="url(#jadeHi)" opacity=".78"/>
+    <path d="M300 229 C344 189 404 200 431 242 C450 272 426 303 383 307 C347 310 320 291 300 264Z" fill="url(#jade)" stroke="#172728" stroke-width="8"/>
+    <path d="M419 229 C452 203 475 205 493 223 L449 248Z" fill="#436c5d" stroke="#172728" stroke-width="7"/>
+    <circle cx="402" cy="244" r="18" fill="#ff7f18" opacity=".42" filter="url(#glow)"/>
+    <circle cx="402" cy="244" r="10" fill="url(#amber)" stroke="#2d1711" stroke-width="4"/>
+    <path d="M347 210 Q370 153 409 131" fill="none" stroke="#789b78" stroke-width="7" stroke-linecap="round"/>
+    <path d="M369 219 Q418 172 463 166" fill="none" stroke="#789b78" stroke-width="6" stroke-linecap="round"/>
+    <g fill="#b7d59c" opacity=".72"><path d="M122 348 l-32 19 29 7Z"/><path d="M390 348 l33 19-30 7Z"/><path d="M74 415 l-37 19 46 3Z"/><path d="M438 414 l38 19-47 3Z"/></g>
+  </g>
+
+  <!-- Shooting gargoyle: perched stone predator with wing silhouette and luminous muzzle. -->
+  <g transform="translate(512 0)">
+    <ellipse cx="256" cy="425" rx="146" ry="22" fill="#071014" opacity=".55" filter="url(#shadow)"/>
+    <path d="M202 190 C126 153 69 172 48 242 C91 218 123 227 154 262 C111 274 85 309 80 359 C126 333 167 339 209 372Z" fill="url(#stone)" stroke="#171e27" stroke-width="10"/>
+    <path d="M310 190 C386 153 443 172 464 242 C421 218 389 227 358 262 C401 274 427 309 432 359 C386 333 345 339 303 372Z" fill="url(#stone)" stroke="#171e27" stroke-width="10"/>
+    <path d="M178 247 C178 189 214 146 256 146 C298 146 334 189 334 247 L317 354 C307 403 283 427 256 427 C229 427 205 403 195 354Z" fill="url(#stoneHi)" stroke="#161e27" stroke-width="11"/>
+    <path d="M205 176 L180 111 L236 150Z" fill="url(#stone)" stroke="#161e27" stroke-width="9"/>
+    <path d="M307 176 L333 111 L276 150Z" fill="url(#stone)" stroke="#161e27" stroke-width="9"/>
+    <path d="M211 219 Q256 181 301 219 L289 274 Q256 294 223 274Z" fill="#1a252d" stroke="#73828a" stroke-width="7"/>
+    <path d="M219 228 L247 239 L222 251Z" fill="#8df7f5" opacity=".8"/><path d="M293 228 L265 239 L290 251Z" fill="#8df7f5" opacity=".8"/>
+    <circle cx="256" cy="307" r="45" fill="#47f5ff" opacity=".22" filter="url(#glow)"/>
+    <circle cx="256" cy="307" r="29" fill="url(#cyan)" stroke="#17252c" stroke-width="9"/>
+    <circle cx="256" cy="307" r="10" fill="#f4ffff"/>
+    <path d="M200 354 L151 426 L229 426 L256 388Z" fill="url(#stone)" stroke="#161e27" stroke-width="10"/>
+    <path d="M312 354 L361 426 L283 426 L256 388Z" fill="url(#stone)" stroke="#161e27" stroke-width="10"/>
+    <g stroke="#a7b2b4" stroke-width="4" opacity=".5"><path d="M92 218 L179 313"/><path d="M420 218 L333 313"/><path d="M232 157 L219 202"/><path d="M280 157 L294 202"/></g>
+  </g>
+
+  <!-- Lava monster: broad molten body with basalt crust, surface drips and quenched-readable silhouette. -->
+  <g transform="translate(1024 0)">
+    <ellipse cx="256" cy="431" rx="188" ry="29" fill="#ff4c13" opacity=".25" filter="url(#glow)"/>
+    <path d="M87 423 C111 397 126 361 137 324 C153 268 177 206 256 191 C335 206 359 268 375 324 C386 361 401 397 425 423Z" fill="url(#lava)" stroke="#431714" stroke-width="10"/>
+    <path d="M147 328 C102 315 67 337 53 378 C83 362 111 371 138 401Z" fill="url(#lava)" stroke="#431714" stroke-width="9"/>
+    <path d="M365 328 C410 315 445 337 459 378 C429 362 401 371 374 401Z" fill="url(#lava)" stroke="#431714" stroke-width="9"/>
+    <g fill="url(#stone)" stroke="#24191a" stroke-width="7">
+      <path d="M168 282 L193 220 L237 202 L222 278Z"/>
+      <path d="M344 282 L319 220 L275 202 L290 278Z"/>
+      <path d="M211 194 L256 150 L301 194 L276 230 L236 230Z"/>
+      <path d="M137 329 L183 289 L220 324 L188 361Z"/>
+      <path d="M375 329 L329 289 L292 324 L324 361Z"/>
+      <path d="M191 376 L232 332 L257 389 L218 421Z"/>
+      <path d="M321 376 L280 332 L255 389 L294 421Z"/>
+    </g>
+    <path d="M195 271 Q256 226 317 271 L298 338 Q256 354 214 338Z" fill="#2a1517" stroke="#6c2b1d" stroke-width="7"/>
+    <ellipse cx="224" cy="282" rx="21" ry="12" fill="#ff681d" opacity=".45" filter="url(#glow)"/><ellipse cx="288" cy="282" rx="21" ry="12" fill="#ff681d" opacity=".45" filter="url(#glow)"/>
+    <path d="M207 279 L237 272 L226 292Z" fill="url(#amber)"/><path d="M305 279 L275 272 L286 292Z" fill="url(#amber)"/>
+    <path d="M218 315 L236 304 L253 321 L271 303 L293 315 L281 339 L232 339Z" fill="#100e12" stroke="#d84b1d" stroke-width="5"/>
+    <path d="M232 312 L241 329 L249 314Z M264 313 L272 330 L280 312Z" fill="#ffd66b"/>
+    <g fill="#ffae27"><path d="M116 405 Q128 448 142 405Z"/><path d="M178 408 Q191 468 203 408Z"/><path d="M309 408 Q321 468 334 408Z"/><path d="M370 405 Q384 448 396 405Z"/></g>
+    <g fill="#ffd979" opacity=".78"><circle cx="122" cy="300" r="10"/><circle cx="389" cy="291" r="7"/><circle cx="352" cy="203" r="9"/><circle cx="157" cy="191" r="6"/></g>
+  </g>
+</svg>

@@ -1,0 +1,138 @@
+{
+  "area_id": "nexus",
+  "tint": [
+    0.5,
+    0.66,
+    0.7
+  ],
+  "fog": [
+    0.2,
+    0.55,
+    0.55
+  ],
+  "glow": [
+    0.34901960784313724,
+    0.8509803921568627,
+    0.8117647058823529
+  ],
+  "particles": "mist",
+  "far_parallax": 0.14,
+  "far_modulate": [
+    0.62,
+    0.68,
+    0.7
+  ],
+  "mid_modulate": [
+    0.4,
+    0.47,
+    0.5
+  ],
+  "mid_parallax": 0.38,
+  "material": {
+    "fill": "res://assets/environment/areas/nexus/nexus_fill.png",
+    "top": "res://assets/environment/areas/nexus/nexus_top.png",
+    "top_cap_l": "res://assets/environment/areas/nexus/nexus_top_cap_l.png",
+    "top_cap_r": "res://assets/environment/areas/nexus/nexus_top_cap_r.png",
+    "bottom": "res://assets/environment/areas/nexus/nexus_bottom.png",
+    "bottom_cap_l": "res://assets/environment/areas/nexus/nexus_bottom_cap_l.png",
+    "bottom_cap_r": "res://assets/environment/areas/nexus/nexus_bottom_cap_r.png",
+    "side_l": "res://assets/environment/areas/nexus/nexus_side_l.png",
+    "side_r": "res://assets/environment/areas/nexus/nexus_side_r.png"
+  },
+  "strip": {
+    "top_height": 128,
+    "top_line": 32,
+    "bottom_height": 160,
+    "bottom_line": 48,
+    "side_width": 128,
+    "side_line": 96,
+    "cap_width": 32
+  },
+  "background": {
+    "far": {
+      "path": "res://assets/environment/areas/nexus/nexus_far.png",
+      "top_color": [
+        0.0218,
+        0.0772,
+        0.1017
+      ],
+      "bottom_color": [
+        0.0255,
+        0.0728,
+        0.0975
+      ]
+    },
+    "mid": {
+      "path": "res://assets/environment/areas/nexus/nexus_mid.png",
+      "top_color": [
+        0.0488,
+        0.0889,
+        0.1132
+      ],
+      "bottom_color": [
+        0.1031,
+        0.1584,
+        0.1967
+      ]
+    }
+  },
+  "props": [
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_00.png",
+      "kind": "hang",
+      "size_px": [
+        330,
+        318
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_01.png",
+      "kind": "hang",
+      "size_px": [
+        318,
+        373
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_02.png",
+      "kind": "hang",
+      "size_px": [
+        182,
+        481
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_03.png",
+      "kind": "stand",
+      "size_px": [
+        339,
+        469
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_04.png",
+      "kind": "stand",
+      "size_px": [
+        326,
+        492
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_05.png",
+      "kind": "stand",
+      "size_px": [
+        227,
+        505
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/nexus/nexus_prop_06.png",
+      "kind": "spare",
+      "size_px": [
+        338,
+        269
+      ]
+    }
+  ],
+  "fluid": null
+}

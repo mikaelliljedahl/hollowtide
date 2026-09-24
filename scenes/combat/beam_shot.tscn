@@ -1,0 +1,33 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/beam_shot.gd" id="1_beam_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/effects/base_core.png" id="2_base_core"]
+[ext_resource type="Material" path="res://resources/combat/beam_glow_add.tres" id="3_glow"]
+[ext_resource type="Script" path="res://scripts/combat/beam_fx_trail.gd" id="4_trail"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_beam"]
+radius = 7.0
+
+[node name="BeamShot" type="Area2D"]
+collision_layer = 16
+collision_mask = 9
+monitoring = true
+monitorable = true
+speed = 1800.0
+lifetime = 1.1
+damage_amount = 1
+damage_kind = &"beam"
+script = ExtResource("1_beam_script")
+
+[node name="Trail" type="Node2D" parent="."]
+material = ExtResource("3_glow")
+script = ExtResource("4_trail")
+
+[node name="Core" type="Sprite2D" parent="."]
+material = ExtResource("3_glow")
+position = Vector2(-40, 0)
+texture = ExtResource("2_base_core")
+hframes = 4
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_beam")

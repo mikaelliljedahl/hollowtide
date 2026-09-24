@@ -1,0 +1,32 @@
+id: vaults_01
+area: vaults
+name: Cold Threshold
+origin: 90 51
+# threshold: the pit floor west of the timed-door cache seals both doors of the first vault room.
+ambush: 1 3 28 12 wave=hopper,hopper wave2=shard_turret,armored_guard,hopper trigger=4,9,7,6 spawns=9,3,13,12 id=threshold
+legend:
+  1 pickup missile_tank missile_01
+  c enemy ceiling_diver w=10 h=8
+  f enemy frost_floater w=6 h=4
+  S save
+  d enemy drop_spider
+  t timeddoor seconds=5 id=cache
+  o switch door=t
+grid:
+##############################
+##############################
+##############################
+#....#...c..#.#..d.#.....#...#
+#....#......#......#.........#
+#...........#................#
+#.............................
+#.............................
+#.....f.................S.....
+#.....................########
+#.....................########
+#.....................########
+...............o##############
+................##############
+................t....1########
+##############################
+##############################

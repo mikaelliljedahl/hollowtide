@@ -1,0 +1,29 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemies/combat_enemy.gd" id="1_script"]
+
+[sub_resource type="RectangleShape2D" id="BodyShape"]
+size = Vector2(50, 50)
+
+[sub_resource type="RectangleShape2D" id="DetectorShape"]
+size = Vector2(66, 66)
+
+[node name="CombatEnemy" type="CharacterBody2D"]
+collision_layer = 8
+collision_mask = 3
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+visible = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("BodyShape")
+
+[node name="PlayerDetector" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerDetector"]
+shape = SubResource("DetectorShape")

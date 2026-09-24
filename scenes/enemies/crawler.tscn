@@ -1,0 +1,113 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemies/crawler.gd" id="1_crawler_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/crawler.png" id="2_crawler_texture"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_crawler"]
+size = Vector2(48, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_detector"]
+size = Vector2(60, 44)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_0"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(0, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_1"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(128, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_2"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(256, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_3"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(384, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_4"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(512, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_5"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(640, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_6"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(768, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crawler_7"]
+atlas = ExtResource("2_crawler_texture")
+region = Rect2(896, 0, 128, 128)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_crawler"]
+animations = [{
+"frames": [{"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_0")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_1")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_2")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_3")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_4")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_5")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_6")}, {"duration": 1.0, "texture": SubResource("AtlasTexture_crawler_7")}],
+"loop": true,
+"name": &"crawl",
+"speed": 10.0
+}]
+
+[node name="Crawler" type="CharacterBody2D"]
+collision_layer = 8
+collision_mask = 3
+script = ExtResource("1_crawler_script")
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Shell" type="Polygon2D" parent="Visual"]
+polygon = PackedVector2Array(-24, -14, -16, -20, 14, -20, 24, -10, 24, 10, 14, 20, -16, 20, -24, 12)
+color = Color(0.29, 0.36, 0.49, 1)
+
+[node name="ShellShadow" type="Polygon2D" parent="Visual"]
+polygon = PackedVector2Array(-20, 8, 20, 8, 14, 20, -16, 20)
+color = Color(0.1, 0.13, 0.19, 1)
+
+[node name="Core" type="Polygon2D" parent="Visual"]
+polygon = PackedVector2Array(-8, -8, 8, -8, 12, 0, 8, 8, -8, 8, -12, 0)
+color = Color(0.78, 0.84, 0.89, 1)
+
+[node name="Eye" type="Polygon2D" parent="Visual"]
+polygon = PackedVector2Array(5, -5, 11, -3, 11, 3, 5, 5)
+color = Color(0.85, 0.31, 0.24, 1)
+
+[node name="LegFront" type="Polygon2D" parent="Visual"]
+polygon = PackedVector2Array(12, 14, 22, 14, 27, 24, 18, 24)
+color = Color(0.17, 0.22, 0.31, 1)
+
+[node name="LegBack" type="Polygon2D" parent="Visual"]
+polygon = PackedVector2Array(-19, 13, -10, 13, -14, 24, -24, 24)
+color = Color(0.17, 0.22, 0.31, 1)
+
+[node name="CrawlerSprite" type="AnimatedSprite2D" parent="Visual"]
+sprite_frames = SubResource("SpriteFrames_crawler")
+animation = &"crawl"
+autoplay = "crawl"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_crawler")
+
+[node name="PlayerDetector" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+monitorable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerDetector"]
+shape = SubResource("RectangleShape2D_detector")
+
+[node name="DeflectSparks" type="CPUParticles2D" parent="."]
+emitting = false
+amount = 8
+lifetime = 0.24
+one_shot = true
+explosiveness = 1.0
+spread = 180.0
+direction = Vector2(0, -1)
+gravity = Vector2(0, 180)
+initial_velocity_min = 90.0
+initial_velocity_max = 180.0
+scale_amount_min = 2.0
+scale_amount_max = 4.0
+color = Color(1, 0.82, 0.32, 1)

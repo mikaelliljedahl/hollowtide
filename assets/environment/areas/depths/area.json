@@ -1,0 +1,133 @@
+{
+  "area_id": "depths",
+  "tint": [
+    0.36,
+    0.4,
+    0.55
+  ],
+  "fog": [
+    0.3,
+    0.26,
+    0.6
+  ],
+  "glow": [
+    0.47843137254901963,
+    0.3607843137254902,
+    1.0
+  ],
+  "particles": "motes",
+  "far_parallax": 0.1,
+  "far_modulate": [
+    0.8,
+    0.8,
+    0.86
+  ],
+  "mid_modulate": [
+    0.6,
+    0.6,
+    0.7
+  ],
+  "mid_parallax": 0.3,
+  "material": {
+    "fill": "res://assets/environment/areas/depths/depths_fill.png",
+    "top": "res://assets/environment/areas/depths/depths_top.png",
+    "top_cap_l": "res://assets/environment/areas/depths/depths_top_cap_l.png",
+    "top_cap_r": "res://assets/environment/areas/depths/depths_top_cap_r.png",
+    "bottom": "res://assets/environment/areas/depths/depths_bottom.png",
+    "bottom_cap_l": "res://assets/environment/areas/depths/depths_bottom_cap_l.png",
+    "bottom_cap_r": "res://assets/environment/areas/depths/depths_bottom_cap_r.png",
+    "side_l": "res://assets/environment/areas/depths/depths_side_l.png",
+    "side_r": "res://assets/environment/areas/depths/depths_side_r.png"
+  },
+  "strip": {
+    "top_height": 128,
+    "top_line": 32,
+    "bottom_height": 160,
+    "bottom_line": 48,
+    "side_width": 128,
+    "side_line": 96,
+    "cap_width": 32
+  },
+  "background": {
+    "far": {
+      "path": "res://assets/environment/areas/depths/depths_far.png",
+      "top_color": [
+        0.0083,
+        0.0155,
+        0.0418
+      ],
+      "bottom_color": [
+        0.014,
+        0.0254,
+        0.0589
+      ]
+    },
+    "mid": {
+      "path": "res://assets/environment/areas/depths/depths_mid.png",
+      "top_color": [
+        0.0192,
+        0.0287,
+        0.0502
+      ],
+      "bottom_color": [
+        0.0062,
+        0.008,
+        0.0142
+      ]
+    }
+  },
+  "props": [
+    {
+      "path": "res://assets/environment/areas/depths/depths_prop_00.png",
+      "kind": "hang",
+      "size_px": [
+        319,
+        555
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/depths/depths_prop_01.png",
+      "kind": "hang",
+      "size_px": [
+        323,
+        526
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/depths/depths_prop_02.png",
+      "kind": "stand",
+      "size_px": [
+        328,
+        402
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/depths/depths_prop_03.png",
+      "kind": "stand",
+      "size_px": [
+        309,
+        350
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/depths/depths_prop_04.png",
+      "kind": "stand",
+      "size_px": [
+        343,
+        490
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/depths/depths_prop_05.png",
+      "kind": "spare",
+      "size_px": [
+        348,
+        307
+      ]
+    }
+  ],
+  "fluid": {
+    "path": "res://assets/environment/areas/depths/depths_fluid.png",
+    "surface_y": 24
+  }
+}

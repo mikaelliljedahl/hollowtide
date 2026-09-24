@@ -1,0 +1,134 @@
+{
+  "area_id": "vaults",
+  "tint": [
+    0.9,
+    0.95,
+    1.0
+  ],
+  "fog": [
+    0.7,
+    0.82,
+    0.9
+  ],
+  "glow": null,
+  "particles": "snow",
+  "far_parallax": 0.12,
+  "far_modulate": [
+    0.44,
+    0.48,
+    0.54
+  ],
+  "mid_modulate": [
+    0.4,
+    0.44,
+    0.5
+  ],
+  "mid_parallax": 0.34,
+  "material": {
+    "fill": "res://assets/environment/areas/vaults/vaults_fill.png",
+    "top": "res://assets/environment/areas/vaults/vaults_top.png",
+    "top_cap_l": "res://assets/environment/areas/vaults/vaults_top_cap_l.png",
+    "top_cap_r": "res://assets/environment/areas/vaults/vaults_top_cap_r.png",
+    "bottom": "res://assets/environment/areas/vaults/vaults_bottom.png",
+    "bottom_cap_l": "res://assets/environment/areas/vaults/vaults_bottom_cap_l.png",
+    "bottom_cap_r": "res://assets/environment/areas/vaults/vaults_bottom_cap_r.png",
+    "side_l": "res://assets/environment/areas/vaults/vaults_side_l.png",
+    "side_r": "res://assets/environment/areas/vaults/vaults_side_r.png"
+  },
+  "strip": {
+    "top_height": 128,
+    "top_line": 32,
+    "bottom_height": 160,
+    "bottom_line": 48,
+    "side_width": 128,
+    "side_line": 96,
+    "cap_width": 32
+  },
+  "background": {
+    "far": {
+      "path": "res://assets/environment/areas/vaults/vaults_far.png",
+      "top_color": [
+        0.1002,
+        0.158,
+        0.2089
+      ],
+      "bottom_color": [
+        0.1122,
+        0.159,
+        0.2035
+      ]
+    },
+    "mid": {
+      "path": "res://assets/environment/areas/vaults/vaults_mid.png",
+      "top_color": [
+        0.1924,
+        0.2516,
+        0.3396
+      ],
+      "bottom_color": [
+        0.1597,
+        0.2177,
+        0.3021
+      ]
+    }
+  },
+  "props": [
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_00.png",
+      "kind": "hang",
+      "size_px": [
+        402,
+        434
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_01.png",
+      "kind": "hang",
+      "size_px": [
+        348,
+        461
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_02.png",
+      "kind": "hang",
+      "size_px": [
+        418,
+        426
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_03.png",
+      "kind": "stand",
+      "size_px": [
+        320,
+        459
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_04.png",
+      "kind": "stand",
+      "size_px": [
+        256,
+        417
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_05.png",
+      "kind": "stand",
+      "size_px": [
+        358,
+        375
+      ]
+    },
+    {
+      "path": "res://assets/environment/areas/vaults/vaults_prop_06.png",
+      "kind": "stand",
+      "size_px": [
+        421,
+        352
+      ]
+    }
+  ],
+  "fluid": null
+}

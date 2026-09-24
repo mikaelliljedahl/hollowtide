@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/harpoon_shot.gd" id="1_harpoon_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_harpoon"]
+size = Vector2(40, 14)
+
+[node name="HarpoonShot" type="Area2D"]
+collision_layer = 16
+collision_mask = 9
+script = ExtResource("1_harpoon_script")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_harpoon")

@@ -1,0 +1,107 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/pickups/orb.gd" id="1_orb_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/orb.png" id="2_orb_texture"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_orb_0"]
+atlas = ExtResource("2_orb_texture")
+region = Rect2(0, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_orb_1"]
+atlas = ExtResource("2_orb_texture")
+region = Rect2(128, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_orb_2"]
+atlas = ExtResource("2_orb_texture")
+region = Rect2(256, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_orb_3"]
+atlas = ExtResource("2_orb_texture")
+region = Rect2(384, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_orb_4"]
+atlas = ExtResource("2_orb_texture")
+region = Rect2(512, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_orb_5"]
+atlas = ExtResource("2_orb_texture")
+region = Rect2(640, 0, 128, 128)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_orb"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_orb_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_orb_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_orb_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_orb_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_orb_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_orb_5")
+}],
+"loop": true,
+"name": &"default",
+"speed": 8.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_orb"]
+radius = 7.0
+
+[sub_resource type="Gradient" id="Gradient_orb_light"]
+colors = PackedColorArray(0.309804, 0.890196, 0.756863, 0.8, 0.309804, 0.890196, 0.756863, 0.0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_orb_light"]
+gradient = SubResource("Gradient_orb_light")
+width = 64
+height = 64
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+fill = 1
+
+[node name="Orb" type="Area2D"]
+collision_layer = 4
+collision_mask = 2
+monitoring = true
+monitorable = true
+script = ExtResource("1_orb_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_orb")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_orb")
+animation = &"default"
+autoplay = "default"
+
+[node name="PickupBurst" type="CPUParticles2D" parent="."]
+emitting = false
+amount = 24
+lifetime = 0.6
+one_shot = true
+explosiveness = 0.9
+randomness = 0.35
+direction = Vector2(0, -1)
+spread = 180.0
+gravity = Vector2(0, 90)
+initial_velocity_min = 28.0
+initial_velocity_max = 68.0
+scale_amount_min = 1.0
+scale_amount_max = 2.0
+color = Color(0.623529, 1, 0.941176, 1)
+
+[node name="PickupLight" type="PointLight2D" parent="."]
+texture = SubResource("GradientTexture2D_orb_light")
+texture_scale = 1.2
+energy = 1.4
+color = Color(0.309804, 0.890196, 0.756863, 1)
+shadow_enabled = false
+

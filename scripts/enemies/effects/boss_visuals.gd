@@ -1,0 +1,300 @@
+extends RefCounted
+## Presentation helpers for CombatBoss: weak-point glow, vulnerable-window timer ring,
+## Tidal Heart shield bubble and grate tether, locked attack warning lines, health bar.
+## Pure visuals: nothing here changes damage rules or timings.
+
+const GLOW_MATERIAL = preload("res://resources/combat/beam_glow_add.tres")
+const ART_DIR := "res://assets/sprites/combat/"
+const CORE_OFFSETS := {
+	&"stone_guardian": Vector2(62.0, -22.0),
+	&"furnace_mother": Vector2(34.0, -11.0),
+	&"tidal_heart": Vector2(46.0, -30.0),
+}
+const CORE_RADIUS := {
+	&"stone_guardian": 48.0,
+	&"furnace_mother": 62.0,
+	&"tidal_heart": 66.0,
+}
+const SHIELD_RADIUS := 222.0
+const WAVE_TETHER_COLOR := Color(0.72, 0.5, 1.0, 1.0)
+
+
+class BossOverlay:
+	extends Node2D
+	var boss: Node2D
+
+	func _draw() -> void:
+		if is_instance_valid(boss) and boss.visible:
+			boss.call("_draw_overlay_on", self)
+
+
+static func core_offset(enemy_id: StringName) -> Vector2:
+	return CORE_OFFSETS.get(enemy_id, Vector2.ZERO)
+
+
+static func optional_texture(file_name: String) -> Texture2D:
+	var path := ART_DIR + file_name
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+static func create_overlay(boss: Node2D) -> Node2D:
+	var overlay := BossOverlay.new()
+	overlay.name = "WeakPointOverlay"
+	overlay.boss = boss
+	overlay.material = GLOW_MATERIAL
+	overlay.z_index = 1
+	boss.add_child(overlay)
+	return overlay
+
+
+static func heartbeat(age: float) -> float:
+	# Double "lub-dub" pulse every 1.1 s.
+	var t := fmod(age, 1.1)
+	return maxf(exp(-pow((t - 0.08) * 18.0, 2.0)), 0.7 * exp(-pow((t - 0.3) * 18.0, 2.0)))
+
+
+static func state_look(boss: Node) -> Dictionary:
+	var id: StringName = boss.enemy_id
+	var age: float = boss._age
+	var phase: int = boss.phase
+	var exposed: bool = boss.weak_point_exposed()
+	var fraction: float = boss.window_fraction_left()
+	var accent: Color = boss._boss_accent_color()
+	var look := {"glow": 0.0, "darken": 0.0, "frost": 0.0, "glow_color": accent}
+	var closing := fraction >= 0.0 and fraction < 0.22
+	var pulse := 0.5 + 0.5 * sin(age * 7.0)
+	match id:
+		&"tidal_heart":
+			if exposed:
+				look["glow"] = 0.3 + 0.35 * heartbeat(age * 1.6)
+			else:
+				look["darken"] = 0.0 if boss.has_state_art() else 0.3
+		&"stone_guardian":
+			# Pale granite washes out under glow; the core overlay carries the "open" read.
+			if phase == 2 and exposed:
+				look["glow"] = 0.08 + 0.06 * pulse
+			elif phase == 2:
+				look["darken"] = 0.5
+		&"furnace_mother":
+			if phase == 1:
+				look["glow"] = 0.3 + 0.12 * pulse
+			elif exposed:
+				# Cooling window: the crust darkens, only the core stays hot.
+				look["darken"] = 0.4
+				look["glow"] = 0.15
+			else:
+				# Overheated: the whole carapace is white-hot and untouchable.
+				look["glow"] = 0.85 + 0.25 * sin(age * 18.0)
+				look["glow_color"] = Color(1.0, 0.88, 0.62, 1.0)
+	if closing:
+		look["glow"] = float(look["glow"]) * (0.4 + 0.6 * absf(sin(age * 26.0)))
+	return look
+
+
+static func draw_overlay(boss: Node, canvas: CanvasItem) -> void:
+	var id: StringName = boss.enemy_id
+	var age: float = boss._age
+	var accent: Color = boss._boss_accent_color()
+	var core: Vector2 = boss._core_local()
+	var radius: float = CORE_RADIUS.get(id, 56.0)
+	var exposed: bool = boss.weak_point_exposed()
+	var fraction: float = boss.window_fraction_left()
+	var center: Vector2 = boss._sprite.position if boss._sprite != null else Vector2.ZERO
+	if id == &"furnace_mother" and boss.phase == 2 and not exposed:
+		# Overheated: the carapace radiates; shots will only splash off it.
+		var heat := 0.5 + 0.5 * sin(age * 18.0)
+		for layer in 3:
+			var reach := 190.0 - float(layer) * 45.0
+			canvas.draw_circle(
+				center + Vector2(0.0, 30.0), reach, Color(1.0, 0.45, 0.12, 0.06 + 0.03 * heat)
+			)
+	if id == &"tidal_heart" and boss.phase == 2:
+		_draw_tether(boss, canvas, core, age)
+		if not exposed:
+			_draw_shield(boss, canvas, center, age)
+		elif float(boss._open_elapsed) < 0.35:
+			var pop := float(boss._open_elapsed) / 0.35
+			canvas.draw_arc(
+				center,
+				SHIELD_RADIUS * (1.0 + pop * 0.35),
+				0.0,
+				TAU,
+				48,
+				Color(0.5, 0.85, 1.0, 0.6 * (1.0 - pop)),
+				6.0,
+				true
+			)
+	if exposed:
+		var beat := heartbeat(age * 1.6)
+		var r := radius * (0.9 + 0.2 * beat)
+		for layer in 4:
+			var scale := 1.0 - float(layer) * 0.24
+			canvas.draw_circle(core, r * scale, Color(accent, 0.07 + 0.08 * float(layer)))
+		canvas.draw_circle(core, r * 0.2, Color(1.0, 1.0, 1.0, 0.35 + 0.35 * beat))
+		if id == &"stone_guardian" and boss.phase == 2:
+			_draw_cracks(canvas, core, accent, age)
+	elif id == &"tidal_heart" and boss.phase == 1:
+		# Protected but alive: a slow heartbeat leaks through the shell seam.
+		var beat := heartbeat(age)
+		canvas.draw_circle(core, radius * 0.45, Color(accent, 0.08 + 0.14 * beat))
+		var ring := fmod(age, 1.1) / 1.1
+		canvas.draw_arc(
+			core, radius * (0.5 + ring * 1.4), 0.0, TAU, 32, Color(accent, 0.25 * (1.0 - ring)), 3.0
+		)
+	if fraction >= 0.0:
+		var closing := fraction < 0.22
+		var ring_alpha := 0.85
+		if closing:
+			ring_alpha *= absf(sin(age * 26.0))
+		canvas.draw_arc(core, radius + 26.0, 0.0, TAU, 48, Color(accent, 0.14), 5.0, true)
+		canvas.draw_arc(
+			core,
+			radius + 26.0,
+			-PI * 0.5,
+			-PI * 0.5 + TAU * fraction,
+			48,
+			Color(accent, ring_alpha),
+			5.0,
+			true
+		)
+	for ripple in boss._shield_ripples:
+		var local: Vector2 = ripple["position"]
+		var progress := float(ripple["age"]) / 0.45
+		var toward := (local - center).normalized()
+		var at := center + toward * SHIELD_RADIUS
+		canvas.draw_arc(
+			at,
+			18.0 + 46.0 * progress,
+			toward.angle() + PI * 0.5,
+			toward.angle() + PI * 1.5,
+			16,
+			Color(0.7, 0.92, 1.0, 0.8 * (1.0 - progress)),
+			4.0,
+			true
+		)
+	if float(boss._telegraph_remaining) > 0.0:
+		var progress := 1.0 - clampf(float(boss._telegraph_remaining) / 0.35, 0.0, 1.0)
+		for direction: Vector2 in boss._pending_directions:
+			var start := core + direction * 60.0
+			var finish := core + direction * (90.0 + 200.0 * progress)
+			canvas.draw_line(start, finish, Color(accent, 0.25), 14.0, true)
+			canvas.draw_line(start, finish, Color(accent.lightened(0.4), 0.8), 4.0, true)
+
+
+static func _draw_cracks(canvas: CanvasItem, core: Vector2, accent: Color, age: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x57011E
+	for index in 7:
+		var angle := TAU * float(index) / 7.0 + rng.randf_range(-0.3, 0.3)
+		var points := PackedVector2Array([core])
+		var point := core
+		var length := rng.randf_range(60.0, 120.0)
+		for step in 4:
+			angle += rng.randf_range(-0.5, 0.5)
+			point += Vector2.RIGHT.rotated(angle) * length * 0.25
+			points.append(point)
+		var flicker := 0.6 + 0.4 * sin(age * 9.0 + float(index))
+		canvas.draw_polyline(points, Color(accent, 0.7 * flicker), 3.0, true)
+
+
+static func _draw_shield(boss: Node, canvas: CanvasItem, center: Vector2, age: float) -> void:
+	var points := PackedVector2Array()
+	for index in 65:
+		var angle := TAU * float(index) / 64.0
+		var wobble := sin(angle * 6.0 + age * 2.6) * 6.0 + sin(angle * 11.0 - age * 3.4) * 3.0
+		points.append(center + Vector2.RIGHT.rotated(angle) * (SHIELD_RADIUS + wobble))
+	var fill := points.duplicate()
+	fill.remove_at(fill.size() - 1)
+	canvas.draw_colored_polygon(fill, Color(0.2, 0.55, 0.9, 0.1))
+	var block := float(boss._block_flash_remaining) > 0.0
+	canvas.draw_polyline(points, Color(0.55, 0.88, 1.0, 0.85 if block else 0.5), 4.0, true)
+	var sweep := fmod(age * 0.8, TAU)
+	canvas.draw_arc(
+		center, SHIELD_RADIUS - 12.0, sweep, sweep + 0.9, 20, Color(0.85, 0.97, 1.0, 0.4), 3.0, true
+	)
+	canvas.draw_arc(
+		center,
+		SHIELD_RADIUS - 24.0,
+		-sweep * 1.3,
+		-sweep * 1.3 + 0.5,
+		16,
+		Color(0.85, 0.97, 1.0, 0.25),
+		2.0,
+		true
+	)
+
+
+static func _draw_tether(boss: Node, canvas: CanvasItem, core: Vector2, age: float) -> void:
+	var grate := _nearest_grate(boss)
+	if grate == null:
+		return
+	var start := (boss as Node2D).to_local(grate.global_position)
+	var end := core
+	var flash := float(boss._tether_flash) / 0.5
+	var along := end - start
+	var normal := along.normalized().orthogonal()
+	var points := PackedVector2Array()
+	for index in 33:
+		var t := float(index) / 32.0
+		var wave := sin(t * 18.0 - age * 9.0) * 7.0 * sin(t * PI)
+		points.append(start + along * t + normal * wave)
+	var alpha := 0.2 + 0.1 * sin(age * 4.0) + 0.7 * flash
+	canvas.draw_polyline(points, Color(WAVE_TETHER_COLOR, alpha), 3.0 + 6.0 * flash, true)
+	# Energy motes travel from the grate into the heart: "power flows from there".
+	for index in 3:
+		var t := fmod(age * 0.7 + float(index) / 3.0, 1.0)
+		var wave := sin(t * 18.0 - age * 9.0) * 7.0 * sin(t * PI)
+		canvas.draw_circle(
+			start + along * t + normal * wave, 5.0 + 4.0 * flash, Color(WAVE_TETHER_COLOR, 0.6)
+		)
+	canvas.draw_circle(start, 16.0 + 10.0 * flash, Color(WAVE_TETHER_COLOR, 0.18 + 0.4 * flash))
+
+
+static func _nearest_grate(boss: Node) -> Node2D:
+	var best: Node2D
+	var best_distance := INF
+	for node in boss.get_tree().get_nodes_in_group(&"projectile_grate"):
+		var grate := node as Node2D
+		if grate == null or not is_instance_valid(grate):
+			continue
+		var relay = (
+			grate.call("_relay_target_node") if grate.has_method("_relay_target_node") else null
+		)
+		if relay != null and relay != boss:
+			continue
+		var distance := grate.global_position.distance_to((boss as Node2D).global_position)
+		if distance < best_distance and distance < 1400.0:
+			best = grate
+			best_distance = distance
+	return best
+
+
+static func draw_health_bar(boss: Node) -> void:
+	var canvas := boss as CanvasItem
+	var accent: Color = boss._boss_accent_color()
+	var size := Vector2(300.0, 18.0)
+	var top_left: Vector2 = boss._visual_base_position + Vector2(-size.x * 0.5, -236.0)
+	var inner := Rect2(top_left + Vector2(3.0, 3.0), size - Vector2(6.0, 6.0))
+	var max_health := float(maxi(int(boss.max_health), 1))
+	canvas.draw_rect(Rect2(top_left, size), Color(0.02, 0.03, 0.04, 0.88), true)
+	var trail := clampf(float(boss._health_trail) / max_health, 0.0, 1.0)
+	var ratio := clampf(float(boss.health) / max_health, 0.0, 1.0)
+	canvas.draw_rect(
+		Rect2(inner.position, Vector2(inner.size.x * trail, inner.size.y)),
+		Color(1.0, 0.96, 0.88, 0.85),
+		true
+	)
+	var fill := accent if boss.weak_point_exposed() else accent.darkened(0.35)
+	canvas.draw_rect(Rect2(inner.position, Vector2(inner.size.x * ratio, inner.size.y)), fill, true)
+	canvas.draw_rect(
+		Rect2(inner.position, Vector2(inner.size.x * ratio, 3.0)), Color(1.0, 1.0, 1.0, 0.25), true
+	)
+	if int(boss.phase) == 1:
+		var notch_x := inner.position.x + inner.size.x * 0.5
+		canvas.draw_line(
+			Vector2(notch_x, top_left.y - 2.0),
+			Vector2(notch_x, top_left.y + size.y + 2.0),
+			Color(1.0, 1.0, 1.0, 0.55),
+			2.0
+		)
+	canvas.draw_rect(Rect2(top_left, size), Color(accent, 0.55), false, 2.0)

@@ -1,0 +1,70 @@
+{
+  "outputs": {
+    "grasshopper": {
+      "path": "res://assets/sprites/devmode/grasshopper.png",
+      "runtime_owner": "res://scripts/enemies/combat_enemy.gd",
+      "sha256": "142f80fe2fa7ce5d0693ba13c5c1d77f005d96468fec55a394370791c78b843f",
+      "size_px": [
+        256,
+        256
+      ],
+      "status": "runtime",
+      "visible_bbox_px": [
+        25,
+        66,
+        242,
+        223
+      ]
+    },
+    "lava_monster": {
+      "path": "res://assets/sprites/devmode/lava_monster.png",
+      "runtime_owner": "res://scripts/enemies/combat_enemy.gd",
+      "sha256": "3b5d36806384a26d1abc7b76d843a9f76f0ba10cb4597cac122a681e7ff31273",
+      "size_px": [
+        256,
+        256
+      ],
+      "status": "runtime",
+      "visible_bbox_px": [
+        28,
+        74,
+        228,
+        230
+      ]
+    },
+    "shooting_gargoyle": {
+      "path": "res://assets/sprites/devmode/shooting_gargoyle.png",
+      "runtime_owner": "res://scripts/enemies/combat_enemy.gd",
+      "sha256": "7a2307881f382847c3b1d10b02e4ae8157d381585b83eb631d0f38fc67ca4079",
+      "size_px": [
+        256,
+        256
+      ],
+      "status": "runtime",
+      "visible_bbox_px": [
+        26,
+        53,
+        230,
+        225
+      ]
+    }
+  },
+  "proof": {
+    "path": "res://proofs/new_enemies/catalog_dark_2x.png",
+    "sha256": "054a01fd5041888494a889b2b25555420d1897e67061afc341d7a5fda5d105c6",
+    "size_px": [
+      1536,
+      512
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "authorship": "original Hollowtide vector source; no external or private-reference assets",
+    "path": "res://tools/source_art/devmode/f1_new_enemies.svg",
+    "sha256": "72f190b7c17270b1c1c6745981770959b31a3ed6ef89138a6479d2aaa2132dab",
+    "size_px": [
+      1536,
+      512
+    ]
+  }
+}

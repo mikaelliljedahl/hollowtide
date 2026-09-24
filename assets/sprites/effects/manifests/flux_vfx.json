@@ -1,0 +1,1117 @@
+{
+  "audited_cells": {
+    "pickups": {
+      "burst_beam.png": {
+        "background_corners_rgb": [
+          [
+            16,
+            16,
+            15
+          ],
+          [
+            16,
+            16,
+            15
+          ],
+          [
+            16,
+            16,
+            15
+          ],
+          [
+            16,
+            16,
+            16
+          ]
+        ],
+        "box_px": [
+          384,
+          0,
+          768,
+          256
+        ],
+        "visible_box_px": [
+          52,
+          66,
+          329,
+          236
+        ]
+      },
+      "echo_scan.png": {
+        "background_corners_rgb": [
+          [
+            15,
+            15,
+            15
+          ],
+          [
+            16,
+            15,
+            15
+          ],
+          [
+            15,
+            15,
+            15
+          ],
+          [
+            16,
+            16,
+            15
+          ]
+        ],
+        "box_px": [
+          768,
+          0,
+          1152,
+          256
+        ],
+        "visible_box_px": [
+          84,
+          37,
+          288,
+          256
+        ]
+      },
+      "flux_refill.png": {
+        "background_corners_rgb": [
+          [
+            15,
+            15,
+            15
+          ],
+          [
+            16,
+            16,
+            16
+          ],
+          [
+            15,
+            16,
+            15
+          ],
+          [
+            16,
+            16,
+            15
+          ]
+        ],
+        "box_px": [
+          164,
+          32,
+          236,
+          104
+        ],
+        "selection": "bright central energy mote plus compact nearest ring; excludes outer scan expansion and stone fragments",
+        "source_cell_box_px": [
+          0,
+          768,
+          384,
+          1024
+        ],
+        "visible_box_px": [
+          2,
+          2,
+          70,
+          70
+        ]
+      },
+      "flux_shield.png": {
+        "background_corners_rgb": [
+          [
+            15,
+            15,
+            15
+          ],
+          [
+            16,
+            16,
+            15
+          ],
+          [
+            15,
+            15,
+            15
+          ],
+          [
+            16,
+            16,
+            15
+          ]
+        ],
+        "box_px": [
+          0,
+          0,
+          384,
+          256
+        ],
+        "visible_box_px": [
+          99,
+          31,
+          318,
+          256
+        ]
+      },
+      "flux_tank.png": {
+        "background_corners_rgb": [
+          [
+            16,
+            16,
+            15
+          ],
+          [
+            15,
+            15,
+            15
+          ],
+          [
+            16,
+            16,
+            16
+          ],
+          [
+            15,
+            15,
+            15
+          ]
+        ],
+        "box_px": [
+          1152,
+          0,
+          1536,
+          256
+        ],
+        "visible_box_px": [
+          107,
+          29,
+          246,
+          256
+        ]
+      }
+    },
+    "sequences": {
+      "echo_scan_pulse.png": [
+        {
+          "background_corners_rgb": [
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              15,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            0,
+            768,
+            384,
+            1024
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            384,
+            768,
+            768,
+            1024
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              16,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            768,
+            768,
+            1152,
+            1024
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              17,
+              17
+            ],
+            [
+              15,
+              15,
+              14
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ]
+          ],
+          "box_px": [
+            1152,
+            768,
+            1536,
+            1024
+          ]
+        }
+      ],
+      "flux_burst.png": [
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              15,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            0,
+            512,
+            384,
+            768
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ]
+          ],
+          "box_px": [
+            384,
+            512,
+            768,
+            768
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ]
+          ],
+          "box_px": [
+            768,
+            512,
+            1152,
+            768
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              15,
+              15,
+              15
+            ]
+          ],
+          "box_px": [
+            1152,
+            512,
+            1536,
+            768
+          ]
+        }
+      ],
+      "flux_shield_aura.png": [
+        {
+          "background_corners_rgb": [
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            0,
+            256,
+            384,
+            512
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              15,
+              15,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            384,
+            256,
+            768,
+            512
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              15,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              16
+            ]
+          ],
+          "box_px": [
+            768,
+            256,
+            1152,
+            512
+          ]
+        },
+        {
+          "background_corners_rgb": [
+            [
+              15,
+              16,
+              16
+            ],
+            [
+              16,
+              16,
+              15
+            ],
+            [
+              16,
+              16,
+              16
+            ],
+            [
+              15,
+              16,
+              15
+            ]
+          ],
+          "box_px": [
+            1152,
+            256,
+            1536,
+            512
+          ]
+        }
+      ]
+    }
+  },
+  "matting": "per-cell bilinear near-black background estimated from 28px border corners; continuous residual, luminance, and chroma coverage; edge-only despill; no chroma key, binary alpha, palette conversion, or independent frame scaling",
+  "pillow": "12.3.0",
+  "placement": {
+    "echo_scan_pulse": {
+      "anchor_px": [
+        128,
+        128
+      ],
+      "common_scale": 0.64,
+      "expansion": "monotonic",
+      "frame_anchor_px": [
+        [
+          128,
+          128
+        ],
+        [
+          128,
+          128
+        ],
+        [
+          128,
+          128
+        ],
+        [
+          128,
+          128
+        ]
+      ],
+      "frame_px": [
+        256,
+        256
+      ],
+      "frame_source_anchor_px": [
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ]
+      ],
+      "frames": 4,
+      "source_anchor_px": [
+        192,
+        128
+      ]
+    },
+    "flux_burst": {
+      "common_scale": 0.34,
+      "frame_anchor_px": [
+        [
+          80,
+          48
+        ],
+        [
+          80,
+          48
+        ],
+        [
+          80,
+          48
+        ],
+        [
+          80,
+          48
+        ]
+      ],
+      "frame_px": [
+        160,
+        96
+      ],
+      "frame_source_anchor_px": [
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ]
+      ],
+      "frames": 4,
+      "nose_contract_max_x": 159,
+      "physics_kernel_center_px": [
+        80,
+        48
+      ],
+      "source_anchor_px": [
+        192,
+        128
+      ]
+    },
+    "flux_refill": {
+      "canvas_px": [
+        128,
+        128
+      ],
+      "center_px": [
+        64,
+        64
+      ],
+      "common_scale": 1.0588235294117647,
+      "maximum_visible_span_px": 72,
+      "source_cell": [
+        0,
+        3
+      ]
+    },
+    "flux_shield_aura": {
+      "anchor_px": [
+        128,
+        128
+      ],
+      "common_scale": 0.64,
+      "frame_anchor_px": [
+        [
+          128,
+          128
+        ],
+        [
+          128,
+          128
+        ],
+        [
+          128,
+          128
+        ],
+        [
+          128,
+          128
+        ]
+      ],
+      "frame_px": [
+        256,
+        256
+      ],
+      "frame_source_anchor_px": [
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ],
+        [
+          192,
+          128
+        ]
+      ],
+      "frames": 4,
+      "source_anchor_px": [
+        192,
+        128
+      ]
+    },
+    "icons": {
+      "canvas_px": [
+        128,
+        128
+      ],
+      "center_px": [
+        64,
+        64
+      ],
+      "common_scale": 0.4043321299638989
+    }
+  },
+  "proofs": {
+    "cave": [
+      "res://proofs/flux_vfx/cave_native.png",
+      "res://proofs/flux_vfx/cave_4x.png"
+    ],
+    "dark": [
+      "res://proofs/flux_vfx/dark_native.png",
+      "res://proofs/flux_vfx/dark_4x.png"
+    ],
+    "light": [
+      "res://proofs/flux_vfx/light_native.png",
+      "res://proofs/flux_vfx/light_4x.png"
+    ]
+  },
+  "review": {
+    "accepted": "Technical alpha, framing, common-scale, and anchor gate passed; source-derived art needs game-camera approval.",
+    "human_visual_approval": false,
+    "pending": [
+      "runtime wiring",
+      "normal-camera cave contrast",
+      "gameplay timing",
+      "human visual approval"
+    ]
+  },
+  "runtime_outputs": {
+    "res://assets/sprites/devmode/burst_beam.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            63.304,
+            61.121
+          ],
+          "visible_bbox_px": [
+            8,
+            29,
+            120,
+            98
+          ]
+        }
+      ],
+      "frame_size_px": [
+        128,
+        128
+      ],
+      "frames": 1,
+      "sha256": "3c930907494262038752204911f1894f7e68449a55695b9d363e3fc772fbff7d",
+      "size_px": [
+        128,
+        128
+      ]
+    },
+    "res://assets/sprites/devmode/echo_scan.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            63.55,
+            61.462
+          ],
+          "visible_bbox_px": [
+            23,
+            20,
+            105,
+            108
+          ]
+        }
+      ],
+      "frame_size_px": [
+        128,
+        128
+      ],
+      "frames": 1,
+      "sha256": "ad7b6c516f55e1ed0bbf86150ee5d90e618c22cf2dcb69e4da809d2a69a92b04",
+      "size_px": [
+        128,
+        128
+      ]
+    },
+    "res://assets/sprites/devmode/flux_refill.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            63.5,
+            63.5
+          ],
+          "visible_bbox_px": [
+            28,
+            28,
+            100,
+            100
+          ]
+        }
+      ],
+      "frame_size_px": [
+        128,
+        128
+      ],
+      "frames": 1,
+      "sha256": "cc4670177315de5a858569e41f756ffec172a818f2aad00c2d617f40a0244d02",
+      "size_px": [
+        128,
+        128
+      ]
+    },
+    "res://assets/sprites/devmode/flux_shield.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            64.573,
+            64.758
+          ],
+          "visible_bbox_px": [
+            19,
+            18,
+            107,
+            109
+          ]
+        }
+      ],
+      "frame_size_px": [
+        128,
+        128
+      ],
+      "frames": 1,
+      "sha256": "2642db20ebf6c43ab6f3623dab4821d3120bc55dab7abab6fe378a7ef25c5b07",
+      "size_px": [
+        128,
+        128
+      ]
+    },
+    "res://assets/sprites/devmode/flux_tank.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            63.718,
+            63.767
+          ],
+          "visible_bbox_px": [
+            36,
+            18,
+            92,
+            110
+          ]
+        }
+      ],
+      "frame_size_px": [
+        128,
+        128
+      ],
+      "frames": 1,
+      "sha256": "b13ac5da065bf5e5d4f37f27d72c79265fc52736ccbe1a42fcb26fc81e311308",
+      "size_px": [
+        128,
+        128
+      ]
+    },
+    "res://assets/sprites/effects/echo_scan_pulse.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            131.778,
+            88.363
+          ],
+          "visible_bbox_px": [
+            82,
+            46,
+            182,
+            137
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            122.71,
+            93.066
+          ],
+          "visible_bbox_px": [
+            50,
+            46,
+            195,
+            157
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            119.051,
+            99.754
+          ],
+          "visible_bbox_px": [
+            31,
+            46,
+            207,
+            170
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            119.348,
+            106.544
+          ],
+          "visible_bbox_px": [
+            21,
+            46,
+            220,
+            183
+          ]
+        }
+      ],
+      "frame_size_px": [
+        256,
+        256
+      ],
+      "frames": 4,
+      "sha256": "a1e72b3c01b5cb491f109e02f1a41f4232fa8009938a421b3b4c117048b7e088",
+      "size_px": [
+        1024,
+        256
+      ]
+    },
+    "res://assets/sprites/effects/flux_burst.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            76.754,
+            39.297
+          ],
+          "visible_bbox_px": [
+            42,
+            19,
+            110,
+            91
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            81.989,
+            44.518
+          ],
+          "visible_bbox_px": [
+            34,
+            19,
+            126,
+            91
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            80.227,
+            49.951
+          ],
+          "visible_bbox_px": [
+            27,
+            19,
+            130,
+            91
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            76.527,
+            55.672
+          ],
+          "visible_bbox_px": [
+            23,
+            4,
+            128,
+            91
+          ]
+        }
+      ],
+      "frame_size_px": [
+        160,
+        96
+      ],
+      "frames": 4,
+      "sha256": "f8ab90b8c85685b3154f30780b082779318be04bf275bf79b6d916df809fea28",
+      "size_px": [
+        640,
+        96
+      ]
+    },
+    "res://assets/sprites/effects/flux_shield_aura.png": {
+      "frame_metrics": [
+        {
+          "opaque_weighted_center_px": [
+            130.758,
+            132.709
+          ],
+          "visible_bbox_px": [
+            44,
+            46,
+            222,
+            205
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            129.429,
+            130.061
+          ],
+          "visible_bbox_px": [
+            38,
+            52,
+            216,
+            205
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            132.66,
+            136.325
+          ],
+          "visible_bbox_px": [
+            37,
+            67,
+            222,
+            207
+          ]
+        },
+        {
+          "opaque_weighted_center_px": [
+            128.817,
+            140.97
+          ],
+          "visible_bbox_px": [
+            31,
+            46,
+            211,
+            210
+          ]
+        }
+      ],
+      "frame_size_px": [
+        256,
+        256
+      ],
+      "frames": 4,
+      "sha256": "eefead4a55a03d33db6cdd16d757aa75797f7eb1d8f2e281ce2eb17c5b06742a",
+      "size_px": [
+        1024,
+        256
+      ]
+    }
+  },
+  "runtime_wiring": {
+    "burst_scene": "res://scenes/combat/flux_burst_projectile.tscn",
+    "echo_scene": "res://scenes/effects/flux/echo_scan_pulse.tscn",
+    "pickup_catalog": "res://scripts/progression/content_catalog.gd",
+    "player_runtime": "res://scripts/player/player_flux_runtime.gd",
+    "shield_scene": "res://scenes/effects/flux/flux_shield_aura.tscn"
+  },
+  "schema_version": 1,
+  "source": {
+    "cell_size_px": [
+      384,
+      256
+    ],
+    "grid": [
+      4,
+      4
+    ],
+    "mode": "RGB",
+    "path": "res://tools/source_art/devmode/flux_systems_hd.png",
+    "sha256": "c3409e9362493a6595e9155c8f095cee0a51847e9f0b134d44c7252e0ae08753",
+    "size_px": [
+      1536,
+      1024
+    ]
+  }
+}

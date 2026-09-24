@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/beam_fx_impact.gd" id="1_impact"]
+[ext_resource type="Texture2D" path="res://assets/sprites/effects/base_impact.png" id="2_base"]
+
+[node name="BeamImpact" type="Node2D"]
+script = ExtResource("1_impact")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_base")
+hframes = 4

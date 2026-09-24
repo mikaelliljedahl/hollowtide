@@ -1,0 +1,47 @@
+# Byggartefakter
+/build/
+/dist/
+/out/
+/bin/
+/obj/
+*.log
+
+# Beroenden
+/node_modules/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Lokala hemligheter
+.env
+.env.local
+
+# Godot
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+
+# Agent work files
+/.pi-glla/
+/tools/.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Verification output is local only (D15): screenshots, videos, capture logs
+/proofs/*
+!/proofs/.gdignore
+/shots/
+/.agent-reports/*.png
+*.webm
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.gif
+*.jsonl

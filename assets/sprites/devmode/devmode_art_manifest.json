@@ -1,0 +1,2500 @@
+{
+  "fixtures": {
+    "bomb_gate": {
+      "box_px": [
+        1330,
+        0,
+        1774,
+        444
+      ],
+      "cell": [
+        3,
+        0
+      ],
+      "output_px": [
+        512,
+        512
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        43,
+        65,
+        470,
+        461
+      ]
+    },
+    "checkpoint_shrine": {
+      "box_px": [
+        444,
+        444,
+        887,
+        887
+      ],
+      "cell": [
+        1,
+        1
+      ],
+      "output_px": [
+        256,
+        256
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        23,
+        18,
+        236,
+        218
+      ]
+    },
+    "flux_shrine": {
+      "box_px": [
+        1330,
+        444,
+        1774,
+        887
+      ],
+      "cell": [
+        3,
+        1
+      ],
+      "output_px": [
+        256,
+        256
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        33,
+        18,
+        221,
+        218
+      ]
+    },
+    "missile_gate": {
+      "box_px": [
+        444,
+        0,
+        887,
+        444
+      ],
+      "cell": [
+        1,
+        0
+      ],
+      "output_px": [
+        512,
+        512
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        51,
+        63,
+        468,
+        461
+      ]
+    },
+    "passage_arch": {
+      "box_px": [
+        0,
+        0,
+        444,
+        444
+      ],
+      "cell": [
+        0,
+        0
+      ],
+      "opening_policy": "source center remains transparent; no fill/debug bars added",
+      "output_px": [
+        512,
+        512
+      ],
+      "runtime_opening_target_px": 192,
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        36,
+        66,
+        475,
+        460
+      ]
+    },
+    "refill_shrine": {
+      "box_px": [
+        887,
+        444,
+        1330,
+        887
+      ],
+      "cell": [
+        2,
+        1
+      ],
+      "output_px": [
+        256,
+        256
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        21,
+        19,
+        234,
+        218
+      ]
+    },
+    "undertow_gate": {
+      "box_px": [
+        0,
+        444,
+        444,
+        887
+      ],
+      "cell": [
+        0,
+        1
+      ],
+      "output_px": [
+        512,
+        512
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        49,
+        36,
+        463,
+        435
+      ]
+    },
+    "wave_grate": {
+      "box_px": [
+        887,
+        0,
+        1330,
+        444
+      ],
+      "cell": [
+        2,
+        0
+      ],
+      "output_px": [
+        512,
+        512
+      ],
+      "source_alpha_primary": true,
+      "status": "accepted",
+      "visible_bbox_px": [
+        45,
+        63,
+        464,
+        461
+      ]
+    }
+  },
+  "flux_refill": {
+    "box_px": [
+      164,
+      32,
+      236,
+      104
+    ],
+    "common_scale": 1.0588235294117647,
+    "source_cell": [
+      0,
+      3
+    ],
+    "source_cell_box_px": [
+      0,
+      768,
+      384,
+      1024
+    ],
+    "status": "accepted",
+    "visible_bbox_px": [
+      28,
+      28,
+      100,
+      100
+    ]
+  },
+  "outputs": {
+    "res://assets/sprites/devmode/bomb_gate.png": {
+      "accepted": true,
+      "sha256": "52fabb513bcc331aaa56859fb5d1cab96f146af7ec9c9b84866eea42cba9f8a8",
+      "size_px": [
+        512,
+        512
+      ]
+    },
+    "res://assets/sprites/devmode/checkpoint_shrine.png": {
+      "accepted": true,
+      "sha256": "48d84b867cbf21cd85ee0516c2896be9a8b5c66c35d1a734735a523314359948",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/devmode/flux_refill.png": {
+      "accepted": true,
+      "sha256": "cc4670177315de5a858569e41f756ffec172a818f2aad00c2d617f40a0244d02",
+      "size_px": [
+        128,
+        128
+      ]
+    },
+    "res://assets/sprites/devmode/flux_shrine.png": {
+      "accepted": true,
+      "sha256": "0903ea27d71eb9f1a417f2f09ab5cd7629f9c39ed5d011b8a53036c7bb17c704",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/devmode/frost_floater.png": {
+      "accepted": true,
+      "sha256": "d38c2c1139d375e00275d1fab9757b661ff36482119afd6308d749b54c0224ad",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/devmode/hopper.png": {
+      "accepted": true,
+      "sha256": "4b2bef477a4c028c15276dfded5105b106165c73eb4da88951b155f740cfbdb1",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/devmode/missile_gate.png": {
+      "accepted": true,
+      "sha256": "68cd46778194aa5a2bc2ee61d8eb6eb0e63ea5a0c4aab2919fb35a559de6ea6a",
+      "size_px": [
+        512,
+        512
+      ]
+    },
+    "res://assets/sprites/devmode/passage_arch.png": {
+      "accepted": true,
+      "sha256": "3b568c48ca7c801c9648e5cfee6a333d4c8e552bacd9ec2e016af564eb6a378e",
+      "size_px": [
+        512,
+        512
+      ]
+    },
+    "res://assets/sprites/devmode/refill_shrine.png": {
+      "accepted": true,
+      "sha256": "2b13de5c12674c12123d105cb6e452ed1960e9bcc5657b809a37d3982a519ec2",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/devmode/undertow_gate.png": {
+      "accepted": true,
+      "sha256": "50f2d4d87ae1b72573ea5a6de9b5e5d87fbcdfabda7e16813e3362749dcdc6fc",
+      "size_px": [
+        512,
+        512
+      ]
+    },
+    "res://assets/sprites/devmode/tidal_heart.png": {
+      "accepted": true,
+      "sha256": "4acfa8c1ca299816ce051f15621551d9ea376f0514a7f198134c3538bcb9f4c7",
+      "size_px": [
+        512,
+        512
+      ]
+    },
+    "res://assets/sprites/devmode/vent_flyer.png": {
+      "accepted": true,
+      "sha256": "6d8975ba086df2b86c0dacdb4afdf62603e3e28358aa0af702dc909ec529b550",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/devmode/wave_grate.png": {
+      "accepted": true,
+      "sha256": "57cba61aa31f95fa234dcb611443c2bad5e8892fab5ffd0cbcaf9028651dedb6",
+      "size_px": [
+        512,
+        512
+      ]
+    },
+    "res://assets/sprites/player_run.png": {
+      "accepted": true,
+      "sha256": "a3956b44cff72721618bc2d23e911d067bb72f3ca43e63bfec69db8a9575c354",
+      "size_px": [
+        2048,
+        256
+      ]
+    },
+    "res://assets/sprites/player_run_armed.png": {
+      "accepted": true,
+      "sha256": "4b972b8b2793cd8a19730458fdd45010720dceab392cefc489e324be72436406",
+      "size_px": [
+        2048,
+        256
+      ]
+    },
+    "res://assets/sprites/player_sprint.png": {
+      "accepted": true,
+      "sha256": "f45d454cad023bb7202d94b07087e06bb4ff9694b8e741945b11f49e7bc07c82",
+      "size_px": [
+        2048,
+        256
+      ]
+    },
+    "res://assets/sprites/player_sprint_armed.png": {
+      "accepted": true,
+      "sha256": "7551f78c7ac58167b7f81599791366c96af72aba052e6bb2c957bdb818be68d8",
+      "size_px": [
+        2048,
+        256
+      ]
+    },
+    "res://assets/sprites/player_wall_jump.png": {
+      "accepted": true,
+      "sha256": "f319445c154ccede1bbbabbc8f935b31730b320f3778ae1366b13181f2785c26",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/player_wall_jump_armed.png": {
+      "accepted": true,
+      "sha256": "424a7fd0b3216032f0c6cdc18c9b267e642e593da72f7fb28b87074473c5ec95",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/player_wall_slide.png": {
+      "accepted": true,
+      "sha256": "5df61e6450e0acefb9a95444fd1105b5d29cc529ae470eef2f3399519724587b",
+      "size_px": [
+        256,
+        256
+      ]
+    },
+    "res://assets/sprites/player_wall_slide_armed.png": {
+      "accepted": true,
+      "sha256": "0a9e6f3be34e1b6060d8de6ab8581476ffe1364ab27fddc50353592d39bba6b1",
+      "size_px": [
+        256,
+        256
+      ]
+    }
+  },
+  "player": {
+    "run": {
+      "common_scale": 0.38095238095238093,
+      "feet_y": [
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240
+      ],
+      "frame_metrics": [
+        {
+          "32": {
+            "components": 4,
+            "main_area_px": 7204,
+            "main_bbox_px": [
+              79,
+              60,
+              175,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 3,
+            "main_area_px": 7880,
+            "main_bbox_px": [
+              78,
+              59,
+              177,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 2,
+            "main_area_px": 7040,
+            "main_bbox_px": [
+              82,
+              67,
+              173,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 5,
+            "main_area_px": 7690,
+            "main_bbox_px": [
+              80,
+              67,
+              175,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 6891,
+            "main_bbox_px": [
+              75,
+              64,
+              179,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 2,
+            "main_area_px": 7482,
+            "main_bbox_px": [
+              74,
+              63,
+              181,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 7366,
+            "main_bbox_px": [
+              77,
+              49,
+              180,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 8,
+            "main_area_px": 8055,
+            "main_bbox_px": [
+              76,
+              48,
+              181,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 4,
+            "main_area_px": 7445,
+            "main_bbox_px": [
+              69,
+              61,
+              187,
+              239
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 3,
+            "main_area_px": 8153,
+            "main_bbox_px": [
+              68,
+              60,
+              188,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 1,
+            "main_area_px": 6759,
+            "main_bbox_px": [
+              83,
+              68,
+              171,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 4,
+            "main_area_px": 7301,
+            "main_bbox_px": [
+              83,
+              67,
+              173,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 6718,
+            "main_bbox_px": [
+              77,
+              60,
+              178,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 4,
+            "main_area_px": 7230,
+            "main_bbox_px": [
+              76,
+              59,
+              179,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 6701,
+            "main_bbox_px": [
+              79,
+              53,
+              176,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 3,
+            "main_area_px": 7255,
+            "main_bbox_px": [
+              78,
+              52,
+              177,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        }
+      ],
+      "frames": 8,
+      "pivot_px": [
+        128,
+        240
+      ],
+      "source_components": [
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            13,
+            161,
+            267,
+            637
+          ],
+          "frame": 0,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            305,
+            183,
+            546,
+            637
+          ],
+          "frame": 1,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            519,
+            175,
+            791,
+            635
+          ],
+          "frame": 2,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            802,
+            125,
+            1069,
+            626
+          ],
+          "frame": 3,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1037,
+            169,
+            1346,
+            637
+          ],
+          "frame": 4,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1381,
+            184,
+            1608,
+            634
+          ],
+          "frame": 5,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1596,
+            161,
+            1860,
+            635
+          ],
+          "frame": 6,
+          "rejected_components": 398
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1896,
+            128,
+            2150,
+            620
+          ],
+          "frame": 7,
+          "rejected_components": 398
+        }
+      ],
+      "status": "accepted"
+    },
+    "run_armed": {
+      "common_scale": 0.384,
+      "feet_y": [
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240
+      ],
+      "frame_metrics": [
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 7303,
+            "main_bbox_px": [
+              79,
+              57,
+              176,
+              239
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 1,
+            "main_area_px": 8321,
+            "main_bbox_px": [
+              78,
+              56,
+              177,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 7214,
+            "main_bbox_px": [
+              79,
+              65,
+              176,
+              239
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 2,
+            "main_area_px": 8163,
+            "main_bbox_px": [
+              78,
+              64,
+              178,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 2,
+            "main_area_px": 7058,
+            "main_bbox_px": [
+              73,
+              62,
+              183,
+              239
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 3,
+            "main_area_px": 7914,
+            "main_bbox_px": [
+              72,
+              61,
+              184,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 4,
+            "main_area_px": 7560,
+            "main_bbox_px": [
+              78,
+              47,
+              179,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 1,
+            "main_area_px": 8510,
+            "main_bbox_px": [
+              76,
+              46,
+              179,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 7,
+            "main_area_px": 7648,
+            "main_bbox_px": [
+              68,
+              60,
+              187,
+              239
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 2,
+            "main_area_px": 8667,
+            "main_bbox_px": [
+              67,
+              58,
+              189,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 4,
+            "main_area_px": 6912,
+            "main_bbox_px": [
+              80,
+              67,
+              172,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 4,
+            "main_area_px": 7713,
+            "main_bbox_px": [
+              78,
+              66,
+              177,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 3,
+            "main_area_px": 6968,
+            "main_bbox_px": [
+              73,
+              58,
+              184,
+              240
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 1,
+            "main_area_px": 7758,
+            "main_bbox_px": [
+              72,
+              56,
+              185,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        },
+        {
+          "32": {
+            "components": 2,
+            "main_area_px": 6892,
+            "main_bbox_px": [
+              78,
+              50,
+              179,
+              239
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          },
+          "8": {
+            "components": 3,
+            "main_area_px": 7748,
+            "main_bbox_px": [
+              76,
+              49,
+              180,
+              241
+            ],
+            "outside_6px_support_px": 0,
+            "significant_components": 1,
+            "top32_significant_px": 0
+          }
+        }
+      ],
+      "frames": 8,
+      "pivot_px": [
+        128,
+        240
+      ],
+      "source_components": [
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            13,
+            163,
+            265,
+            637
+          ],
+          "frame": 0,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            302,
+            184,
+            555,
+            637
+          ],
+          "frame": 1,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            519,
+            176,
+            803,
+            637
+          ],
+          "frame": 2,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            801,
+            126,
+            1063,
+            625
+          ],
+          "frame": 3,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1038,
+            169,
+            1348,
+            637
+          ],
+          "frame": 4,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1376,
+            185,
+            1626,
+            632
+          ],
+          "frame": 5,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1596,
+            161,
+            1883,
+            635
+          ],
+          "frame": 6,
+          "rejected_components": 422
+        },
+        {
+          "accepted_components": 1,
+          "anchor_bbox_px": [
+            1893,
+            128,
+            2155,
+            620
+          ],
+          "frame": 7,
+          "rejected_components": 422
+        }
+      ],
+      "status": "accepted"
+    },
+    "sprint": {
+      "player_sprint.png": {
+        "cells": [
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              29,
+              42,
+              252,
+              303
+            ],
+            "box_px": [
+              0,
+              0,
+              280,
+              280
+            ],
+            "cell": [
+              0,
+              0
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              369,
+              39,
+              521,
+              304
+            ],
+            "box_px": [
+              280,
+              0,
+              561,
+              280
+            ],
+            "cell": [
+              1,
+              0
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              570,
+              40,
+              835,
+              303
+            ],
+            "box_px": [
+              561,
+              0,
+              841,
+              280
+            ],
+            "cell": [
+              2,
+              0
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              886,
+              40,
+              1057,
+              304
+            ],
+            "box_px": [
+              841,
+              0,
+              1122,
+              280
+            ],
+            "cell": [
+              3,
+              0
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              1134,
+              28,
+              1350,
+              304
+            ],
+            "box_px": [
+              1122,
+              0,
+              1402,
+              280
+            ],
+            "cell": [
+              4,
+              0
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              34,
+              319,
+              248,
+              597
+            ],
+            "box_px": [
+              0,
+              280,
+              280,
+              561
+            ],
+            "cell": [
+              0,
+              1
+            ],
+            "rejected_row_boundary_components": 18
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              311,
+              326,
+              529,
+              597
+            ],
+            "box_px": [
+              280,
+              280,
+              561,
+              561
+            ],
+            "cell": [
+              1,
+              1
+            ],
+            "rejected_row_boundary_components": 18
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              582,
+              316,
+              835,
+              595
+            ],
+            "box_px": [
+              561,
+              280,
+              841,
+              561
+            ],
+            "cell": [
+              2,
+              1
+            ],
+            "rejected_row_boundary_components": 18
+          }
+        ],
+        "common_scale": 0.6881720430107527,
+        "feet_y": [
+          240,
+          240,
+          240,
+          240,
+          240,
+          240,
+          240,
+          240
+        ],
+        "fragment_exclusion_zones_px": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [
+            [
+              0,
+              32,
+              32,
+              48
+            ],
+            [
+              224,
+              32,
+              256,
+              48
+            ]
+          ],
+          [
+            [
+              0,
+              32,
+              32,
+              48
+            ],
+            [
+              224,
+              32,
+              256,
+              48
+            ]
+          ],
+          [
+            [
+              0,
+              32,
+              32,
+              48
+            ],
+            [
+              224,
+              32,
+              256,
+              48
+            ]
+          ]
+        ],
+        "frame_metrics": [
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9618,
+              "main_bbox_px": [
+                51,
+                61,
+                205,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 3,
+              "main_area_px": 9863,
+              "main_bbox_px": [
+                51,
+                61,
+                205,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8521,
+              "main_bbox_px": [
+                76,
+                59,
+                181,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 2,
+              "main_area_px": 8735,
+              "main_bbox_px": [
+                76,
+                59,
+                181,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8978,
+              "main_bbox_px": [
+                36,
+                60,
+                219,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 3,
+              "main_area_px": 9182,
+              "main_bbox_px": [
+                36,
+                60,
+                219,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8182,
+              "main_bbox_px": [
+                69,
+                59,
+                187,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 3,
+              "main_area_px": 8367,
+              "main_bbox_px": [
+                69,
+                59,
+                187,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9703,
+              "main_bbox_px": [
+                54,
+                51,
+                203,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 2,
+              "main_area_px": 9903,
+              "main_bbox_px": [
+                54,
+                51,
+                203,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9712,
+              "main_bbox_px": [
+                54,
+                50,
+                201,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 2,
+              "main_area_px": 9954,
+              "main_bbox_px": [
+                54,
+                50,
+                201,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9115,
+              "main_bbox_px": [
+                52,
+                55,
+                203,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 1,
+              "main_area_px": 9359,
+              "main_bbox_px": [
+                52,
+                55,
+                203,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9462,
+              "main_bbox_px": [
+                41,
+                49,
+                215,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 3,
+              "main_area_px": 9685,
+              "main_bbox_px": [
+                41,
+                49,
+                215,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          }
+        ],
+        "frames": 8,
+        "pivot_px": [
+          128,
+          240
+        ],
+        "status": "accepted"
+      },
+      "player_sprint_armed.png": {
+        "cells": [
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              29,
+              620,
+              267,
+              881
+            ],
+            "box_px": [
+              0,
+              561,
+              280,
+              842
+            ],
+            "cell": [
+              0,
+              2
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              370,
+              618,
+              535,
+              882
+            ],
+            "box_px": [
+              280,
+              561,
+              561,
+              842
+            ],
+            "cell": [
+              1,
+              2
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              570,
+              619,
+              835,
+              881
+            ],
+            "box_px": [
+              561,
+              561,
+              841,
+              842
+            ],
+            "cell": [
+              2,
+              2
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              886,
+              619,
+              1074,
+              883
+            ],
+            "box_px": [
+              841,
+              561,
+              1122,
+              842
+            ],
+            "cell": [
+              3,
+              2
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              1134,
+              608,
+              1361,
+              883
+            ],
+            "box_px": [
+              1122,
+              561,
+              1402,
+              842
+            ],
+            "cell": [
+              4,
+              2
+            ],
+            "rejected_row_boundary_components": 19
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              64,
+              887,
+              265,
+              1113
+            ],
+            "box_px": [
+              0,
+              842,
+              280,
+              1122
+            ],
+            "cell": [
+              0,
+              3
+            ],
+            "rejected_row_boundary_components": 15
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              318,
+              894,
+              535,
+              1111
+            ],
+            "box_px": [
+              280,
+              842,
+              561,
+              1122
+            ],
+            "cell": [
+              1,
+              3
+            ],
+            "rejected_row_boundary_components": 15
+          },
+          {
+            "accepted_components": 1,
+            "anchor_bbox_px": [
+              583,
+              883,
+              814,
+              1110
+            ],
+            "box_px": [
+              561,
+              842,
+              841,
+              1122
+            ],
+            "cell": [
+              2,
+              3
+            ],
+            "rejected_row_boundary_components": 15
+          }
+        ],
+        "common_scale": 0.6981818181818182,
+        "feet_y": [
+          240,
+          240,
+          240,
+          240,
+          240,
+          240,
+          240,
+          240
+        ],
+        "fragment_exclusion_zones_px": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [
+            [
+              0,
+              32,
+              32,
+              48
+            ],
+            [
+              224,
+              32,
+              256,
+              48
+            ]
+          ],
+          [
+            [
+              0,
+              32,
+              32,
+              48
+            ],
+            [
+              224,
+              32,
+              256,
+              48
+            ]
+          ],
+          [
+            [
+              0,
+              32,
+              32,
+              48
+            ],
+            [
+              224,
+              32,
+              256,
+              48
+            ]
+          ]
+        ],
+        "frame_metrics": [
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9941,
+              "main_bbox_px": [
+                45,
+                59,
+                211,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 4,
+              "main_area_px": 10189,
+              "main_bbox_px": [
+                45,
+                59,
+                211,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8904,
+              "main_bbox_px": [
+                70,
+                57,
+                186,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 4,
+              "main_area_px": 9127,
+              "main_bbox_px": [
+                70,
+                57,
+                186,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9556,
+              "main_bbox_px": [
+                35,
+                58,
+                221,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 4,
+              "main_area_px": 9767,
+              "main_bbox_px": [
+                35,
+                58,
+                221,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8525,
+              "main_bbox_px": [
+                62,
+                57,
+                193,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 4,
+              "main_area_px": 8760,
+              "main_bbox_px": [
+                62,
+                57,
+                193,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 10048,
+              "main_bbox_px": [
+                49,
+                49,
+                207,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 5,
+              "main_area_px": 10261,
+              "main_bbox_px": [
+                49,
+                49,
+                207,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 9167,
+              "main_bbox_px": [
+                57,
+                82,
+                199,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 8,
+              "main_area_px": 9391,
+              "main_bbox_px": [
+                57,
+                82,
+                199,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8354,
+              "main_bbox_px": [
+                52,
+                89,
+                203,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 2,
+              "main_area_px": 8570,
+              "main_bbox_px": [
+                52,
+                89,
+                204,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          },
+          {
+            "32": {
+              "components": 1,
+              "main_area_px": 8838,
+              "main_bbox_px": [
+                47,
+                83,
+                209,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            },
+            "8": {
+              "components": 2,
+              "main_area_px": 9083,
+              "main_bbox_px": [
+                47,
+                83,
+                209,
+                241
+              ],
+              "outside_6px_support_px": 0,
+              "significant_components": 1,
+              "top32_significant_px": 0
+            }
+          }
+        ],
+        "frames": 8,
+        "pivot_px": [
+          128,
+          240
+        ],
+        "status": "accepted"
+      },
+      "player_wall_jump.png": {
+        "anchor_bbox_px": [
+          69,
+          66,
+          213,
+          261
+        ],
+        "common_scale": 0.8888888888888888,
+        "components": 2,
+        "contact_read": "right-facing raised hand and shoulder retained; source has no painted wall plane",
+        "frames": 1,
+        "pivot_px": [
+          128,
+          240
+        ],
+        "source_box_px": [
+          1122,
+          280,
+          1402,
+          561
+        ],
+        "source_cell": [
+          4,
+          1
+        ],
+        "status": "accepted"
+      },
+      "player_wall_jump_armed.png": {
+        "anchor_bbox_px": [
+          65,
+          70,
+          219,
+          262
+        ],
+        "common_scale": 0.8888888888888888,
+        "components": 2,
+        "contact_read": "right-facing raised hand and shoulder retained; source has no painted wall plane",
+        "frames": 1,
+        "pivot_px": [
+          128,
+          240
+        ],
+        "source_box_px": [
+          1122,
+          842,
+          1402,
+          1122
+        ],
+        "source_cell": [
+          4,
+          3
+        ],
+        "status": "accepted"
+      },
+      "player_wall_slide.png": {
+        "anchor_bbox_px": [
+          66,
+          47,
+          213,
+          281
+        ],
+        "common_scale": 0.8888888888888888,
+        "components": 2,
+        "contact_read": "right-facing raised hand and shoulder retained; source has no painted wall plane",
+        "frames": 1,
+        "pivot_px": [
+          128,
+          240
+        ],
+        "source_box_px": [
+          841,
+          280,
+          1122,
+          561
+        ],
+        "source_cell": [
+          3,
+          1
+        ],
+        "status": "accepted"
+      },
+      "player_wall_slide_armed.png": {
+        "anchor_bbox_px": [
+          64,
+          53,
+          204,
+          271
+        ],
+        "common_scale": 0.8888888888888888,
+        "components": 2,
+        "contact_read": "right-facing raised hand and shoulder retained; source has no painted wall plane",
+        "frames": 1,
+        "pivot_px": [
+          128,
+          240
+        ],
+        "source_box_px": [
+          841,
+          842,
+          1122,
+          1122
+        ],
+        "source_cell": [
+          3,
+          3
+        ],
+        "status": "accepted"
+      }
+    }
+  },
+  "rejected": {},
+  "review": "native and 4x proof sheets required; technical acceptance only",
+  "roster_repairs": {
+    "frost_floater": {
+      "anchor_component_bbox_px": [
+        79,
+        39,
+        370,
+        421
+      ],
+      "box_px": [
+        384,
+        512,
+        768,
+        1024
+      ],
+      "cell": [
+        1,
+        1
+      ],
+      "common_scale": 0.4816753926701571,
+      "components_found": 3,
+      "pixels_kept": 60467,
+      "status": "accepted",
+      "visible_bbox_px": [
+        58,
+        17,
+        198,
+        201
+      ]
+    },
+    "hopper": {
+      "anchor_component_bbox_px": [
+        39,
+        214,
+        376,
+        488
+      ],
+      "box_px": [
+        768,
+        0,
+        1152,
+        512
+      ],
+      "cell": [
+        2,
+        0
+      ],
+      "common_scale": 0.6172106824925816,
+      "components_found": 2,
+      "pixels_kept": 56649,
+      "status": "accepted",
+      "visible_bbox_px": [
+        24,
+        0,
+        232,
+        145
+      ]
+    },
+    "tidal_heart": {
+      "anchor_component_bbox_px": [
+        15,
+        15,
+        694,
+        711
+      ],
+      "box_px": [
+        1448,
+        0,
+        2172,
+        724
+      ],
+      "cell": [
+        2,
+        0
+      ],
+      "common_scale": 0.5747126436781609,
+      "components_found": 182,
+      "invariants": {
+        "alpha32_components": 1,
+        "alpha_threshold": 12,
+        "baseline_y_px": 440,
+        "bottom_padding_px": 72,
+        "edge_fragment_alpha12_pixels": 0,
+        "left_padding_px": 68,
+        "partial_alpha_pixels": 81767,
+        "right_padding_px": 63,
+        "significant_alpha32_components": 1,
+        "top_padding_px": 43,
+        "visible_bbox_px": [
+          68,
+          43,
+          449,
+          440
+        ]
+      },
+      "pixels_kept": 251972,
+      "retention_policy": "complete primary alpha>0 component; detached components excluded",
+      "selection_alpha_threshold": 1,
+      "status": "accepted",
+      "visible_bbox_px": [
+        68,
+        43,
+        449,
+        440
+      ]
+    },
+    "vent_flyer": {
+      "anchor_component_bbox_px": [
+        9,
+        115,
+        384,
+        458
+      ],
+      "box_px": [
+        384,
+        0,
+        768,
+        512
+      ],
+      "cell": [
+        1,
+        0
+      ],
+      "common_scale": 0.5364431486880467,
+      "components_found": 1,
+      "pixels_kept": 63982,
+      "status": "accepted",
+      "visible_bbox_px": [
+        28,
+        0,
+        229,
+        145
+      ]
+    }
+  },
+  "runtime_visual_profiles": {
+    "armored_guard": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        46,
+        80,
+        210,
+        208
+      ]
+    },
+    "burrower": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        16,
+        69,
+        240,
+        219
+      ]
+    },
+    "ceiling_diver": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        62,
+        48,
+        194,
+        240
+      ]
+    },
+    "crawler": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        17,
+        32,
+        1007,
+        96
+      ]
+    },
+    "energy_parasite": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        51,
+        59,
+        205,
+        229
+      ]
+    },
+    "frost_floater": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        -164
+      ],
+      "nominal_visible_bounds_px": [
+        58,
+        17,
+        198,
+        201
+      ]
+    },
+    "furnace_mother": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -192
+      ],
+      "nominal_visible_bounds_px": [
+        36,
+        94,
+        476,
+        419
+      ]
+    },
+    "grasshopper": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        27,
+        68,
+        240,
+        220
+      ]
+    },
+    "hopper": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        24,
+        0,
+        232,
+        145
+      ]
+    },
+    "lava_monster": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        15
+      ],
+      "nominal_visible_bounds_px": [
+        30,
+        77,
+        226,
+        225
+      ]
+    },
+    "shard_turret": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        16,
+        58,
+        240,
+        229
+      ]
+    },
+    "shooting_gargoyle": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        28,
+        55,
+        228,
+        222
+      ]
+    },
+    "spitter": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        49,
+        64,
+        207,
+        223
+      ]
+    },
+    "stone_guardian": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": true,
+      "local_visual_offset_px": [
+        0,
+        -192
+      ],
+      "nominal_visible_bounds_px": [
+        46,
+        74,
+        466,
+        439
+      ]
+    },
+    "tidal_heart": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        -192
+      ],
+      "nominal_visible_bounds_px": [
+        68,
+        43,
+        449,
+        440
+      ]
+    },
+    "vent_flyer": {
+      "collider_note": "visual profile only; collision unchanged",
+      "desired_texture_scale": 1.0,
+      "grounded": false,
+      "local_visual_offset_px": [
+        0,
+        -96
+      ],
+      "nominal_visible_bounds_px": [
+        28,
+        0,
+        229,
+        145
+      ]
+    }
+  },
+  "runtime_wiring": {
+    "boss_loader": "res://scripts/enemies/boss.gd",
+    "enemy_boss_profiles": "res://scripts/enemies/effects/runtime_visual_profiles.gd",
+    "enemy_loader": "res://scripts/enemies/combat_enemy.gd",
+    "gates": "res://scripts/world/ability_gate.gd",
+    "passages": "res://scripts/dev/dev_passage.gd",
+    "player_poses": "res://scripts/player/player.gd",
+    "station_fixtures": "res://scripts/dev/dev_station_layout.gd",
+    "wave_grates": "res://scripts/world/wave_grate.gd"
+  },
+  "schema_version": 2,
+  "sources": {
+    "boss_roster_hd.png": {
+      "sha256": "ee8ca8c0a82e5eb62621cf924678af9c2e946b5c330c896faa4678142778caec"
+    },
+    "dev_fixtures_hd.png": {
+      "sha256": "c807a802d591d7b264f06f0bd16f315d37cc93eee9e04f4abc1545c5348ba7ab"
+    },
+    "enemy_roster_hd.png": {
+      "sha256": "08b872fad041e380d5e0d868a1334dccf86c04102465f6f49f2743c0b138db44"
+    },
+    "flux_systems_hd.png": {
+      "sha256": "c3409e9362493a6595e9155c8f095cee0a51847e9f0b134d44c7252e0ae08753"
+    },
+    "player_run_armed_hd.png": {
+      "sha256": "b27038dc42afc918affa3f8269405aae5ab6cbc33c45aeb78cdb957622de7ad6"
+    },
+    "player_run_hd.png": {
+      "sha256": "4ea36728313f920fc4aae4bb2bf4e2fd7a44d32760a4384df0197e7ced30d6ef"
+    },
+    "player_sprint_wall_hd.png": {
+      "sha256": "784d98e70899e49f39382c515197aabc41fe3a7d0be949b6fb21405e7d4a3061"
+    }
+  }
+}
