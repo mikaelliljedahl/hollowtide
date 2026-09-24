@@ -3,10 +3,10 @@ extends StaticBody2D
 ## Sealed iris that opens once every required world flag is set (boss shortcuts, final gate).
 ## One seal light per flag shows how many conditions are already met; no text is shown.
 
-const LEAF_TEXTURE_PATH := "res://assets/sprites/devmode/undertow_gate.png"
+const LEAF_TEXTURE_PATH := "res://assets/sprites/campaign/seal_gate.png"
 const FRAME_TEXTURE_PATH := "res://assets/sprites/devmode/passage_arch.png"
 const FRAME_MARGIN := Vector2(64.0, 64.0)
-const SEAL_TINT := Color(1.0, 0.78, 0.42)
+const SEAL_TINT := Color(1.0, 1.0, 1.0)
 const LIGHT_ON := Color(1.0, 0.86, 0.45)
 const LIGHT_OFF := Color(0.18, 0.16, 0.14)
 

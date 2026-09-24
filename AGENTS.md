@@ -17,6 +17,7 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 | [docs/visual-plan.md](docs/visual-plan.md) | High resolution cave modules, correct spin and visual acceptance tests. |
 | [docs/implementation-decisions.md](docs/implementation-decisions.md) | Proposed contract amendments and decisions that must be determined before code. |
 | [docs/state.md](docs/state.md) | Current working state, flaws, agents and next steps. |
+| [docs/plan-next.md](docs/plan-next.md) | Lead's plan for the next rounds: stabilise, originality, bigger world, bosses, release. |
 | [docs/pitfalls.md](docs/pitfalls.md) | Previous traps, causes, consequences and countermeasures. |
 | [docs/workflow.md](docs/workflow.md) | Practical way of working for parallel agents and verification. |
 | [docs/game-feel.md](docs/game-feel.md) | Normative results for movement, jump, ball shape and camera. |

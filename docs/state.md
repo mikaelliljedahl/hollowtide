@@ -114,6 +114,8 @@ Visible runtime text and documentation are English. No tutorial text in the game
 
 ## Next steps
 
+The lead's longer plan with reasoning is in [plan-next.md](plan-next.md).
+
 1. Hands-on balance pass of the action round: bosses, elites, deflect timing, glyph numbers and
    Trials length, with a real-input playthrough of each.
 2. Bigger world: grow the campaign toward ~48 rooms (see [phase-2-campaign.md](phase-2-campaign.md)),
