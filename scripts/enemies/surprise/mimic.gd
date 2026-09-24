@@ -3,13 +3,15 @@ extends SurpriseEnemy
 ## player steps next to it (or shoots it) it rattles for a beat, lunges, scuttles around the
 ## player for a few seconds and then burrows back into its disguise somewhere else.
 ## Disguised: beam/wave/undertow glance off (armored rock) but still wake it; heavy hits land.
+## Only the lunge and its landing bite: the rattle is the warning and the scuttle is harmless.
 
 const TRIGGER_DISTANCE := Vector2(150.0, 110.0)
 const LURE_TRIGGER_DISTANCE := Vector2(110.0, 120.0)
 const REVEAL_SECONDS := 0.34
 const LUNGE := Vector2(640.0, -430.0)
 const SCUTTLE_SPEED := 330.0
-const SCUTTLE_SECONDS := 2.6
+const SCUTTLE_SECONDS := 1.6
+const LANDING_BITE_SECONDS := 0.3
 const SETTLE_SECONDS := 0.5
 const REARM_SECONDS := 1.4
 
@@ -48,7 +50,10 @@ func _reset_state() -> void:
 
 
 func _contact_active() -> bool:
-	return _special_state not in [&"disguised", &"settle"]
+	return (
+		_special_state == &"lunge"
+		or (_special_state == &"scuttle" and _state_age < LANDING_BITE_SECONDS)
+	)
 
 
 func _hit_gate(kind: StringName) -> int:
@@ -85,6 +90,7 @@ func _surprise_ai(player: Node2D, has_target: bool, delta: float) -> void:
 				_facing = dir
 				_set_state(&"lunge", 0.25)
 				_sfx(&"mimic_lunge")
+				_bite_overlapping()
 		&"lunge":
 			if _special_timer <= 0.0 and is_on_floor():
 				_scuttle_sign = -_facing if _rng.randf() < 0.6 else _facing
@@ -113,6 +119,15 @@ func _player_adjacent(player: Node2D) -> bool:
 	var reach := LURE_TRIGGER_DISTANCE if _is_lure() else TRIGGER_DISTANCE
 	var offset := player.global_position - global_position
 	return absf(offset.x) < reach.x and absf(offset.y) < reach.y
+
+
+## Contact only bites on entry, so a player who stayed beside the harmless rattle would never
+## be bitten by the lunge without this.
+func _bite_overlapping() -> void:
+	if _player_detector == null:
+		return
+	for body in _player_detector.get_overlapping_bodies():
+		_on_player_detector_body_entered(body)
 
 
 func _reveal() -> void:
