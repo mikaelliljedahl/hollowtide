@@ -95,6 +95,8 @@ SUITES = [
     Suite("ambush campaign", "tools/check_ambush_campaign.tscn"),
     Suite("ambush rules dev", "tools/check_ambush_rules.tscn", dev=True),
     Suite("assist", "tools/check_assist.tscn"),
+    Suite("playtest agent", "tools/check_playtest_agent.tscn"),
+    Suite("playtest bridge", "tools/check_playtest_bridge.py"),
     Suite("revisit remix", "tools/check_revisit_remix.tscn"),
     Suite("trials", "tools/check_trials.tscn", timeout=240.0),
     Suite("weapon visual", "tools/check_weapon_visual.tscn"),
