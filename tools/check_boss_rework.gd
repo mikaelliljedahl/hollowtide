@@ -7,6 +7,7 @@ extends Node
 ## godot --headless --path . res://tools/check_boss_rework.tscn -- --test-mode
 
 const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Attacks = preload("res://scripts/enemies/boss_attacks.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const BOSS_IDS: Array[StringName] = [&"stone_guardian", &"furnace_mother", &"tidal_heart"]
 const MIN_TELEGRAPH := 0.4
@@ -51,6 +52,9 @@ func _run() -> void:
 	for boss_id in BOSS_IDS:
 		await _stage_thresholds(boss_id)
 	await _transition_cancels_telegraph()
+	await _engages_on_floor_line()
+	await _volley_fans_below_aim()
+	await _charge_leaves_wall_pocket()
 	for boss_id in BOSS_IDS:
 		for stage in range(1, Patterns.DESPERATION_STAGE + 1):
 			await _attack_cycle(boss_id, stage)
@@ -187,6 +191,90 @@ func _transition_cancels_telegraph() -> void:
 	_check(not released[0], "the dropped attack never fires")
 	_check(_live_projectiles() == projectiles_before, "the stage breather fires nothing")
 	_despawn(boss)
+	await _frames(2)
+
+
+## Arenas end on the floor line, so a player whose feet stand exactly on it must count as inside:
+## the boss engages and attacks, and common enemies treat the same point as inside their leash.
+func _engages_on_floor_line() -> void:
+	var boss := _spawn_in_arena(&"stone_guardian")
+	_probe.global_position = Vector2(1500.0, ARENA.end.y)
+	var telegraphed := [false]
+	boss.attack_telegraphed.connect(func(_attack: StringName) -> void: telegraphed[0] = true)
+	await _frames(int(3.0 * PHYSICS_HZ))
+	_check(bool(boss.get("_player_engaged")), "boss engages a player on the arena floor line")
+	_check(telegraphed[0], "boss attacks a player on the arena floor line")
+	_check(
+		not boss.call("_in_arena", Vector2(1500.0, ARENA.end.y + 40.0)),
+		"a point well below the arena floor is outside"
+	)
+	var enemy := EnemyFactory.create(&"hopper") as CombatEnemy
+	add_child(enemy)
+	enemy.configure_arena(ARENA)
+	_check(enemy._in_arena(Vector2(1500.0, ARENA.end.y)), "enemy leash holds the arena floor line")
+	enemy.queue_free()
+	_despawn(boss)
+	_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
+	await _frames(2)
+
+
+## Playtest round 2 (docs/features/boss-rework.md): a centred multi-rock volley left no answer at
+## mid range, so every rock flies on or below the locked aim line and one jump clears them all.
+func _volley_fans_below_aim() -> void:
+	var boss := _spawn_in_arena(&"stone_guardian")
+	await _frames(1)
+	for stage in [1, Patterns.ARMORED_STAGE, Patterns.DESPERATION_STAGE]:
+		boss.set_test_stage(stage)
+		var plan := Attacks.plan(boss, &"boulder_volley")
+		var aim: Vector2 = plan["aim"]
+		var below := true
+		for direction: Vector2 in plan["directions"]:
+			below = below and aim.angle_to(direction) * signf(aim.x) >= -0.001
+		_check(
+			below and absf(aim.angle_to(plan["directions"][0])) < 0.001,
+			"boulder volley stage %d: first rock on the aim line, the rest below it" % stage
+		)
+	_despawn(boss)
+	await _frames(2)
+
+
+## A Shoulder Charge stops a pocket short of the first wall, a low roof included, so a player
+## backed against it is out of reach; without the pocket a cornered player had no answer.
+func _charge_leaves_wall_pocket() -> void:
+	var roof := StaticBody2D.new()
+	roof.collision_layer = 1
+	var shape := CollisionShape2D.new()
+	var box := RectangleShape2D.new()
+	box.size = Vector2(300.0, 150.0)
+	shape.shape = box
+	roof.add_child(shape)
+	add_child(roof)
+	# Roof face at x 1700, underside at y 850: above the body's centre, below its top.
+	roof.global_position = Vector2(1850.0, 775.0)
+	var boss := _spawn_in_arena(&"stone_guardian")
+	_probe.global_position = Vector2(1760.0, FLOOR_Y)
+	await _frames(2)
+	boss.set_test_stage(Patterns.ARMORED_STAGE)
+	var chain: Array[StringName] = [&"shoulder_charge"]
+	boss.set("_attack_chain", chain)
+	boss.call("_start_telegraph")
+	var end_x := float((boss.get("_attack_plan") as Dictionary)["charge_end_x"])
+	var pocket := float(Attacks.CHARGE_WALL_POCKETS[&"shoulder_charge"])
+	_check(
+		end_x <= 1700.0 - Attacks.BODY_RADIUS - pocket + 0.5,
+		"shoulder charge plans its stop a pocket short of the low roof (end %.0f)" % end_x
+	)
+	for _frame in int(3.0 * PHYSICS_HZ):
+		await _frames(1)
+		if boss.get("_attack_state") == &"recover":
+			break
+	_check(
+		boss.global_position.x <= end_x + 4.0 and boss.global_position.x > 1000.0,
+		"shoulder charge runs to its planned stop (x %.0f)" % boss.global_position.x
+	)
+	_despawn(boss)
+	roof.queue_free()
+	_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
 	await _frames(2)
 
 

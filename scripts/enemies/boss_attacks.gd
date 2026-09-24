@@ -22,6 +22,9 @@ const MAELSTROM_STEPS := 12
 const MAELSTROM_INTERVAL := 0.1
 const MAELSTROM_TURN := 0.42
 const CHARGE_SPEEDS := {&"shoulder_charge": 640.0, &"scuttle_rush": 580.0}
+## Floor the Shoulder Charge leaves clear before the first wall or the lane end, so a player backed
+## against the wall is outside the body's reach when it stops.
+const CHARGE_WALL_POCKETS := {&"shoulder_charge": 128.0}
 const STYLES := {
 	&"stone_guardian": &"rock",
 	&"furnace_mother": &"fire",
@@ -53,7 +56,7 @@ static func plan(boss: Node2D, attack: StringName) -> Dictionary:
 	match attack:
 		&"boulder_volley":
 			var count := 1 if stage < Patterns.ARMORED_STAGE else (5 if desperate else 3)
-			directions.append_array(_spread(aim, count, 0.2 if desperate else 0.22))
+			directions.append_array(_fan_below(aim, count, 0.2 if desperate else 0.22))
 		&"ember_fan":
 			directions.append_array(_spread(aim, 3 if stage < Patterns.ARMORED_STAGE else 5, 0.28))
 		&"surge_lance":
@@ -111,7 +114,9 @@ static func plan(boss: Node2D, attack: StringName) -> Dictionary:
 			var bounds: Rect2 = boss.get("arena_bounds")
 			# Without an arena there is no lane to charge along (test benches only).
 			if bounds.size != Vector2.ZERO:
-				end_x = (lane.y - BODY_RADIUS) if direction > 0.0 else (lane.x + BODY_RADIUS)
+				var limit := _first_wall_x(boss, direction, lane.y if direction > 0.0 else lane.x)
+				var stop := BODY_RADIUS + float(CHARGE_WALL_POCKETS.get(attack, 0.0))
+				end_x = limit - direction * stop
 			result["charge_direction"] = direction
 			result["charge_end_x"] = end_x
 			var y := floor_y - 20.0
@@ -262,6 +267,16 @@ static func _lane_mark(from: Vector2, to: Vector2) -> Dictionary:
 	return {"kind": &"lane", "from": from, "to": to}
 
 
+## The volley's first rock flies on the locked aim line and the rest fan out below it, toward the
+## floor, so jumping over the aim line clears every rock at any range.
+static func _fan_below(aim: Vector2, count: int, step: float) -> Array[Vector2]:
+	var side := 1.0 if aim.x >= 0.0 else -1.0
+	var result: Array[Vector2] = []
+	for index in count:
+		result.append(aim.rotated(side * step * float(index)))
+	return result
+
+
 static func _spread(aim: Vector2, count: int, step: float) -> Array[Vector2]:
 	var result: Array[Vector2] = []
 	for index in count:
@@ -291,6 +306,24 @@ static func _floor_y(boss: Node2D) -> float:
 	if hit.is_empty():
 		return fallback
 	return minf((hit["position"] as Vector2).y, fallback)
+
+
+## The nearer of `lane_edge` and the first world wall the body would meet in `direction`: probed
+## near the top of the body, at its centre and just above the floor, so a low roof or a step counts.
+static func _first_wall_x(boss: Node2D, direction: float, lane_edge: float) -> float:
+	if not boss.is_inside_tree():
+		return lane_edge
+	var limit := lane_edge
+	var space := boss.get_world_2d().direct_space_state
+	for height: float in [-BODY_RADIUS * 0.7, 0.0, BODY_RADIUS * 0.8]:
+		var from := boss.global_position + Vector2(0.0, height)
+		var query := PhysicsRayQueryParameters2D.create(
+			from, Vector2(lane_edge, from.y), 1, [boss.call(&"get_rid")]
+		)
+		var hit := space.intersect_ray(query)
+		if not hit.is_empty() and (Vector2(hit["position"]).x - limit) * direction < 0.0:
+			limit = Vector2(hit["position"]).x
+	return limit
 
 
 ## Horizontal extent attacks may use: x = left edge, y = right edge.

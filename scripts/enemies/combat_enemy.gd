@@ -28,6 +28,9 @@ const PROJECTILE_STYLES := {
 }
 const MAX_TELEGRAPH_SECONDS := 0.7
 const HIT_FLASH_SECONDS := 0.12
+## Arenas end on the floor line, and Rect2.has_point excludes that edge, so the arena test reaches
+## a little below it; otherwise a player standing on the floor is outside every arena.
+const ARENA_FLOOR_MARGIN := 16.0
 ## D20 aggression pass: faster movers, short telegraphed charges/lunges and pursuit when the
 ## player is near. Damage numbers are unchanged; every attack keeps a wind-up glow first.
 const HOPPER_TRACK_SPEED := 320.0
@@ -588,7 +591,10 @@ func _die() -> void:
 
 
 func _in_arena(point: Vector2) -> bool:
-	return arena_bounds.size == Vector2.ZERO or arena_bounds.has_point(point)
+	return (
+		arena_bounds.size == Vector2.ZERO
+		or arena_bounds.grow_individual(0.0, 0.0, 0.0, ARENA_FLOOR_MARGIN).has_point(point)
+	)
 
 
 func _clamp_to_arena(point: Vector2) -> Vector2:
