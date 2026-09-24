@@ -144,7 +144,11 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 	}
 	if enemy.has_method(&"presentation_state"):
 		var shown := StringName(enemy.call(&"presentation_state"))
-		entry["telegraph"] = shown in [&"attack_telegraph", &"attack"]
+		# Surprise enemies name their own states (a spider's twitch); their wind-up glow counts too.
+		var wind_up = enemy.get("_telegraph_remaining")
+		entry["telegraph"] = (
+			shown in [&"attack_telegraph", &"attack"] or (wind_up is float and wind_up > 0.0)
+		)
 	if is_boss:
 		entry["stage"] = int(enemy.get("stage"))
 		entry["attack"] = String(enemy.get("_attack_id"))

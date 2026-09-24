@@ -137,6 +137,8 @@ func kit() -> Array[String]:
 
 
 func _grant(items: Array[String]) -> void:
+	# Pickup ids must be unique per kind ("missiles" and "missile_tank:2" are three quivers).
+	var granted: Dictionary = {}
 	for item in items:
 		var parts := item.split(":")
 		var id := StringName(parts[0])
@@ -146,7 +148,9 @@ func _grant(items: Array[String]) -> void:
 		elif Catalog.is_ability(id):
 			GameState.unlock_ability(id)
 			continue
-		for index in count:
+		for _index in count:
+			var index := int(granted.get(id, 0))
+			granted[id] = index + 1
 			GameState.collect_pickup("playtest.%s.%d" % [id, index], id)
 
 

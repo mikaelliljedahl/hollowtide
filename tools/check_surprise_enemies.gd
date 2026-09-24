@@ -174,7 +174,18 @@ func _test_drop_spider() -> void:
 	_player.global_position = Vector2(910, FLOOR_Y)
 	await _frames(2)
 	_check(spider.presentation_state() == &"twitch", "spider twitches before dropping")
-	await _frames(70)
+	var locked_stop: float = spider.get("_drop_target_y")
+	_check(locked_stop > hang_y + 200.0, "twitch locks the drop stop below the spider")
+	var shook := false
+	for _i in 12:
+		await _frames(1)
+		shook = shook or absf(spider.global_position.x - 900.0) > 1.0
+	_check(shook, "spider shakes on its thread while twitching")
+	await _frames(58)
+	_check(
+		absf(spider.global_position.y - locked_stop) < 8.0,
+		"spider hangs at the stop its drop line showed"
+	)
 	_check(spider.global_position.y > FLOOR_Y - 200.0, "spider drops on its thread")
 	_check(_player.hits > 0, "dropping spider bites")
 	_player.global_position = Vector2(1600, FLOOR_Y)

@@ -1,7 +1,8 @@
 extends SurpriseEnemy
 ## Hangs tucked against the ceiling like a rock knob. When the player passes underneath it
-## twitches (creak + eye glint), drops fast on a silk thread to just above the floor, dangles
-## and bites for a moment, then climbs back up and re-arms.
+## twitches (creak, shake, bright thread and a dashed line down to where it will stop), drops fast
+## on a silk thread to just above the floor, dangles and bites for a moment, then climbs back up
+## and re-arms.
 
 const TRIGGER_HALF_WIDTH := 84.0
 const MAX_DROP := 760.0
@@ -13,6 +14,13 @@ const CLIMB_SPEED := 300.0
 const REARM_SECONDS := 1.3
 const HANG_OFFSET := 34.0
 const ART_SCALE := 0.5
+## Twitch shake amplitude (px) and speed (rad/s): the body rattles on its thread before the drop.
+const SHAKE_PX := 3.5
+const SHAKE_SPEED := 70.0
+const THREAD_COLOR := Color(0.85, 0.88, 0.92)
+const DROP_LINE_COLOR := Color(1.0, 0.72, 0.35)
+const DROP_DASH := 18.0
+const DROP_GAP := 14.0
 
 var _anchor := Vector2.ZERO
 var _drop_target_y := 0.0
@@ -73,8 +81,10 @@ func _surprise_ai(player: Node2D, has_target: bool, delta: float) -> void:
 			if _special_timer <= 0.0 and player != null and has_target and _player_below(player):
 				_begin_twitch()
 		&"twitch":
+			var shake := sin(_state_age * SHAKE_SPEED) * SHAKE_PX
+			global_position = _anchor + Vector2(shake, HANG_OFFSET)
 			if _special_timer <= 0.0:
-				_drop_target_y = _find_drop_target()
+				global_position = _anchor + Vector2(0, HANG_OFFSET)
 				_drop_speed = 0.0
 				_set_state(&"drop")
 				_sfx(&"spider_drop")
@@ -99,6 +109,8 @@ func _surprise_ai(player: Node2D, has_target: bool, delta: float) -> void:
 
 
 func _begin_twitch() -> void:
+	# The stop point locks now so the twitch's drop line shows where the spider will hang.
+	_drop_target_y = _find_drop_target()
 	_set_state(&"twitch", TWITCH_SECONDS)
 	_wind_up(TWITCH_SECONDS)
 	_sfx(&"spider_creak")
@@ -129,10 +141,29 @@ func _snap_anchor() -> void:
 
 
 func _draw_extra(canvas: CanvasItem) -> void:
-	# Silk thread from the ceiling anchor down to the spider.
+	# Silk thread from the ceiling anchor down to the spider; it flares while twitching.
 	var top := to_local(_anchor)
-	var alpha := 0.35 if _special_state == &"hidden" else 0.7
-	canvas.draw_line(top, Vector2(0, -26), Color(0.85, 0.88, 0.92, alpha), 1.4, true)
+	var twitching := _special_state == &"twitch"
+	var alpha := 0.5 if _special_state == &"hidden" else 0.75
+	canvas.draw_line(
+		top,
+		Vector2(0, -26),
+		Color(THREAD_COLOR, 0.95 if twitching else alpha),
+		3.0 if twitching else 2.0,
+		true
+	)
+	if not twitching:
+		return
+	# Dashed drop line from the body to the locked stop point, with a tick where it will hang.
+	var bottom := to_local(Vector2(global_position.x, _drop_target_y))
+	var y := 30.0
+	while y < bottom.y:
+		var end := minf(y + DROP_DASH, bottom.y)
+		canvas.draw_line(Vector2(0, y), Vector2(0, end), Color(DROP_LINE_COLOR, 0.8), 3.0, true)
+		y += DROP_DASH + DROP_GAP
+	canvas.draw_line(
+		bottom + Vector2(-22, 0), bottom + Vector2(22, 0), Color(DROP_LINE_COLOR, 0.9), 4.0, true
+	)
 
 
 func _draw_placeholder() -> void:

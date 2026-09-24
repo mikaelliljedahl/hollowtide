@@ -33,7 +33,7 @@ no names, art or attack designs are taken from any game.
 ## 3. Design rules
 
 - **R1 Locked truth.** Aim, lanes, floor targets and ring gaps are chosen when the telegraph starts
-  and never move afterwards (`scripts/enemies/boss_attacks.gd:32`). The markers show exactly where
+  and never move afterwards (`scripts/enemies/boss_attacks.gd:35`). The markers show exactly where
   damage goes.
 - **R2 Telegraph first.** Every attack telegraphs for at least 0.45 s (`MIN_TELEGRAPH`,
   `scripts/enemies/boss_patterns.gd:12`); no projectile or charge exists before the telegraph ends.
@@ -84,13 +84,22 @@ Rock projectiles. Floor lanes are jumped; rock drops are side-stepped.
 
 | Attack | Stage added | Telegraph | Punish (st 1-2 / 3 / 4) | What happens |
 |---|---|---|---|---|
-| Boulder Volley | 1 | 0.6 s: pulse, aim lines | 0.9 / 1.4 / 1.2 s | 1 aimed rock; 3 in stage 3, 5 in stage 4 |
+| Boulder Volley | 1 | 0.6 s: pulse, aim lines | 0.9 / 1.4 / 1.2 s | 1 aimed rock; 3 in stage 3, 5 in stage 4, the first on the aim line and the rest fanning below it toward the floor (0.22 rad apart, 0.2 in stage 4), so one jump over the aim line clears them all |
 | Fault Slam | 1 | 0.7 s: rises tall, floor lanes to both walls | 1.2 / 1.4 / 1.2 s | A floor shockwave runs to each wall; desperation sends a second pair 0.85 s later |
 | Rockfall | 2 | 0.8 s: rises tall, floor circles | 1.0 / 1.4 / 1.2 s | Rocks drop on the player's spot and 220 px either side (5 columns in desperation) |
-| Shoulder Charge | 3 | 0.65 s: crouches back, floor arrow along the lane | 1.8 / 1.8 / 1.53 s | Charges to the lane end or the first wall, then stands stunned with the armor cracked open |
+| Shoulder Charge | 3 | 0.65 s: crouches back, floor arrow along the lane | 1.8 / 1.8 / 1.53 s | Charges toward the player and stops 128 px of floor short of the first wall (a low roof or step counts) or the lane end, where the arrow ends; a player backed against that wall is out of reach. Then stands stunned with the armor cracked open |
 
 Rotation: stage 1 Volley, Slam; stage 2 Slam, Rockfall, Volley; stage 3 Volley, Charge,
 Rockfall, Slam; stage 4 Slam then Rockfall, Charge then Volley, Rockfall then Charge.
+
+Playtest round 2 (2026-09-24, [playtest-agent.md](playtest-agent.md#17-results-round-2-2026-09-24)): a scripted
+dodge probe in the real `vaults_03` arena (real player, forced attacks, 110 input responses per
+case) found no escaping response to a centred stage 3-4 volley at 600 px and to a Shoulder Charge
+at the arena's west end, where a 118 px tunnel stops the bodies and a platform at y 640 caps jumps
+at 134 px. Fault Slam (single or double jump, 0.33-0.67 s windows) and Rockfall (side-step) were
+fair and are unchanged. The volley's shape and the charge's stop point live in
+`scripts/enemies/boss_attacks.gd` (`_fan_below`, `CHARGE_WALL_POCKETS`, `_first_wall_x`); no
+telegraph or punish time changed. Scuttle Rush keeps the old stop point and has not been probed.
 
 ## 6. Cinder Warden
 
@@ -129,7 +138,7 @@ Snare still opens the B1 pulse point and Echo through the grate still opens the 
   `scripts/enemies/boss_patterns.gd:24`; balance changes happen there.
 - Shots are plain `EnemyProjectile` instances (`scripts/combat/enemy_projectile.gd`) with the
   boss's contact damage; speed, lifetime and size come from the emission table in
-  `scripts/enemies/boss_attacks.gd:122`.
+  `scripts/enemies/boss_attacks.gd:127`.
 - Without arena bounds (test benches) bosses do not move and charges stay in place, matching the
   previous movement rule.
 - New signals `stage_changed`, `attack_telegraphed` and `attack_released` are additive; `defeated`
@@ -154,6 +163,7 @@ Suite `tools/check_boss_rework.tscn` (registered as `boss rework` in `tools/run_
 | Rules | Stage thresholds at 75/50/25 %; stages 1-2 are B1 and 3-4 B2; each of stages 1-3 adds a new attack; every telegraph is at least 0.4 s and every punish window at least 0.8 s in every stage; every boss has at least four attacks and desperation chains. |
 | Thresholds | Real harpoon hits (with the Snare, Echo or punish opening each stage needs) take every boss through stages 2, 3 and 4 once each with one phase burst per transition; stage and phase match health after every hit; desperation starts at or below 25 %; the boss dies. |
 | Transition | A hit across 75 % during a wind-up drops it unfired and nothing fires during the breather. |
+| Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); a Shoulder Charge plans and runs to a stop 128 px short of a low roof. Both fail on the pre-round-2 code. |
 | Cycles | In a walled test arena, for every boss and stage: every attack of the stage is released; every release follows its own telegraph by at least 0.4 s; every projectile appears only while an attack is active; every punish window lasts its table time; B2 armor is open in each punish window and closed during every wind-up; charges carry the body along the lane; desperation chains a telegraph straight after an attack. |
 
 Existing suites `combat devmode`, `combat integration`, `combat presentation`, `campaign flow`,

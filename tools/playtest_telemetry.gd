@@ -4,6 +4,7 @@ extends RefCounted
 ## Damage sources are attributed by proximity at the moment health drops (the game does not
 ## report who hit the player), so "unknown" can appear.
 
+const BossPatterns = preload("res://scripts/enemies/boss_patterns.gd")
 const TILE := 64.0
 const SAMPLE_SECONDS := 0.5
 const STUCK_WINDOW := 3.0
@@ -47,6 +48,8 @@ var _ambush: Dictionary = {}
 var _boss: Dictionary = {}
 var _boss_attacks: Dictionary = {}
 var _boss_health: Dictionary = {}
+## Instance ids of bosses whose signals are connected; a boss rebuilt after a death is a new node.
+var _watched_bosses: Dictionary = {}
 var _alive: Dictionary = {}
 var _known_pickups := 0
 var _reflected := 0
@@ -179,12 +182,7 @@ func _on_room_changed(room_id: String) -> void:
 		arena.cleared.connect(_finish_ambush.bind("cleared"))
 		arena.aborted.connect(_on_ambush_aborted)
 	for node in tree.get_nodes_in_group(&"bosses"):
-		var boss := node as CombatBoss
-		if boss == null or boss.is_queued_for_deletion() or boss.health <= 0:
-			continue
-		boss.attack_released.connect(_on_boss_attack.bind(boss))
-		boss.stage_changed.connect(_on_boss_stage.bind(boss))
-		boss.defeated.connect(func(_id: StringName) -> void: _finish_boss("defeated"))
+		_watch_boss(node as CombatBoss)
 
 
 func _on_health_changed(current: int, _maximum: int) -> void:
@@ -274,18 +272,30 @@ func _on_boss_stage(stage: int, _boss_node: CombatBoss) -> void:
 # --- trackers ---------------------------------------------------------------------------------
 
 
+func _watch_boss(boss: CombatBoss) -> void:
+	if boss == null or boss.is_queued_for_deletion() or boss.health <= 0:
+		return
+	if _watched_bosses.has(boss.get_instance_id()):
+		return
+	_watched_bosses[boss.get_instance_id()] = true
+	boss.attack_released.connect(_on_boss_attack.bind(boss))
+	boss.stage_changed.connect(_on_boss_stage.bind(boss))
+	boss.defeated.connect(func(_id: StringName) -> void: _finish_boss("defeated"))
+
+
 func _track_boss() -> void:
 	for node in _player.get_tree().get_nodes_in_group(&"bosses"):
 		var boss := node as CombatBoss
 		if boss == null:
 			continue
+		_watch_boss(boss)
 		var engaged: bool = boss.get("_player_engaged") == true
 		var before := int(_boss_health.get(boss.get_instance_id(), boss.health))
 		_boss_health[boss.get_instance_id()] = boss.health
 		if boss.health < before and not engaged:
 			var id := String(boss.enemy_id)
 			disengaged_damage[id] = int(disengaged_damage.get(id, 0)) + before - boss.health
-		if not _boss.is_empty() or boss.health <= 0 or not engaged:
+		if not _boss.is_empty() or boss.health <= 0 or not engaged or GameState.health <= 0:
 			continue
 		_boss = {
 			"id": String(boss.enemy_id),
@@ -432,16 +442,20 @@ func _reflected_count() -> int:
 
 
 ## Best guess at what just hurt the player: a nearby enemy shot (credited to a boss attack when a
-## boss released one recently), then boss contact, a nearby enemy, a hazard, else "unknown".
+## boss released one recently), then a charging boss (its attack) or a touching one (contact), a
+## boss attack released recently, a nearby enemy, a hazard, else "unknown".
 func _source() -> String:
 	var tree := _player.get_tree()
 	var center := _player.global_position + Vector2(0, -90)
-	var boss_label := _boss_source(center)
+	var attack_label := _boss_attack_source()
 	var shot := _nearest(tree.get_nodes_in_group(&"enemy_shot"), center, SHOT_RADIUS)
 	if shot != null:
-		return boss_label if not boss_label.is_empty() else "shot:%s" % shot.get("style")
-	if not boss_label.is_empty():
-		return boss_label
+		return attack_label if not attack_label.is_empty() else "shot:%s" % shot.get("style")
+	var contact_label := _boss_contact_source(center)
+	if not contact_label.is_empty():
+		return contact_label
+	if not attack_label.is_empty():
+		return attack_label
 	var enemy := _nearest(tree.get_nodes_in_group(&"enemies"), center, CONTACT_RADIUS)
 	if enemy != null:
 		return String(enemy.get("enemy_id"))
@@ -451,7 +465,7 @@ func _source() -> String:
 	return "unknown"
 
 
-func _boss_source(center: Vector2) -> String:
+func _boss_attack_source() -> String:
 	for node in _player.get_tree().get_nodes_in_group(&"bosses"):
 		var boss := node as CombatBoss
 		if boss == null or boss.health <= 0:
@@ -459,8 +473,21 @@ func _boss_source(center: Vector2) -> String:
 		var last: Dictionary = _boss_attacks.get(boss.get_instance_id(), {})
 		if not last.is_empty() and now - float(last["t"]) <= BOSS_ATTACK_MEMORY:
 			return "%s:%s" % [boss.enemy_id, last["attack"]]
-		if center.distance_to(boss.global_position) <= CONTACT_RADIUS * 1.5:
-			return "%s:contact" % boss.enemy_id
+	return ""
+
+
+## Body contact with a boss; while a charge is running the charge is what hit.
+func _boss_contact_source(center: Vector2) -> String:
+	for node in _player.get_tree().get_nodes_in_group(&"bosses"):
+		var boss := node as CombatBoss
+		if boss == null or boss.health <= 0:
+			continue
+		if center.distance_to(boss.global_position) > CONTACT_RADIUS * 1.5:
+			continue
+		var attack := StringName(boss.get("_attack_id"))
+		if boss.get("_attack_state") == &"active" and BossPatterns.is_charge(attack):
+			return "%s:%s" % [boss.enemy_id, attack]
+		return "%s:contact" % boss.enemy_id
 	return ""
 
 

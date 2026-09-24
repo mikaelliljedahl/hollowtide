@@ -18,7 +18,7 @@ to game code.
 ## 2. Rules
 
 - **R1 Inputs only.** The agent presses and releases the game's input actions with
-  `Input.parse_input_event` and `Input.flush_buffered_events` (`tools/playtest_actions.gd:301`). It
+  `Input.parse_input_event` and `Input.flush_buffered_events` (`tools/playtest_actions.gd:309`). It
   never moves the player, sets health or kills enemies. Setup is the only exception: the launch
   scene resets progress, grants the kit and sets the checkpoint before the campaign loads
   (`tools/playtest_agent.gd:86`).
@@ -39,10 +39,10 @@ to game code.
 | Launch scene | `tools/playtest_agent.gd`, `tools/playtest_agent.tscn` | Parses flags, loads the campaign in one room with a kit, runs the loop, ends the run, writes the report and screenshots. |
 | Loop | `tools/playtest_loop.gd:49` | Once per physics frame, before the player: when the current program is done, export state, build candidates, ask the policy, start the chosen program. |
 | State exporter | `tools/playtest_state.gd:40` | One JSON-safe Dictionary per decision (section 4). |
-| Candidates and driver | `tools/playtest_actions.gd:22` | 6 to 12 labelled macro actions, each a per-frame program of held actions (section 5). |
+| Candidates and driver | `tools/playtest_actions.gd:25` | 6 to 12 labelled macro actions, each a per-frame program of held actions (section 5). |
 | Policies | `tools/playtest_policy.gd:44` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
-| Telemetry | `tools/playtest_telemetry.gd:58` | Signals and per-frame sampling (section 8). |
+| Telemetry | `tools/playtest_telemetry.gd:61` | Signals and per-frame sampling (section 8). |
 | Report | `tools/playtest_report.gd:10` | Findings, `report.json` and `report.md`. |
 | Runner | `tools/playtest/run.py:70` | Launches Godot per seed, hosts the policy server, aggregates. |
 | Policy server | `tools/playtest/policy_server.py:57` | Serves one game connection with a backend. |
@@ -65,7 +65,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:40`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), active `beam`, `missiles`, `max_missiles`. |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing), `ambush`, `hurt_by` (owned damage kinds that hurt it now, from the enemy's own `is_vulnerable_to`), `visible` (no tile on the line from the crossbow). Bosses add `stage`, `attack`, `attack_state` and `engaged`. |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow included), `ambush`, `hurt_by` (owned damage kinds that hurt it now, from the enemy's own `is_vulnerable_to`), `visible` (no tile on the line from the crossbow). Bosses add `stage`, `attack`, `attack_state` and `engaged`. |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -75,25 +75,25 @@ player's own position is room-local. Built by `tools/playtest_state.gd:40`.
 ## 5. Candidates
 
 `idle` is always first; the rest follow a fixed priority and the list is cut at 12
-(`tools/playtest_actions.gd:22`). The fight options aim at one primary target: the nearest visible
-enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:134`).
+(`tools/playtest_actions.gd:25`). The fight options aim at one primary target: the nearest visible
+enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:139`).
 
 | Key | Offered when | Program |
 |---|---|---|
 | `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks or it is above; wall-jump when clinging below it. |
 | `retreat` | An enemy exists | Run away from it for 12 frames. |
-| `shoot:<id>:<aim>` | Beam owned, target within 1100 px | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
-| `harpoon:<id>:<aim>` | Harpoons left and an enemy the Harpoon hurts that is a boss or immune to the beam | Same with `fire_missile`. |
+| `shoot:<id>:<aim>` | Beam owned, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
+| `harpoon:<id>:<aim>` | Harpoons left, an enemy the Harpoon hurts that is a boss or immune to the beam, and an aim that reaches it | Same with `fire_missile`. |
 | `jump_over:<id>` | Grounded, target within 420 px | Jump toward it, 20 frames held. |
 | `dash_through` | Undertow Dash ready and a shot flying at the player within 420 px | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
 | `go_to_ambush` | Armed arena, player not at its trigger | Steer to the trigger centre. |
 | `pick_up:<id>` | Up to two pickups | Steer to it. |
-| `go_to_exit:<edge:target>` | Up to three ungated exits | Steer to the door, running. |
+| `go_to_exit:<edge:target>` | Up to three ungated exits, none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
 | `jump:left`, `jump:right` | Always | Plain jumps, used to break a stall. |
 
 Stuck detection is positional: 3 s in which the player chose movement but stayed inside a 48 px
-box (`tools/playtest_telemetry.gd:371`).
+box (`tools/playtest_telemetry.gd:381`).
 
 ## 6. Policies
 
@@ -144,9 +144,12 @@ Recorded per run by `tools/playtest_telemetry.gd`:
 - decisions per policy with mean and max latency and fallbacks by reason, and action counts.
 
 The game does not report who hit the player, so the source is attributed by proximity when health
-drops (`tools/playtest_telemetry.gd:436`): a shot within 170 px, credited to a boss attack if a boss
-released one in the last 3 s; then boss contact; then the nearest enemy within 280 px; then a
-hazard; else `unknown`.
+drops (`tools/playtest_telemetry.gd:447`): a shot within 170 px, credited to a boss attack if a
+boss released one in the last 3 s; then a boss within 420 px, credited to its charge while one runs
+and to `contact` otherwise; then a boss attack released in the last 3 s; then the nearest enemy
+within 280 px; then a hazard; else `unknown`. Before round 2, contact within 3 s of any release was
+credited to that attack. Every boss node is watched as it appears (`tools/playtest_telemetry.gd:275`),
+so a boss rebuilt after a death still reports its stages and defeat.
 
 ## 9. Reports
 
@@ -172,7 +175,8 @@ external fallbacks.
 - A boss with a fitting kit: `--room vaults_03 --spawn 3,5 --kit
   beam,slipstream,bombs,missiles,missile_tank:1`. The kit takes ability ids and pickup kinds;
   `kind:count` collects that many pickups (for example `energy_tank:2`); `missiles` means one Bolt
-  Quiver.
+  Quiver, and counts add up: `missiles,missile_tank:1` is two quivers, ten Harpoons (before round 2
+  the ids collided and it granted one).
 - Screenshots: add `--windowed --shots 1.5` (real time, 1920x1080, one PNG every 1.5 s and one at
   each death).
 - External policy: `--policy external --backend passthrough` (the passthrough answers with the hint
@@ -304,7 +308,8 @@ local server that ignores it.
   a hopper in a small real room built with `tools/worldfx_testbed.gd` through inputs only, telemetry
   records the kill and a shot's damage source, the bridge round-trips hello, decide and bye with a
   stub server, a silent server times out within the bound and falls back, and a missing server
-  falls back.
+  falls back. Round 2 adds: no shot at a boss far below a grounded player, no exit while a boss
+  lives, a twitching drop spider exported as winding up, and kit pickups that stack.
 - `tools/check_playtest_bridge.py` (suite `playtest bridge`): the Python server's wire format, the
   null key on a backend error, the runner's argument vector (always `--test-mode`), and the
   cross-run findings. The jev backend runs against a stub `/v1/systemone` on 127.0.0.1, never the
@@ -330,7 +335,7 @@ local server that ignores it.
 - `fringe_03` with the Seed Crossbow: the beam trial clears in 5.4 s of fighting with 16 damage
   taken, all from the ceiling diver, identically over seeds 1 to 3 and through the external bridge.
   The random baseline died twice to the hopper in wave 1 in both of its runs.
-- `vaults_03` entered from the west door with ten Harpoons: the Stone Guardian falls in 8.9 s
+- `vaults_03` entered from the west door with five Harpoons (the kit said ten; see section 10): the Stone Guardian falls in 8.9 s
   (stage 3 lasted 2.2 s, stage 4 0.8 s) with 72 damage taken, all from Boulder Volley.
 - `vaults_03` started at the boss room's return point (feet exactly on the arena's bottom edge):
   the boss did not engage while the player stood still, and took 175 damage from Harpoons without
@@ -351,3 +356,45 @@ local server that ignores it.
 - The heuristic with the same kit left `vaults_03` after 4.1 s and did not return in 90 s, unlike
   the earlier win above; boss scripts were being changed on the branch at the same time, so the
   two vaults results are not yet a clean comparison.
+
+## 17. Results round 2 (2026-09-24)
+
+Same setups and seeds as section 16: `fringe_03` with `--kit beam`, and `vaults_03` with `--spawn
+3,5 --kit beam,slipstream,bombs,missiles,missile_tank:1` (ten Harpoons now; round 1's Jev and
+heuristic runs also had ten), seeds 1 and 2, heuristic and Jev.
+
+Causes found in round 1 and what changed:
+
+- **The heuristic left the boss room; no game regression.** From the ledge at the spawn the
+  Stone Guardian is 484 px below; the only aim a grounded player has is forward, so every Harpoon
+  missed. With ten Harpoons (five in the section 16 win) it was still on the ledge when a rock
+  knocked it back to the west door, the boss dropped out of sight and `go_to_exit` won. Commit
+  10a4cae only widens the arena test at the floor line and did not change this. Fixes: no shot
+  or Harpoon is offered without an aim that reaches the target, and no exit while a boss lives.
+- **Jev had actually won once per run.** A boss rebuilt after a death had no telemetry signals,
+  so its defeat read as `left_room` and the goal never ended the run; a dead player also opened a
+  0.8 s ghost attempt. Both are fixed, and body contact is no longer credited to the last attack.
+- **Danger peaks.** A scripted dodge probe in the real arena (see
+  [boss-rework.md](boss-rework.md#5-stone-guardian)) showed that Fault Slam and Rockfall have
+  fair answers the agent did not choose, and that the stage 3-4 volley and the Shoulder Charge at
+  the west end had none. Only those two changed.
+- **Drop spider.** The state never flagged its twitch, and with the real art the twitch drew no
+  visible change (glow and eye glint exist only in the placeholder), so only the creak warned.
+  Now the state carries the wind-up, and the twitch shakes the body, brightens the thread and
+  draws a dashed line to the locked stop point. Its 0.3 s timing is unchanged.
+
+| Measure | Round 1 | Round 2 |
+|---|---|---|
+| fringe_03 heuristic | 2/2 cleared, 5.4 s, 16 damage (ceiling diver), 0 deaths | unchanged |
+| fringe_03 Jev | 2/2 cleared, 11.9 / 6.8 s, 128 damage (drop spider 98, diver 16, hopper 14), 0 deaths | 2/2 cleared, 8.0 / 6.2 s, 86 damage (hopper 42, drop spider 28, diver 16), 0 deaths |
+| Jev hotspot (31, 13) | 16 of 22 unsure, mean confidence 0.42 | 3 of 10, 0.57 |
+| Jev hotspot (37, 13) | 10 of 12 unsure, 0.32 | 5 of 8, 0.35 |
+| vaults_03 heuristic | 0/2 won, left the room at 4.1 s, 24 damage each, ran out the 90 s | 2/2 won in 8.9 s, 48 damage each (volley 24, slam 24), 0 deaths |
+| vaults_03 Jev | no win recorded, 1 death per run (Shoulder Charge), 90 s, 344 damage (contact 144, volley 120, slam 48, rockfall 24, charge 8) | 2/2 won at the first attempt, 10.4 / 9.7 s, 0 deaths, 144 damage (contact 72, volley 24, slam 24, charge 24) |
+| Jev danger peaks passed unhurt | volley 15/28, slam 7/22, rockfall 17/19, charge 0/4 | volley 10/14, slam 0/6, rockfall 5/5, charge 1/3 |
+| Jev cost (estimate) | $0.034 | $0.008 |
+
+Read with care: round 2 fights are short, so the peak counts are small; the attribution change
+moves contact damage out of the attack rows; and a danger peak is keyed on the boss's last attack
+even while it idles, so "slam 0/6" counts contact and other hits within 1.5 s of a slam. The probe
+gives Fault Slam 0.33 to 0.67 s jump windows; in round 1 Jev answered it with `retreat`.

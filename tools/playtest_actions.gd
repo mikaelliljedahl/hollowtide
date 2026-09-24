@@ -13,6 +13,9 @@ const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
 const PROJECTILE_ALERT := 420.0
 const MAX_EXITS := 3
+## A grounded player cannot aim down: a target whose origin is more than this far below the feet
+## is under every aim the crossbow has, so no shot is offered at it.
+const GROUNDED_AIM_DROP := 160.0
 ## Kinds that are movement, for stuck detection: choosing one of these means "I want to move".
 const MOVING_KINDS := ["approach", "retreat", "go_to_exit", "go_to_ambush", "pick_up", "jump"]
 
@@ -47,8 +50,8 @@ static func candidates(state: Dictionary, player: Player) -> Array:
 				_run(-toward, STEP_FRAMES)
 			)
 		)
-		if abilities.has("beam") and rel.length() <= SHOT_RANGE:
-			var aim := aim_for(rel, bool(me["grounded"]))
+		var aim := aim_for(rel, bool(me["grounded"]))
+		if abilities.has("beam") and rel.length() <= SHOT_RANGE and not aim.is_empty():
 			result.append(
 				_entry(
 					"shoot:%s:%s" % [target["id"], aim],
@@ -58,9 +61,9 @@ static func candidates(state: Dictionary, player: Player) -> Array:
 				)
 			)
 		var harpoon := _harpoon_target(enemies, int(kit["missiles"]))
-		if not harpoon.is_empty():
-			var hrel := _vec(harpoon["rel"])
-			var haim := aim_for(hrel, bool(me["grounded"]))
+		var hrel := _vec(harpoon["rel"]) if not harpoon.is_empty() else Vector2.ZERO
+		var haim := aim_for(hrel, bool(me["grounded"]))
+		if not harpoon.is_empty() and not haim.is_empty():
 			result.append(
 				_entry(
 					"harpoon:%s:%s" % [harpoon["id"], haim],
@@ -111,9 +114,11 @@ static func candidates(state: Dictionary, player: Player) -> Array:
 				steer(player, _vec(pickup["rel"]), false)
 			)
 		)
+	# A living boss makes its room the goal: leaving is never offered while it fights.
+	var boss_alive := enemies.any(func(enemy: Dictionary) -> bool: return enemy["is_boss"])
 	var exits := 0
 	for door in state["exits"]:
-		if bool(door["gated"]) or exits >= MAX_EXITS:
+		if boss_alive or bool(door["gated"]) or exits >= MAX_EXITS:
 			continue
 		exits += 1
 		result.append(
@@ -166,8 +171,11 @@ static func incoming_projectile(state: Dictionary) -> Dictionary:
 	return {}
 
 
-## Aim name for a target at `rel` from the feet: the crossbow fires from about 100 px up.
+## Aim name for a target at `rel` from the feet: the crossbow fires from about 100 px up. "" when
+## no aim reaches it (grounded, with the target far below).
 static func aim_for(rel: Vector2, grounded: bool) -> String:
+	if grounded and rel.y > GROUNDED_AIM_DROP:
+		return ""
 	var offset := rel + Vector2(0, 100)
 	if offset.y < -absf(offset.x) * 2.2:
 		return "up"

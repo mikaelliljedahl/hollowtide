@@ -3,7 +3,8 @@ extends Node
 ## JSON-safe, candidates are valid input programs, the heuristic agent kills a hopper in a small
 ## real room through input events only, telemetry records the kill and the damage source, the
 ## external bridge round-trips one decision with a stub server, and a silent or missing server
-## falls back to the heuristic.
+## falls back to the heuristic. Round 2 fixes: no shot at a target far below a grounded player, no
+## exit while a boss lives, a surprise enemy's wind-up reads as a telegraph, kit pickups stack.
 ## godot --headless --path . res://tools/check_playtest_agent.tscn -- --test-mode
 
 const Loop = preload("res://tools/playtest_loop.gd")
@@ -142,6 +143,9 @@ func _run() -> void:
 	await _build()
 	await _test_state_and_candidates()
 	await _test_heuristic_clears_hopper()
+	await _test_round_two_candidates()
+	await _test_surprise_wind_up_is_telegraph()
+	_test_kit_pickups_stack()
 	await _test_bridge_round_trip()
 	await _test_timeout_falls_back()
 	await _test_missing_server_falls_back()
@@ -283,6 +287,86 @@ func _test_heuristic_clears_hopper() -> void:
 	_check(damage.has("shot:orb") and damage["shot:orb"] > 0, "damage is credited (%s)" % damage)
 	loop.finish({})
 	await _frames(40)
+
+
+## A boss far below a grounded player gets no shot (no aim reaches it) and, while it lives, no
+## exit is offered: vaults_03 round 1 emptied the quiver into the ledge and then left the room.
+func _test_round_two_candidates() -> void:
+	var loop := _loop(Policy.HEURISTIC)
+	var state := loop.exporter.snapshot(_root, _player, 1, 0.0)
+	loop.finish({})
+	_check(Actions.aim_for(Vector2(900, 480), true) == "", "no aim at a target far below the feet")
+	_check(Actions.aim_for(Vector2(900, 480), false) != "", "airborne, a diagonal aim reaches it")
+	state["kit"] = {"abilities": ["beam", "missiles"], "beam": "base", "missiles": 5}
+	state["exits"] = [{"id": "west:elsewhere", "rel": [-200, 0], "gated": false, "gate": ""}]
+	var boss := {
+		"id": "e1",
+		"type": "stone_guardian",
+		"rel": [900, 480],
+		"dist": 1000,
+		"health": 300,
+		"max_health": 300,
+		"is_boss": true,
+		"telegraph": false,
+		"ambush": false,
+		"hurt_by": ["missile"],
+		"visible": true,
+	}
+	state["enemies"] = [boss]
+	var kinds := Actions.candidates(state, _player).map(
+		func(e: Dictionary) -> String: return e["kind"]
+	)
+	_check(
+		not kinds.has("shoot") and not kinds.has("harpoon"),
+		"no shot at the boss below (%s)" % [kinds]
+	)
+	_check(not kinds.has("go_to_exit"), "no exit while the boss lives (%s)" % [kinds])
+	state["enemies"] = []
+	kinds = Actions.candidates(state, _player).map(func(e: Dictionary) -> String: return e["kind"])
+	_check(kinds.has("go_to_exit"), "the exit returns once no boss is left")
+	await _frames(1)
+
+
+func _test_surprise_wind_up_is_telegraph() -> void:
+	var spider := EnemyFactory.create(&"drop_spider") as Node2D
+	var entities := WorldFxTestbed.entities(_root.current_room)
+	# The spider takes its ceiling anchor from where it enters the tree.
+	spider.position = entities.to_local(_player.global_position + Vector2(0, -330))
+	entities.add_child(spider)
+	var seen := false
+	for _frame in 60:
+		await _frames(1)
+		if spider.call(&"presentation_state") == &"twitch":
+			var loop := _loop(Policy.HEURISTIC)
+			var state := loop.exporter.snapshot(_root, _player, 1, 0.0)
+			loop.finish({})
+			for enemy in state["enemies"]:
+				seen = seen or (enemy["type"] == "drop_spider" and enemy["telegraph"])
+			break
+	_check(seen, "a twitching drop spider is exported as winding up")
+	spider.queue_free()
+	GameState.reset_health()
+	await _frames(40)
+
+
+## "missiles" and "missile_tank:2" are three Bolt Quivers, not two (the ids used to collide).
+func _test_kit_pickups_stack() -> void:
+	var agent := Agent.new()
+	GameState.reset_progress()
+	agent.options["kit"] = "missile_tank:1"
+	agent._grant(agent.kit())
+	var one := GameState.max_missiles
+	GameState.reset_progress()
+	agent.options["kit"] = "missiles,missile_tank:2"
+	agent._grant(agent.kit())
+	_check(
+		one > 0 and GameState.max_missiles == one * 3,
+		"three quivers granted (%d harpoons, one quiver holds %d)" % [GameState.max_missiles, one]
+	)
+	agent.free()
+	GameState.reset_progress()
+	GameState.unlock_ability(&"beam")
+	GameState.reset_health()
 
 
 func _test_bridge_round_trip() -> void:
