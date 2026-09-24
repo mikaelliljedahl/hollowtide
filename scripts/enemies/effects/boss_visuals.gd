@@ -1,9 +1,12 @@
 extends RefCounted
 ## Presentation helpers for CombatBoss: weak-point glow, vulnerable-window timer ring,
-## Tidal Heart shield bubble and grate tether, locked attack warning lines, health bar.
+## Tidal Heart shield bubble and grate tether, attack telegraphs (boss_telegraphs.gd), health bar,
+## sprite state/pose and the small hit, release and heat effects.
 ## Pure visuals: nothing here changes damage rules or timings.
 
 const GLOW_MATERIAL = preload("res://resources/combat/beam_glow_add.tres")
+const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Telegraphs = preload("res://scripts/enemies/effects/boss_telegraphs.gd")
 const ART_DIR := "res://assets/sprites/combat/"
 const CORE_OFFSETS := {
 	&"stone_guardian": Vector2(62.0, -22.0),
@@ -88,6 +91,9 @@ static func state_look(boss: Node) -> Dictionary:
 				look["glow_color"] = Color(1.0, 0.88, 0.62, 1.0)
 	if closing:
 		look["glow"] = float(look["glow"]) * (0.4 + 0.6 * absf(sin(age * 26.0)))
+	if int(boss.stage) >= Patterns.DESPERATION_STAGE:
+		# Desperation: a fast, hot pulse over whatever state the body is in.
+		look["glow"] = maxf(float(look["glow"]), 0.22 + 0.18 * absf(sin(age * 9.0)))
 	return look
 
 
@@ -172,13 +178,7 @@ static func draw_overlay(boss: Node, canvas: CanvasItem) -> void:
 			4.0,
 			true
 		)
-	if float(boss._telegraph_remaining) > 0.0:
-		var progress := 1.0 - clampf(float(boss._telegraph_remaining) / 0.35, 0.0, 1.0)
-		for direction: Vector2 in boss._pending_directions:
-			var start := core + direction * 60.0
-			var finish := core + direction * (90.0 + 200.0 * progress)
-			canvas.draw_line(start, finish, Color(accent, 0.25), 14.0, true)
-			canvas.draw_line(start, finish, Color(accent.lightened(0.4), 0.8), 4.0, true)
+	Telegraphs.draw(boss, canvas, core, accent)
 
 
 static func _draw_cracks(canvas: CanvasItem, core: Vector2, accent: Color, age: float) -> void:
@@ -289,8 +289,11 @@ static func draw_health_bar(boss: Node) -> void:
 	canvas.draw_rect(
 		Rect2(inner.position, Vector2(inner.size.x * ratio, 3.0)), Color(1.0, 1.0, 1.0, 0.25), true
 	)
-	if int(boss.phase) == 1:
-		var notch_x := inner.position.x + inner.size.x * 0.5
+	# One notch per stage still ahead; the last one marks desperation.
+	for threshold in Patterns.STAGE_THRESHOLDS:
+		if ratio <= threshold:
+			continue
+		var notch_x := inner.position.x + inner.size.x * threshold
 		canvas.draw_line(
 			Vector2(notch_x, top_left.y - 2.0),
 			Vector2(notch_x, top_left.y + size.y + 2.0),
@@ -298,3 +301,188 @@ static func draw_health_bar(boss: Node) -> void:
 			2.0
 		)
 	canvas.draw_rect(Rect2(top_left, size), Color(accent, 0.55), false, 2.0)
+
+
+static func advance_timers(boss: Node2D, delta: float) -> void:
+	boss._hit_flash_remaining = maxf(float(boss._hit_flash_remaining) - delta, 0.0)
+	boss._block_flash_remaining = maxf(float(boss._block_flash_remaining) - delta, 0.0)
+	boss._stagger_remaining = maxf(float(boss._stagger_remaining) - delta, 0.0)
+	boss._tether_flash = maxf(float(boss._tether_flash) - delta, 0.0)
+	boss._recoil *= exp(-14.0 * delta)
+	boss._health_trail_delay = maxf(float(boss._health_trail_delay) - delta, 0.0)
+	var health := float(boss.health)
+	if boss._health_trail_delay == 0.0:
+		var rate := float(boss.max_health) * delta * 0.6
+		boss._health_trail = move_toward(float(boss._health_trail), health, rate)
+	boss._health_trail = maxf(float(boss._health_trail), health)
+	for ripple: Dictionary in boss._shield_ripples:
+		ripple["age"] = float(ripple["age"]) + delta
+	boss._shield_ripples = boss._shield_ripples.filter(func(r): return float(r["age"]) < 0.45)
+	var exposed: bool = boss.weak_point_exposed()
+	var window: bool = boss.phase == 2 or boss.enemy_id == &"tidal_heart"
+	if exposed != boss._was_open and window:
+		if exposed:
+			GameJuice.play_sfx(&"boss_open")
+			CombatFeedback.spawn_phase_burst(boss, boss._boss_accent_color(), boss._core_local())
+		else:
+			GameJuice.play_sfx(&"boss_close")
+			spawn_close_puff(boss)
+	boss._was_open = exposed
+	boss._open_elapsed = float(boss._open_elapsed) + delta if exposed else 0.0
+	if boss.enemy_id == &"furnace_mother" and boss.phase == 2:
+		boss._steam_timer -= delta
+		if boss._steam_timer <= 0.0:
+			boss._steam_timer = 0.12 if boss._branch_open else 0.3
+			spawn_heat_particle(boss)
+
+
+static func apply_presentation(boss: Node) -> void:
+	var sprite: Sprite2D = boss._sprite
+	var age: float = boss._age
+	var accent: Color = boss._boss_accent_color()
+	var tidal: bool = boss.enemy_id == &"tidal_heart"
+	var pose := Telegraphs.pose(boss)
+	sprite.position = boss._visual_base_position + boss._recoil + pose["offset"]
+	sprite.position.y += sin(age * 1.8) * (4.0 if tidal else 1.5)
+	sprite.scale = boss._visual_base_scale * (pose["scale"] as Vector2)
+	sprite.rotation = sin(age * 1.25) * (0.018 if tidal else 0.008) + float(pose["rotation"])
+	sprite.modulate = Color.WHITE
+	var look := state_look(boss)
+	var glow: float = look["glow"]
+	var glow_color: Color = look["glow_color"]
+	var flash := 0.0
+	var flash_color := Color.WHITE
+	if float(boss._telegraph_remaining) > 0.0:
+		var attack_pulse := 0.5 + 0.5 * sin(age * 26.0)
+		glow = maxf(glow, 0.45 + attack_pulse * 0.35)
+		glow_color = accent
+		flash = float(pose["flash"])
+		flash_color = accent.lightened(0.6)
+	var stagger: float = boss._stagger_remaining
+	if stagger > 0.0:
+		var shake: float = stagger / float(boss.STAGGER_SECONDS)
+		sprite.position += Vector2(sin(age * 80.0), cos(age * 67.0)) * 6.0 * shake
+		flash = maxf(flash, 0.35 * shake)
+		flash_color = accent
+	var strength := GameJuice.flash_strength()
+	if float(boss._hit_flash_remaining) > 0.0:
+		flash = clampf(float(boss._hit_flash_remaining) / float(boss.HIT_FLASH_SECONDS), 0.0, 1.0)
+		flash *= 0.85 * strength
+		flash_color = Color(1.0, 0.97, 0.9)
+		sprite.scale *= 1.02
+	elif float(boss._block_flash_remaining) > 0.0:
+		flash = 0.45 * strength
+		flash_color = Color(0.6, 0.66, 0.76)
+		sprite.position.x += sin(age * 95.0) * 2.5
+	var fx: ShaderMaterial = boss._fx
+	if fx != null:
+		fx.set_shader_parameter(&"flash_amount", flash)
+		fx.set_shader_parameter(&"flash_color", flash_color)
+		fx.set_shader_parameter(&"glow_amount", glow)
+		fx.set_shader_parameter(&"glow_color", glow_color)
+		fx.set_shader_parameter(&"frost_amount", look["frost"])
+		fx.set_shader_parameter(&"darken_amount", look["darken"])
+	var overlay: Node2D = boss._overlay
+	if overlay != null:
+		overlay.queue_redraw()
+
+
+static func apply_state_art(boss: Node) -> void:
+	if not boss.has_state_art():
+		return
+	var sprite: Sprite2D = boss._sprite
+	sprite.texture = boss._open_texture if boss.weak_point_exposed() else boss._closed_texture
+	# D19 "Bubble -> Harpoon": Bubble Snare encases the exposed core; a harpoon pops it.
+	var bubbled: bool = boss.phase == 1 and boss._branch_open and not boss._core_cracked
+	var radius: float = boss.CORE_BUBBLE_RADIUS
+	if bubbled and not is_instance_valid(boss._core_bubble):
+		boss._core_bubble = BubbleVisual.attach(
+			boss, Rect2(-radius, -radius, radius * 2.0, radius * 2.0), 4
+		)
+	var bubble: BubbleVisual = boss._core_bubble
+	if is_instance_valid(bubble):
+		bubble.visible = bubbled
+		bubble.position = boss._core_local()
+		var closing := float(boss._branch_timer) / float(boss.CLOSING_WARNING_SECONDS)
+		bubble.warning = clampf(1.0 - closing, 0.0, 1.0) if bubbled else 0.0
+
+
+static func release_feedback(boss: Node2D, attack: StringName) -> void:
+	var parent: Node = boss._effect_parent()
+	if parent == null:
+		return
+	var feet := boss.global_position + Vector2(0.0, 88.0)
+	if Telegraphs.RISE_ATTACKS.has(attack):
+		CombatFx.spawn_dust(parent, feet, &"land", 1.0, 2.5)
+		GameJuice.shake(boss, 6.0, 0.25)
+	elif Telegraphs.LUNGE_ATTACKS.has(attack):
+		CombatFx.spawn_dust(parent, feet, &"skid", float(boss._facing), 2.0)
+	else:
+		CombatFx.spawn_muzzle_flash(
+			parent, boss._core_world_position(), Vector2.UP, boss._boss_accent_color()
+		)
+
+
+static func charge_impact(boss: Node2D) -> void:
+	var parent: Node = boss._effect_parent()
+	if parent != null:
+		var front := boss.global_position + Vector2(float(boss._facing) * 90.0, 40.0)
+		CombatFx.spawn_dust(parent, front, &"wall", -float(boss._facing), 2.5)
+	GameJuice.shake(boss, 7.0, 0.3)
+
+
+static func spawn_compact_hit(
+	boss: Node, impact_position: Vector2, direction := Vector2.ZERO, heavy := false
+) -> void:
+	var parent: Node = boss._effect_parent()
+	if parent != null:
+		var tint: Color = boss._boss_accent_color().lightened(0.25)
+		CombatFeedback.spawn_hit(parent, impact_position, false, direction, heavy, tint)
+
+
+static func spawn_blocked_hit(
+	boss: Node2D, impact_position: Vector2, direction := Vector2.ZERO
+) -> void:
+	var parent: Node = boss._effect_parent()
+	if parent != null:
+		CombatFeedback.spawn_blocked_hit(parent, impact_position, direction)
+	boss._block_flash_remaining = boss.BLOCK_FLASH_SECONDS
+	if boss.enemy_id == &"tidal_heart" and boss.phase == 2:
+		boss._shield_ripples.append({"position": boss.to_local(impact_position), "age": 0.0})
+	if Audio.has_method(&"play_sfx"):
+		GameJuice.play_sfx(&"armor_clink", &"beam_ricochet")
+
+
+static func spawn_close_puff(boss: Node2D) -> void:
+	var parent: Node = boss._effect_parent()
+	if parent == null:
+		return
+	var tint := Color(0.5, 0.5, 0.52, 0.5)
+	for index in 3:
+		var puff := CombatFx.Puff.new()
+		parent.add_child(puff)
+		puff.global_position = boss._core_world_position()
+		puff.z_index = 6
+		var angle := TAU * float(index) / 3.0 + float(boss._age)
+		puff.configure(Vector2.RIGHT.rotated(angle) * 70.0, 0.35, 10.0, 34.0, tint)
+
+
+static func spawn_heat_particle(boss: Node2D) -> void:
+	var parent: Node = boss._effect_parent()
+	if parent == null or not boss.is_inside_tree():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var puff := CombatFx.Puff.new()
+	parent.add_child(puff)
+	var spread := Vector2(rng.randf_range(-150.0, 150.0), rng.randf_range(-170.0, -40.0))
+	puff.global_position = boss.global_position + boss._visual_base_position + spread
+	puff.z_index = 6
+	if boss._branch_open:
+		# Cooling window: pale steam vents off the cracked shell.
+		var rise := Vector2(0.0, -rng.randf_range(80.0, 150.0))
+		puff.configure(rise, 0.7, 8.0, 36.0, Color(0.85, 0.87, 0.9, 0.4), 1.5)
+	else:
+		# Overheated: embers rise off the white-hot carapace.
+		var rise := Vector2(rng.randf_range(-20.0, 20.0), -rng.randf_range(120.0, 220.0))
+		puff.configure(rise, 0.45, 3.0, 5.0, Color(1.0, 0.72, 0.3, 0.9), 0.5)

@@ -53,6 +53,7 @@ const SFX_PATHS: Dictionary[StringName, String] = {
 	&"pulse_burst": "res://assets/audio/sfx/pulse_burst.wav",
 	&"dash": "res://assets/audio/sfx/dash.wav",
 	&"dash_hit": "res://assets/audio/sfx/dash_hit.wav",
+	&"dash_deflect": "res://assets/audio/sfx/dash_deflect.wav",
 	&"barrier_break": "res://assets/audio/sfx/barrier_break.wav",
 }
 const AMBIENT_PATHS: Dictionary[StringName, String] = {

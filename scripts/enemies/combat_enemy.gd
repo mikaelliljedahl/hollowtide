@@ -93,6 +93,9 @@ var _bubble_rise := 0.0
 var _bubble_visual: BubbleVisual
 var _placement_frames := 3
 var arena_bounds := Rect2()
+## Elite multipliers (EnemyElite.apply); 1.0 for every normal enemy.
+var speed_scale := 1.0
+var cadence_scale := 1.0
 
 
 func _ready() -> void:
@@ -155,17 +158,19 @@ func _physics_process(delta: float) -> void:
 		_update_visual_presentation()
 		queue_redraw()
 		return
-	_attack_timer = maxf(_attack_timer - delta, 0.0)
+	_attack_timer = maxf(_attack_timer - delta * cadence_scale, 0.0)
 	var was_telegraphing := _telegraph_remaining > 0.0
 	_telegraph_remaining = maxf(_telegraph_remaining - delta, 0.0)
-	_jump_timer = maxf(_jump_timer - delta, 0.0)
+	_jump_timer = maxf(_jump_timer - delta * cadence_scale, 0.0)
 	if was_telegraphing and _telegraph_remaining == 0.0:
 		_perform_telegraph_action()
 	if _skip_ai_once:
 		_skip_ai_once = false
 	else:
 		_run_ai(delta)
+	velocity.x *= speed_scale
 	move_and_slide()
+	velocity.x /= speed_scale
 	_constrain_to_arena()
 	_update_visual_presentation()
 	queue_redraw()

@@ -5,12 +5,15 @@ extends RefCounted
 ## [audio]          master, music, sfx, ambience : float 0..1 (linear)
 ## [display]        fullscreen : bool
 ## [accessibility]  screen_shake : float 0..1, reduce_flashes : bool
+## [assist]         game_speed : float 0.5..1, damage_taken : float 0..1, skip_ambushes : bool
 ## [input]          <action> : Array[int] of physical keycodes (only present after rebinding)
 ##
 ## Accessibility values are mirrored at runtime to ProjectSettings
 ## "accessibility/screen_shake" and "accessibility/reduce_flashes" so other systems can read
-## them without depending on this script.
+## them without depending on this script. Assist values are mirrored to "assist/<key>" the same
+## way and read through scripts/progression/assist.gd.
 
+const Assist = preload("res://scripts/progression/assist.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 
 const PATH := "user://settings.cfg"
@@ -64,6 +67,8 @@ static func set_setting(section: String, key: String, value: Variant) -> void:
 			apply_display()
 		"accessibility":
 			apply_accessibility()
+		"assist":
+			apply_assist()
 
 
 static func save() -> void:
@@ -79,6 +84,7 @@ static func apply_all(force: bool = false) -> void:
 		apply_volume(key)
 	apply_display()
 	apply_accessibility()
+	apply_assist()
 	apply_bindings()
 
 
@@ -143,6 +149,18 @@ static func reduce_flashes() -> bool:
 static func apply_accessibility() -> void:
 	ProjectSettings.set_setting("accessibility/screen_shake", screen_shake())
 	ProjectSettings.set_setting("accessibility/reduce_flashes", reduce_flashes())
+
+
+static func assist_value(key: String) -> Variant:
+	var full := "assist/" + key
+	return get_setting("assist", key, Assist.DEFAULTS[full])
+
+
+static func apply_assist() -> void:
+	for full in Assist.DEFAULTS:
+		ProjectSettings.set_setting(full, assist_value(String(full).trim_prefix("assist/")))
+	if not is_test_run():
+		Assist.apply_game_speed()
 
 
 static func is_test_run() -> bool:
@@ -321,9 +339,17 @@ static func controls_detail_text() -> String:
 		(
 			"%s cycles owned bolts: Seed Bolt, Bubble Snare, and Echo Shot. Focus Lens is passive.\n"
 			+ "%s toggles Shield/Burst. Echo Scan is one-shot: %s spends %d Flux to mark nearby "
-			+ "enemies, bosses, pickups, gates, and stations."
+			+ "enemies, bosses, pickups, gates, and stations.\n"
+			+ "%s on a save shrine opens its menu: Travel between used shrines, and Tide Sockets "
+			+ "once a glyph is found."
 		)
-		% [_first_key(&"cycle_beam"), flux_key, flux_key, Catalog.ECHO_SCAN_COST]
+		% [
+			_first_key(&"cycle_beam"),
+			flux_key,
+			flux_key,
+			Catalog.ECHO_SCAN_COST,
+			_first_key(&"move_up"),
+		]
 	)
 
 

@@ -24,6 +24,9 @@ static func spawn_for_defeat(
 		return
 	if with_effect:
 		CombatFeedback.spawn_death(source, boss, frozen)
+	if EnemyElite.is_elite(source):
+		EnemyElite.spawn_reward(source)
+		return
 	var enemy_id := StringName(source.get("enemy_id"))
 	if not _should_drop(enemy_id, source.global_position, boss):
 		return

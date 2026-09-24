@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/campaign/light_shaft.gd" id="5_light"]
 [ext_resource type="Script" path="res://scripts/campaign/station.gd" id="6_station"]
 [ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="7_enemy"]
+[ext_resource type="PackedScene" path="res://scenes/pickups/pickup.tscn" id="8_pickup"]
 
 [node name="nexus_01" type="Node2D"]
 script = ExtResource("1_room")
@@ -86,3 +87,8 @@ script = ExtResource("7_enemy")
 enemy_id = &"spitter"
 bounds = Rect2(2784, 352, 896, 384)
 travel_direction = 1
+
+[node name="Pickup_brine_hide" parent="Entities" instance=ExtResource("8_pickup")]
+position = Vector2(2016, 864)
+instance_id = "nexus_01.brine_hide"
+kind = &"glyph_brine_hide"

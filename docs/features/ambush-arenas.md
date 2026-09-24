@@ -32,8 +32,8 @@ Sources gathered with Firecrawl on 2026-09-23.
 ## 3. Design rules
 
 - **R1 Wave shape.** Waves grow (triangle). A final wave may shrink in count but raise threat (diamond).
-- **R2 Mix.** At most three enemy types per wave; pair a rusher (Hopper, Grasshopper, Energy
-  Parasite) with a ranged threat (Spitter, Shard Turret, Shooting Gargoyle).
+- **R2 Mix.** At most three enemy types per wave; pair a rusher (Hopper, Grasshopper, Leech
+  Wisp) with a ranged threat (Spitter, Shard Turret, Shooting Gargoyle).
 - **R3 Breather.** A short intermission (default 0.8 s) separates waves so the next spawn is a new beat.
 - **R4 Commit threshold.** The trigger zone sits inside the room, past the doorway, so the player is
   already in the arena when the seals close. Seals never close on top of the player.

@@ -46,6 +46,11 @@ position = Vector2(416, 1440)
 instance_id = "kiln_02.missile_01"
 kind = &"missile_tank"
 
+[node name="Pickup_spring_tide" parent="Entities" instance=ExtResource("5_pickup")]
+position = Vector2(1760, 1952)
+instance_id = "kiln_02.spring_tide"
+kind = &"glyph_spring_tide"
+
 [node name="Refill01" type="Area2D" parent="Entities"]
 position = Vector2(224, 858)
 script = ExtResource("6_station")

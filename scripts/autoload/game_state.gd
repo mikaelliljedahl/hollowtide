@@ -1,6 +1,9 @@
 extends Node
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const MapPins = preload("res://scripts/campaign/campaign_map_pins.gd")
+const FastTravel = preload("res://scripts/campaign/fast_travel.gd")
+const TideModules = preload("res://scripts/progression/tide_modules.gd")
 
 signal slipstream_acquired
 signal beam_acquired
@@ -31,7 +34,13 @@ var flux_enabled: bool = false
 var collected_pickup_ids: Array[String] = []
 var world_flags: Dictionary = {}
 var discovered_rooms: Array[String] = []
+var map_pins: Array[Dictionary] = []
+var activated_stations: Array[String] = []
+## Best Trials results (TrialRecords, docs/features/trials.md).
+var trial_bests: Dictionary = {}
 var checkpoint: Dictionary = Catalog.DEFAULT_CHECKPOINT.duplicate(true)
+## Tide Sockets and Glyphs (docs/features/tide-modules.md).
+var tide: TideModules = TideModules.new()
 
 var _abilities: Dictionary = {}
 
@@ -125,7 +134,9 @@ func collect_pickup(instance_id: String, kind: StringName) -> bool:
 			flux_current = flux_max
 			changed = true
 		_:
-			if Catalog.is_flux_ability(kind) and not has_ability(kind):
+			if Catalog.TIDE_PICKUP_KINDS.has(kind):
+				changed = tide.collect(kind)
+			elif Catalog.is_flux_ability(kind) and not has_ability(kind):
 				if not _ability_prerequisites_met(kind):
 					return false
 				changed = _apply_ability(kind)
@@ -290,6 +301,10 @@ func reset_progress() -> void:
 	collected_pickup_ids.clear()
 	world_flags.clear()
 	discovered_rooms.clear()
+	map_pins.clear()
+	activated_stations.clear()
+	tide.reset()
+	trial_bests.clear()
 	checkpoint = Catalog.DEFAULT_CHECKPOINT.duplicate(true)
 	_emit_changes(old_health, old_max_health, old_ammo, old_max_ammo)
 	_emit_flux_change(old_flux, old_max_flux)
@@ -300,7 +315,7 @@ func snapshot() -> Dictionary:
 	for id in Catalog.ABILITY_IDS:
 		if has_ability(id):
 			abilities.append(String(id))
-	return {
+	var result := {
 		"version": Catalog.SCHEMA_VERSION,
 		"abilities": abilities,
 		"active_beam": String(active_beam),
@@ -320,6 +335,18 @@ func snapshot() -> Dictionary:
 		"discovered_rooms": discovered_rooms.duplicate(),
 		"checkpoint": checkpoint.duplicate(true),
 	}
+	# Optional v2 keys: a save without pins, stations, Tide finds or Trials bests stays identical to
+	# one written before those features existed.
+	if not map_pins.is_empty():
+		result["map_pins"] = map_pins.duplicate(true)
+	if not activated_stations.is_empty():
+		result["activated_stations"] = activated_stations.duplicate()
+	var tide_value := tide.snapshot_value()
+	if not tide_value.is_empty():
+		result[TideModules.SAVE_KEY] = tide_value
+	if not trial_bests.is_empty():
+		result[TrialRecords.SNAPSHOT_KEY] = trial_bests.duplicate(true)
+	return result
 
 
 func validate_snapshot(data: Dictionary) -> bool:
@@ -358,6 +385,10 @@ func restore_snapshot(data: Dictionary) -> bool:
 	collected_pickup_ids = validated["collected_ids"].duplicate()
 	world_flags = validated["world_flags"].duplicate(true)
 	discovered_rooms = validated["discovered_rooms"].duplicate()
+	map_pins.assign(validated["map_pins"])
+	activated_stations.assign(validated["activated_stations"])
+	tide.restore(validated[TideModules.SAVE_KEY])
+	trial_bests = validated[TrialRecords.SNAPSHOT_KEY].duplicate(true)
 	checkpoint = validated["checkpoint"].duplicate(true)
 	_emit_changes(old_health, old_max_health, old_ammo, old_max_ammo)
 	_emit_flux_change(old_flux, old_max_flux)
@@ -383,6 +414,29 @@ func set_checkpoint(room: String, position: Vector2) -> bool:
 	if checkpoint == next:
 		return true
 	checkpoint = next
+	state_changed.emit()
+	return true
+
+
+## Replaces the player's map pins (see campaign_map_pins.gd); false when the list is invalid.
+func set_map_pins(pins: Array) -> bool:
+	var checked := MapPins.validated(pins, discovered_rooms)
+	if checked.is_empty():
+		return false
+	if checked["pins"] == map_pins:
+		return true
+	map_pins.assign(checked["pins"])
+	state_changed.emit()
+	return true
+
+
+## Remembers a save shrine as a fast-travel station (see fast_travel.gd); false if already known.
+func activate_station(id: String) -> bool:
+	if activated_stations.has(id) or activated_stations.size() >= FastTravel.MAX_STATIONS:
+		return false
+	if FastTravel.validated([id]).is_empty():
+		return false
+	activated_stations.append(id)
 	state_changed.emit()
 	return true
 
@@ -578,6 +632,13 @@ func _validated_snapshot(data: Dictionary) -> Dictionary:
 		"discovered_rooms",
 		"checkpoint"
 	]
+	# map_pins, activated_stations, tide_modules and trial_bests were added inside schema v2 without
+	# a bump: saves from before them lack the keys.
+	for optional_key in [
+		"map_pins", "activated_stations", TideModules.SAVE_KEY, TrialRecords.SNAPSHOT_KEY
+	]:
+		if data.has(optional_key):
+			expected_v2.append(optional_key)
 	if not _has_exact_keys(data, expected_v2):
 		return {}
 	return _validated_snapshot_fields(data, true)
@@ -626,6 +687,16 @@ func _validated_snapshot_fields(data: Dictionary, allow_flux: bool) -> Dictionar
 	var checkpoint_data := _validated_checkpoint(data.get("checkpoint", null))
 	if checkpoint_data.is_empty():
 		return {}
+	var pin_data := MapPins.validated(data.get("map_pins", []), list_data["discovered_rooms"])
+	if pin_data.is_empty():
+		return {}
+	var station_data := FastTravel.validated(data.get("activated_stations", []))
+	if station_data.is_empty():
+		return {}
+	var tide_data := TideModules.validated(data.get(TideModules.SAVE_KEY, {}))
+	var trial_data: Variant = TrialRecords.validated(data.get(TrialRecords.SNAPSHOT_KEY, {}))
+	if tide_data.is_empty() or trial_data == null:
+		return {}
 	var result := {
 		"abilities": abilities,
 		"active_beam": String(active),
@@ -638,6 +709,10 @@ func _validated_snapshot_fields(data: Dictionary, allow_flux: bool) -> Dictionar
 		"collected_ids": list_data["collected_ids"],
 		"world_flags": list_data["world_flags"],
 		"discovered_rooms": list_data["discovered_rooms"],
+		"map_pins": pin_data["pins"],
+		"activated_stations": station_data["stations"],
+		TideModules.SAVE_KEY: tide_data,
+		TrialRecords.SNAPSHOT_KEY: trial_data,
 		"checkpoint": checkpoint_data,
 	}
 	if allow_flux:
@@ -710,7 +785,10 @@ func _validated_ability_prerequisites(abilities: Array[String]) -> bool:
 
 
 func _pickup_feedback_message(kind: StringName, auto_equipped_beam: bool, was_full: bool) -> String:
-	# Names come from ContentCatalog.DISPLAY_NAMES (D19); internal ids are unchanged.
+	# Names come from ContentCatalog.DISPLAY_NAMES (D19); internal ids are unchanged except the
+	# four renamed in commit 97168b9 (slipstream, undertow_dash, pressure_seal, gate kind undertow).
+	if Catalog.TIDE_PICKUP_KINDS.has(kind):
+		return tide.feedback(kind)
 	var title := Catalog.display_name(kind).to_upper()
 	if kind == &"missiles" or kind == &"missile_tank":
 		return (

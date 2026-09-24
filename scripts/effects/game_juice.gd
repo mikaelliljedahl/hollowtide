@@ -10,6 +10,8 @@ extends RefCounted
 ## Hit-stop is skipped in headless runs and `--test-mode` so automated checks stay
 ## deterministic.
 
+const Assist = preload("res://scripts/progression/assist.gd")
+
 const SETTINGS_PATH := "user://settings.cfg"
 const SHAKE_SETTING := "accessibility/screen_shake"
 const REDUCE_FLASHES_SETTING := "accessibility/reduce_flashes"
@@ -90,7 +92,7 @@ static func hit_stop(source: Node, seconds: float) -> void:
 	_hit_stop_until_msec = until
 	if not _hit_stop_active:
 		_hit_stop_active = true
-		Engine.time_scale = HIT_STOP_SCALE
+		Engine.time_scale = HIT_STOP_SCALE * Assist.game_speed()
 	var timer := tree.create_timer(minf(seconds, MAX_HIT_STOP), true, false, true)
 	timer.timeout.connect(_release_hit_stop, CONNECT_ONE_SHOT)
 
@@ -105,14 +107,14 @@ static func _release_hit_stop() -> void:
 		timer.timeout.connect(_release_hit_stop, CONNECT_ONE_SHOT)
 		return
 	_hit_stop_active = false
-	Engine.time_scale = 1.0
+	Engine.time_scale = Assist.game_speed()
 
 
-## Safety net: restore normal speed if a hit-stop outlived its window (e.g. across a scene change).
+## Safety net: restore the base speed if a hit-stop outlived its window (e.g. across a scene change).
 static func ensure_time_restored() -> void:
 	if _hit_stop_active and Time.get_ticks_msec() > _hit_stop_until_msec + 50:
 		_hit_stop_active = false
-		Engine.time_scale = 1.0
+		Engine.time_scale = Assist.game_speed()
 
 
 static func _load_file_settings() -> void:

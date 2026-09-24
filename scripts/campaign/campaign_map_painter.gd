@@ -33,6 +33,12 @@ const SAVE_COLOR := Color("7fe3ff")
 const REFILL_COLOR := Color("9df29b")
 const ITEM_COLOR := Color("ffcf5a")
 const PLAYER_COLOR := Color("fff3c4")
+## Player map pins: each kind has its own shape so colour is never the only signal.
+const PIN_COLORS := {
+	"return": Color("ff7ad9"),
+	"danger": Color("ff5a3c"),
+	"item": Color("d4ff5a"),
+}
 const INK := Color(0.01, 0.02, 0.03, 0.92)
 const TILE_PX := 64.0
 
@@ -79,6 +85,10 @@ static func paint(
 		draw_item(canvas, view.point(origin + Vector2(pickup["cell"]) + Vector2(0.5, 0.5)), view)
 	for gate in Model.gate_markers(discovered):
 		_paint_gate(canvas, view, gate)
+	for pin in GameState.map_pins:
+		if Rooms.ROOMS.has(pin["room"]):
+			var cell := Vector2(Rooms.ROOMS[pin["room"]]["origin"]) + Vector2(pin["x"], pin["y"])
+			draw_pin(canvas, view.point(cell + Vector2(0.5, 0.5)), pin["kind"], view.icon_scale)
 	if player_tile.x > -9000.0:
 		draw_player(canvas, view.point(player_tile), view)
 
@@ -227,6 +237,29 @@ static func draw_save(canvas: CanvasItem, center: Vector2, k: float) -> void:
 	_diamond(canvas, center, r * 0.42, Color("0b2a33"))
 
 
+## Fast-travel mode marker around a save icon: a ring on every target, a larger pulsing double
+## ring with corner ticks on the selected one. Shape and size carry the selection, not colour alone.
+static func draw_travel_target(
+	canvas: CanvasItem, center: Vector2, view: View, selected: bool
+) -> void:
+	var k := maxf(view.icon_scale, 0.8)
+	var pulse := 0.0 if view.reduce_motion else 0.5 + 0.5 * sin(view.time * 4.0)
+	if not selected:
+		canvas.draw_arc(center, 17.0 * k, 0.0, TAU, 32, INK, 5.0, true)
+		canvas.draw_arc(center, 17.0 * k, 0.0, TAU, 32, Color(SAVE_COLOR, 0.8), 2.0, true)
+		return
+	var r := (24.0 + 3.0 * pulse) * k
+	canvas.draw_circle(center, r + 6.0, Color(SAVE_COLOR, 0.12 + 0.1 * pulse))
+	canvas.draw_arc(center, r, 0.0, TAU, 40, INK, 7.0, true)
+	canvas.draw_arc(center, r, 0.0, TAU, 40, SAVE_COLOR, 3.0, true)
+	canvas.draw_arc(center, r * 0.72, 0.0, TAU, 32, Color(SAVE_COLOR, 0.5), 1.5, true)
+	for index in 4:
+		var direction := Vector2.from_angle(PI * 0.25 + PI * 0.5 * float(index))
+		var start := center + direction * (r + 5.0)
+		canvas.draw_line(start, start + direction * 9.0 * k, INK, 6.0)
+		canvas.draw_line(start, start + direction * 9.0 * k, PLAYER_COLOR, 3.0)
+
+
 static func draw_refill(canvas: CanvasItem, center: Vector2, k: float) -> void:
 	var r := 8.0 * k
 	canvas.draw_circle(center, r + 2.5, INK)
@@ -248,6 +281,48 @@ static func draw_item(canvas: CanvasItem, center: Vector2, view: View) -> void:
 	canvas.draw_circle(center, r + 2.0, INK)
 	canvas.draw_circle(center, r, ITEM_COLOR)
 	canvas.draw_circle(center - Vector2(r, r) * 0.25, r * 0.4, Color(1, 1, 0.9, 0.9))
+
+
+## A player pin whose needle point sits on `tip` (the pinned cell's centre), head above it:
+## ring for "return", warning triangle for "danger", star for "item".
+static func draw_pin(canvas: CanvasItem, tip: Vector2, kind: String, k: float) -> void:
+	k = maxf(k, 0.7)
+	var color: Color = PIN_COLORS.get(kind, Color.WHITE)
+	var r := 9.0 * k
+	var head := tip - Vector2(0, r * 1.9)
+	canvas.draw_line(tip, head, INK, maxf(3.0, 4.0 * k))
+	canvas.draw_line(tip, head, color.darkened(0.2), maxf(1.5, 2.0 * k))
+	canvas.draw_circle(tip, maxf(1.5, 2.0 * k), INK)
+	match kind:
+		"danger":
+			var up := PackedVector2Array(
+				[head + Vector2(0, -r * 1.15), head + Vector2(r * 1.1, r * 0.8)]
+			)
+			up.append(head + Vector2(-r * 1.1, r * 0.8))
+			var outline := PackedVector2Array()
+			for point in up:
+				outline.append(head + (point - head) * 1.3)
+			canvas.draw_colored_polygon(outline, INK)
+			canvas.draw_colored_polygon(up, color)
+			var ink := Color("2a0a04")
+			canvas.draw_line(
+				head + Vector2(0, -r * 0.45), head + Vector2(0, r * 0.2), ink, maxf(1.5, 2.2 * k)
+			)
+			canvas.draw_circle(head + Vector2(0, r * 0.5), maxf(0.8, 1.2 * k), ink)
+		"item":
+			var star := PackedVector2Array()
+			var outline := PackedVector2Array()
+			for index in 10:
+				var angle := -PI * 0.5 + TAU * float(index) / 10.0
+				var radius := r * (1.2 if index % 2 == 0 else 0.55)
+				star.append(head + Vector2(cos(angle), sin(angle)) * radius)
+				outline.append(head + Vector2(cos(angle), sin(angle)) * (radius + 2.5))
+			canvas.draw_colored_polygon(outline, INK)
+			canvas.draw_colored_polygon(star, color)
+		_:
+			canvas.draw_circle(head, r + 2.5, INK)
+			canvas.draw_circle(head, r, color)
+			canvas.draw_circle(head, r * 0.45, Color("2a0a22"))
 
 
 static func draw_player(canvas: CanvasItem, center: Vector2, view: View) -> void:

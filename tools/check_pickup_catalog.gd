@@ -35,7 +35,15 @@ func _test_catalog_and_generic_visuals() -> void:
 		not Catalog.PICKUP_KINDS.any(func(kind): return Catalog.FLUX_PICKUP_KINDS.has(kind)),
 		"base and Flux pickup kind partitions are disjoint"
 	)
-	for kind in Catalog.PICKUP_KINDS + Catalog.FLUX_PICKUP_KINDS:
+	_expect(
+		not Catalog.TIDE_PICKUP_KINDS.any(
+			func(kind): return Catalog.PICKUP_KINDS.has(kind) or Catalog.FLUX_PICKUP_KINDS.has(kind)
+		),
+		"Tide pickup kinds are their own partition"
+	)
+	for kind in Catalog.TIDE_PICKUP_KINDS:
+		_expect(Catalog.is_pickup_kind(kind), "%s is a registered pickup kind" % kind)
+	for kind in Catalog.PICKUP_KINDS + Catalog.FLUX_PICKUP_KINDS + Catalog.TIDE_PICKUP_KINDS:
 		var path := Catalog.pickup_icon_path(kind)
 		_expect(
 			not path.is_empty() and ResourceLoader.exists(path), "%s has generated icon path" % kind

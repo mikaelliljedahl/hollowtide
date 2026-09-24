@@ -1,5 +1,6 @@
 class_name Player extends CharacterBody2D
 
+const Assist = preload("res://scripts/progression/assist.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const PlayerFluxRuntime = preload("res://scripts/player/player_flux_runtime.gd")
 const HitResult = preload("res://scripts/combat/hit_result.gd")
@@ -109,8 +110,12 @@ func _physics_process(delta: float) -> void:
 	_jump_press_queued = false
 	_update_jump_timers(delta, jump_just_pressed)
 	_update_wall_state(delta)
-
-	_resolve_jump(move_input)
+	# Deflect window: every other action press is dropped (docs/features/dash-deflect.md).
+	var deflecting := _dash.deflect.is_open()
+	if deflecting:
+		_dash.deflect.discard_inputs()
+	else:
+		_resolve_jump(move_input)
 
 	_apply_jump_cutoff(jump_held)
 
@@ -118,11 +123,13 @@ func _physics_process(delta: float) -> void:
 	_apply_wall_slide(move_input)
 	UpdraftCloak.glide(self, jump_held)
 
-	_handle_slip_input()
-	_handle_crouch_input()
+	if not deflecting:
+		_handle_slip_input()
+		_handle_crouch_input()
 	_apply_horizontal_movement(move_input, delta)
 	_dash.update(delta, move_input)
-	_handle_weapon_input(delta)
+	if not deflecting:
+		_handle_weapon_input(delta)
 	_flux_runtime.sync_aura(not is_ball and not _dead)
 	_advance_slip(delta)
 
@@ -172,7 +179,7 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	var applied_damage := amount
 	if GameState.has_ability(&"pressure_seal"):
 		applied_damage = ceili(float(amount) / Catalog.PRESSURE_SEAL_DAMAGE_DIVISOR)
-	applied_damage = _flux_runtime.absorb_damage(applied_damage)
+	applied_damage = _flux_runtime.absorb_damage(Assist.scale_damage(applied_damage))
 	if applied_damage <= 0:
 		return
 	GameState.apply_damage(applied_damage)
@@ -884,6 +891,11 @@ func start_dash(direction: int = 0) -> bool:
 
 func _end_dash(keep_speed := true) -> void:
 	_dash.end(keep_speed)
+
+
+## Called by an enemy shot whose ray reached the body; true when the dash turned it instead.
+func try_deflect(shot: EnemyProjectile) -> bool:
+	return _dash.deflect.try_reflect(shot)
 
 
 func reset_for_spawn(position: Vector2) -> void:

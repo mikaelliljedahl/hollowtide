@@ -8,6 +8,10 @@ boss room has a guaranteed missile refill, and a cell-level movement solver can 
 campaign (vaults-first, kiln-first, and without optional tanks/Long Beam). The solver also proves
 that every position reachable at every progression stage can still walk back to a save shrine
 with the abilities owned at that moment (no softlocks, including entering rooms too early).
+Each branch boss room must hold a shortcut back to the hub: a flag gate on that boss's flag at a
+door into a hub room, sealed before the fight and walkable once the boss is down.
+Intended sequence breaks (tools/campaign_breaks.py) join the solver as explicit edges; the campaign
+must also finish without them, and their reward pickups may only be reachable through them.
 
 Movement model (deliberately conservative versus the real player): standing body is 1x3 cells,
 ball 1x1, jumps rise 3 cells (High Jump 5) with at most 3 cells of sideways drift while rising,
@@ -29,6 +33,7 @@ from collections import deque
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 
+from campaign_breaks import break_edges, break_errors  # noqa: E402
 from campaign_layout import (  # noqa: E402
     LayoutError,
     Room,
@@ -37,6 +42,7 @@ from campaign_layout import (  # noqa: E402
     overlap_errors,
     room_at_world,
 )
+from campaign_shortcuts import shortcut_errors  # noqa: E402
 
 JUMP = 3
 HIGH_JUMP = 5
@@ -56,7 +62,20 @@ GATE_NEEDS = {
     "wave": "wave_beam",
     "undertow": "undertow_dash",
 }
-OPTIONAL_KINDS = {"energy_tank", "long_beam"}
+# Tide Sockets and Glyphs are optional loadout rewards and never open a route.
+TIDE_KINDS = {"tide_socket"} | {
+    f"glyph_{glyph}"
+    for glyph in (
+        "quickstring",
+        "farcast",
+        "heavy_barb",
+        "brine_hide",
+        "ebb_mend",
+        "deep_pulse",
+        "spring_tide",
+    )
+}
+OPTIONAL_KINDS = {"energy_tank", "long_beam", *TIDE_KINDS}
 RACE_CELLS_PER_SECOND = 5
 SWITCH_RANGE = 14
 UPDRAFT_STRENGTH = 500
@@ -79,6 +98,7 @@ class World:
         self.updraft: dict[str, set[tuple[int, int]]] = {}
         self.downdraft: dict[str, set[tuple[int, int]]] = {}
         self.permanent_crumbles = False
+        self.breaks = break_edges()
         for room in rooms.values():
             self.updraft[room.room_id] = set()
             self.downdraft[room.room_id] = set()
@@ -145,8 +165,10 @@ class Solver:
         flags: set[str],
         blocked_areas: set[str],
         crumble_gone: bool = True,
+        breaks: bool = True,
     ) -> None:
         self.world = world
+        self.breaks = world.breaks if breaks else {}
         self.abilities = abilities
         self.flags = flags
         self.blocked_areas = blocked_areas
@@ -256,6 +278,10 @@ class Solver:
             result.append((room_id, x, y, ball, jump, SIDE))
             if not supported:
                 return result
+            if not ball:
+                for ex, ey, needs in self.breaks.get((room_id, x, y), ()):
+                    if needs <= self.abilities:
+                        result.append((room_id, ex, ey, False, 0, 0))
             for dx in (-1, 1):
                 if self.body_clear(room, x + dx, y, ball):
                     result.append((room_id, x + dx, y, ball, 0, 0))
@@ -401,6 +427,7 @@ def progress(
     skip_optional: bool,
     label: str,
     crumble_gone: bool = True,
+    breaks: bool = True,
 ):
     """Runs progression to a fixpoint. Returns (errors, stages)."""
     abilities: set[str] = set()
@@ -412,7 +439,7 @@ def progress(
     stages = []
     for _ in range(64):
         blocked = {area for area, flag in blocked_until.items() if flag not in flags}
-        solver = Solver(world, abilities, flags, blocked, crumble_gone)
+        solver = Solver(world, abilities, flags, blocked, crumble_gone, breaks)
         seen, edges = solver.explore([start])
         stages.append((set(abilities), set(flags), blocked, seen, edges, solver))
         changed = open_timed_doors(world, solver, seen, flags)
@@ -429,7 +456,7 @@ def progress(
                 continue
             collected.add(pickup_id)
             ability = "missiles" if kind == "missile_tank" else kind
-            if kind != "energy_tank" and ability not in abilities:
+            if kind != "energy_tank" and kind not in TIDE_KINDS and ability not in abilities:
                 abilities.add(ability)
                 changed = True
         for boss, (room_id, (ax, ay, aw, ah)) in world.bosses.items():
@@ -581,20 +608,38 @@ def main() -> int:
         ("vaults-first", {"kiln": "regional:stone_guardian"}, False),
         ("kiln-first", {"vaults": "regional:furnace_mother"}, False),
         ("no-optional", {}, True),
+        ("no-breaks", {}, False),
     ]
     if world.permanent_crumbles:
         runs.append(("permanent-crumbles-present", {}, False))
     all_pickups = {pickup_id for pickup_id, _kind in world.pickups.values()}
+    tide_pickups = {pickup_id for pickup_id, kind in world.pickups.values() if kind in TIDE_KINDS}
+    every_ability = {
+        "missiles" if kind == "missile_tank" else kind for _id, kind in world.pickups.values()
+    }
+    errors += break_errors(world, Solver, every_ability - {"energy_tank"}, covered_cells)
     for label, blocked_until, skip_optional in runs:
         run_errors, stages, collected = progress(
-            world, blocked_until, skip_optional, label, label != "permanent-crumbles-present"
+            world,
+            blocked_until,
+            skip_optional,
+            label,
+            label != "permanent-crumbles-present",
+            label != "no-breaks",
         )
         errors += run_errors
         errors += softlock_errors(world, stages, label)
+        errors += shortcut_errors(world, stages, label, REGIONAL, covered_cells)
         if label == "any-order":
             missing = sorted(all_pickups - collected)
             if missing:
                 errors.append(f"[{label}] unreachable pickups: {missing}")
+        if label == "no-breaks":
+            break_only = sorted(tide_pickups - collected)
+            if break_only:
+                errors.append(
+                    f"[{label}] Tide pickups reachable only through a break: {break_only}"
+                )
         if label == "any-order":
             for room_id in show:
                 show_reach(world, stages, room_id)
@@ -611,7 +656,7 @@ def main() -> int:
         return 1
     print(
         f"campaign-graph: PASS ({len(rooms)} rooms, {len(world.pickups)} pickups, "
-        "both branch orders, no softlocks)"
+        f"both branch orders, boss shortcuts, {len(world.breaks)} break starts, no softlocks)"
     )
     return 0
 

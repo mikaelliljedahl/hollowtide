@@ -56,6 +56,11 @@ enemy_id = &"drop_spider"
 bounds = Rect2(736, 64, 768, 416)
 travel_direction = 1
 
+[node name="Pickup_ebb_mend" parent="Entities" instance=ExtResource("4_pickup")]
+position = Vector2(1760, 352)
+instance_id = "vaults_01.ebb_mend"
+kind = &"glyph_ebb_mend"
+
 [node name="Enemy03" type="Marker2D" parent="Entities"]
 position = Vector2(416, 544)
 script = ExtResource("6_enemy")

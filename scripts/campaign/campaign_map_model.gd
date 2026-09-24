@@ -4,6 +4,7 @@ extends RefCounted
 ## generated room index plus GameState (discovered rooms, collected pickups, world flags), so the
 ## save needs no extra keys: entering a room reveals its layout, its door openings and the items in
 ## it. Neighbours behind those doors are "known but unexplored" and only ever shown as a frame.
+## The one exception is the player's own map pins (campaign_map_pins.gd, saved as map_pins).
 
 const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const AREAS: Array[StringName] = [&"fringe", &"nexus", &"vaults", &"kiln", &"depths"]
@@ -167,6 +168,19 @@ static func area_progress(discovered: Array) -> Dictionary:
 			value.x += 1
 		result[area] = value
 	return result
+
+
+## The discovered room under a world tile: room, cell (local Vector2i), size (Vector2i); {} if none.
+static func cell_at(discovered: Array, tile: Vector2) -> Dictionary:
+	for room_id in discovered:
+		if not Rooms.ROOMS.has(room_id):
+			continue
+		var data: Dictionary = Rooms.ROOMS[room_id]
+		var size := Vector2i(data["size"])
+		var cell := Vector2i((tile - Vector2(data["origin"])).floor())
+		if Rect2i(Vector2i.ZERO, size).has_point(cell):
+			return {"room": String(room_id), "cell": cell, "size": size}
+	return {}
 
 
 ## World-tile bounds of the given rooms.

@@ -5,7 +5,8 @@ extends RefCounted
 ## landing or wall contact. It passes through enemies dealing Catalog.UNDERTOW_DAMAGE with damage
 ## kind `undertow`, breaks undertow barriers and ignores damage while active plus a
 ## short grace. Driven from Player._physics_process: update() before move, strike() just
-## before move_and_slide(), after_move() right after it.
+## before move_and_slide(), after_move() right after it. The first moments of each dash turn
+## enemy shots around (DashDeflect).
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const HitResult = preload("res://scripts/combat/hit_result.gd")
@@ -16,6 +17,7 @@ var active := false
 var press_queued := false
 var direction := 1
 var air_available := true
+var deflect: DashDeflect
 var _player: Player
 var _timer := 0.0
 var _cooldown := 0.0
@@ -26,6 +28,7 @@ var _afterimage_timer := 0.0
 
 func _init(player: Player) -> void:
 	_player = player
+	deflect = DashDeflect.new(player)
 
 
 func can_start() -> bool:
@@ -57,6 +60,7 @@ func start(requested_direction: int = 0) -> bool:
 	if not p.is_on_floor():
 		air_available = false
 	active = true
+	deflect.open()
 	_timer = Catalog.DASH_SECONDS
 	_hits.clear()
 	_afterimage_timer = 0.0
@@ -72,6 +76,7 @@ func end(keep_speed := true) -> void:
 	if not active:
 		return
 	active = false
+	deflect.close()
 	_timer = 0.0
 	_cooldown = Catalog.DASH_COOLDOWN
 	_grace = Catalog.DASH_INVULN_GRACE
@@ -94,6 +99,7 @@ func update(delta: float, move_input: float) -> void:
 	var p := _player
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_grace = maxf(_grace - delta, 0.0)
+	deflect.tick(delta)
 	if p.is_on_floor() or p._wall_side != 0:
 		air_available = true
 	var pressed := press_queued
@@ -150,6 +156,7 @@ func strike(delta: float) -> void:
 	query.collide_with_bodies = true
 	query.collide_with_areas = true
 	query.exclude = [p.get_rid()]
+	deflect.sweep(Rect2(center - rect.size * 0.5, rect.size), delta)
 	for hit in p.get_world_2d().direct_space_state.intersect_shape(query, 32):
 		var target := _target_for(hit.get("collider") as Node)
 		if target == null or _hits.has(target):

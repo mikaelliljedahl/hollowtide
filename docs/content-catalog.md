@@ -9,8 +9,10 @@ No tutorial text or pop-up instruction in the game world.
 ## Names and internal IDs (D19)
 
 Hollowtide's arsenal is original. Player-visible names come from `DISPLAY_NAMES` in
-`scripts/progression/content_catalog.gd`; **internal IDs stay unchanged** so saves, gates, the campaign
-graph and tests keep working. This catalog uses the visible names; IDs appear in `code`.
+`scripts/progression/content_catalog.gd`. Most internal IDs stayed when D19 renamed the arsenal; the
+four that still echoed older genre names were renamed later (`slipstream`, `undertow_dash`,
+`pressure_seal`, gate kind `undertow`, see [state.md](state.md#aggregate-status)). This catalog uses the
+visible names; IDs appear in `code`.
 
 | Internal id | Visible name | Function |
 |---|---|---|
@@ -160,6 +162,15 @@ not another pickup or extra capacity.
   or latent charge.
 - Resonance Pulses and projectiles cannot remain after room change, death, load, or station reset.
 
+### Tide Sockets and Tide Glyphs
+
+Accepted 2026-09-24; design in [features/tide-modules.md](features/tide-modules.md). Two pickup kinds,
+registered in `ContentCatalog.TIDE_PICKUP_KINDS` and collected like every unique pickup:
+`tide_socket` (+1 capacity, three in the campaign, capacity 2 to 5) and `glyph_<id>` (one each of seven
+glyphs, costs 1 to 3). All ten are optional campaign pickups; none depends on a sequence break. Glyphs
+are socketed only at save shrines and each pairs a gain with a downside; numbers live only in
+`scripts/progression/tide_catalog.gd`. Names avoid charm, notch, badge, BP, shard, chip and ring slots.
+
 ## Spin and Undertow Dash
 
 `spin` is the normal aerial somersault (D06) and deals no damage. Undertow Dash (`undertow_dash`)
@@ -249,7 +260,7 @@ on entry, and missed shots. Optional tanks must not become a hidden mandatory HP
 ## Freezable platforms — default
 
 Only `freeze_capable = true` targets can be frozen when their current state exposes a target: ceiling
-divers, vent flyers, hoppers, spitters, armored guards, frost floaters, energy parasites,
+divers, vent flyers, hoppers, spitters, armored guards, frost floaters, Leech Wisps,
 `shard_turret`, `burrower`, `grasshopper`, an open `shooting_gargoyle`, and a surfaced
 `lava_monster`. The Frost Floater is a central freezing platform and is
 freezable by Snare (`F`), not immune to Snare. Snare freezes without damage according to the matrix. Frozen body becomes solid
@@ -287,6 +298,17 @@ bounded Phase 1 expansion; it adds no campaign package.
 | EN-SHOOTING-GARGOYLE | Shooting Gargoyle | Folded perch blocks hits; wake and charge expose it before one aimed shot. |
 | EN-LAVA-MONSTER | Lava Monster | Tracks below lava, bubbles before surfacing, and becomes a frozen quenched platform under Snare. |
 
+### Elite variants on revisits
+
+Accepted 2026-09-24; design in [features/revisit-remix.md](features/revisit-remix.md). In the campaign
+only, after each boss victory a common enemy in a room the player is revisiting may spawn as an elite:
+chance 0.25, 0.40 and 0.55 per common spawn after one, two and three bosses. An elite keeps its ID,
+AI, telegraphs, reaction matrix and damage; it has catalog health x1.6 (rounded up), x1.15 speed for
+Hopper, Grasshopper, Armored Guard, Leech Wisp, Lava Monster and Crawler, attack and jump
+cooldowns x0.8, a rose tint with a pulsing magenta rim, and drops two refills instead of the random
+roll. First visits, surprise enemies, ambush waves, bosses and the dev track are never remixed, and an
+enemy the current kit cannot beat is never made elite.
+
 ## Bosses
 
 | ID | Arena / Readable Core | Phase structure |
@@ -302,6 +324,16 @@ in S8. Each has a checkpoint/refill approach and remains separately spawnable th
 Kiln lava in S6 and the S7 catalog cell occupies carved floor basins with collision-aligned fluid surfaces
 and jumpable basalt stepping cells; it is never presented on a suspended channel slab.
 
+### Boss stages
+
+Accepted 2026-09-24; design in [features/boss-rework.md](features/boss-rework.md). Each boss fight
+runs four stages by health: stage 1 above 75 %, stage 2 above 50 %, stage 3 above 25 %, stage 4
+(desperation) at 25 % and below. Stages 1 and 2 use the B1 row of the phase-protection matrix and
+stages 3 and 4 the B2 row, so B1 still turns into B2 at half health. In B2 the Stone Guardian's armor
+and the Cinder Warden's cooling window open during the punish window after each attack chain instead
+of on a fixed cycle; the Tidal Heart keeps its Snare and Echo openings. Each of stages 1 to 3 adds an
+attack; stage 4 chains two known attacks. HP, contact damage, the matrix, IDs and flags are unchanged.
+
 ## Surprise enemies (D20)
 
 Six additive types; they appear once or twice per room in the campaign and are selectable in the dev panel.
@@ -316,7 +348,7 @@ Each telegraphs before it attacks.
 | `stalker` | Stalker | Area hunter that follows between rooms (re-enters from the used door, keeps its HP); defeat is saved per area; never enters boss arenas or the ending. |
 | `chasm_sniper` | Chasm Sniper | Hides in a chasm wall, exposes itself and fires aimed shots. |
 
-Existing enemies were also made faster, with telegraphed charges (guard, parasite lunge, hopper).
+Existing enemies were also made faster, with telegraphed charges (guard, Leech Wisp lunge, hopper).
 Bubble Snare sizes its bubble to each surprise enemy.
 
 ## Living environment (D21)

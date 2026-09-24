@@ -87,7 +87,23 @@ BASE_PICKUP_KINDS = (
     "energy_refill",
     "missile_refill",
 )
-PICKUP_KINDS = (*BASE_PICKUP_KINDS, *FLUX_ABILITIES, "flux_tank", "flux_refill")
+TIDE_PICKUP_KINDS = (
+    "tide_socket",
+    "glyph_quickstring",
+    "glyph_farcast",
+    "glyph_heavy_barb",
+    "glyph_brine_hide",
+    "glyph_ebb_mend",
+    "glyph_deep_pulse",
+    "glyph_spring_tide",
+)
+PICKUP_KINDS = (
+    *BASE_PICKUP_KINDS,
+    *FLUX_ABILITIES,
+    "flux_tank",
+    "flux_refill",
+    *TIDE_PICKUP_KINDS,
+)
 FORBIDDEN_ASSET_WORDS = ("placeholder", "fallback", "pending", "temporary", "temp_")
 
 
@@ -209,10 +225,12 @@ def _check_catalog(errors: list[str]):
     overlap = sorted(set(base_pickup_kinds) & set(flux_pickup_kinds))
     if overlap:
         errors.append(f"base/Flux pickup kinds overlap: {overlap}")
+    tide_pickup_kinds = _array_names(source, "TIDE_PICKUP_KINDS")
+    _expect_equal(errors, "Tide pickup kinds", tide_pickup_kinds, TIDE_PICKUP_KINDS)
     _expect_set(
         errors,
         "combined pickup kind partition",
-        [*base_pickup_kinds, *flux_pickup_kinds],
+        [*base_pickup_kinds, *flux_pickup_kinds, *tide_pickup_kinds],
         PICKUP_KINDS,
     )
 
@@ -427,7 +445,8 @@ def main():
     print(
         "phase1-catalog: PASS "
         "(5 areas, 13 abilities, 6 Energy Tanks, 12 Missile Tanks, 4 Flux Tanks, "
-        "13 enemies, 3 bosses, 19 pickup mappings, 3 temporary drops, 5 melodies)"
+        f"13 enemies, 3 bosses, {len(PICKUP_KINDS)} pickup mappings, 3 temporary drops, "
+        "5 melodies)"
     )
     return 0
 

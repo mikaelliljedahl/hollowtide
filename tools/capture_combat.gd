@@ -2,7 +2,7 @@ extends Node
 ## Developer screenshot tool for the combat lane (not part of make check).
 ## Run windowed:
 ##   godot --path . --windowed --resolution 1920x1080 res://tools/capture_combat.tscn -- \
-##     --dev-mode --test-mode --test-save-root=/tmp/x --shots=bosses,enemies,player \
+##     --dev-mode --test-mode --test-save-root=/tmp/x --shots=bosses,enemies,player,telegraphs \
 ##     --shots-dir=/abs/out/dir
 ## Saves half-resolution PNGs so they are cheap to review.
 
@@ -43,6 +43,8 @@ func _run() -> void:
 		await _capture_player()
 	if wanted.has("world"):
 		await _capture_world()
+	if wanted.has("telegraphs"):
+		await _capture_telegraphs()
 	print("capture_combat: wrote %d shots to %s" % [_index, _out])
 	get_tree().quit(0)
 
@@ -296,3 +298,31 @@ func _capture_world() -> void:
 		await _shot(String(spot[2]) + "_a")
 		await _frames(45)
 		await _shot(String(spot[2]) + "_b")
+
+
+## Boss rework telegraphs: late in the wind-up of each attack in stages 2-4, so markers are lit.
+func _capture_telegraphs() -> void:
+	var fights := [[5, &"stone_guardian"], [7, &"furnace_mother"], [8, &"tidal_heart"]]
+	for fight in fights:
+		var spot := _teleport(int(fight[0]), 1230.0) + Vector2(1230.0, 1088.0)
+		var boss := _boss(fight[1])
+		if boss == null:
+			push_warning("no %s" % fight[1])
+			continue
+		var telegraphs := [0]
+		boss.attack_telegraphed.connect(func(_attack: StringName) -> void: telegraphs[0] += 1)
+		await _frames(20)
+		for stage in [2, 3, 4]:
+			boss.set_test_stage(stage)
+			for _attack in 3:
+				var before: int = telegraphs[0]
+				for _i in 900:
+					if telegraphs[0] > before:
+						break
+					if not boss._player_engaged:
+						# A charge can shove the player out of the arena; bring her back.
+						_player.global_position = spot
+					await _frames(1)
+				while boss._telegraph_remaining > boss._telegraph_length * 0.35:
+					await _frames(1)
+				await _shot("telegraph_%s_s%d_%s" % [fight[1], stage, boss._attack_id])
