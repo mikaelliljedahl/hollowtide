@@ -167,7 +167,8 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 		return HitResult.Reaction.PASS
 	var impact := _impact_position(hit_context)
 	var direction := _hit_direction(hit_context, impact)
-	if enemy_id == &"tidal_heart" and phase == 1 and kind == &"ice":
+	var outside := _player_outside_arena()
+	if enemy_id == &"tidal_heart" and phase == 1 and kind == &"ice" and not outside:
 		_branch_open = true
 		_branch_timer = OPEN_WINDOW_SECONDS
 		_window_length = OPEN_WINDOW_SECONDS
@@ -182,7 +183,7 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 		return HitResult.Reaction.TRIGGERED
 	if amount <= 0:
 		return HitResult.Reaction.PASS
-	if not is_vulnerable_to(kind):
+	if outside or not is_vulnerable_to(kind):
 		BossVisuals.spawn_blocked_hit(self, impact, direction)
 		return HitResult.Reaction.BLOCKED
 	health = maxi(health - amount, 0)
@@ -427,6 +428,15 @@ func _die() -> void:
 	DefeatRewardsScript.spawn_for_defeat(self, true, false, false)
 	hide()
 	get_tree().create_timer(2.0).timeout.connect(queue_free, CONNECT_ONE_SHOT)
+
+
+## The same test that freezes the boss in `_physics_process`: a boss that cannot answer cannot be
+## hurt, so hits from outside its arena glance off (docs/features/boss-rework.md, section 4).
+func _player_outside_arena() -> bool:
+	if not is_inside_tree():
+		return false
+	var player := get_tree().get_first_node_in_group(&"player") as Node2D
+	return player != null and not _in_arena(player.global_position)
 
 
 func _in_arena(point: Vector2) -> bool:

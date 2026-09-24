@@ -381,6 +381,55 @@ class JevBackendTest(unittest.TestCase):
         self.assertIn('"jev": {', written["decisions.jsonl"])
 
 
+class JevRoundThreeStateTest(unittest.TestCase):
+    """Round 3: Jev sees the boss shell and its opener, the bolts, touching hazards and refills."""
+
+    def state(self) -> dict:
+        state = json.loads(json.dumps(GAME_STATE))
+        state["kit"].update(beam="ice", beams=["base", "ice", "wave"], missiles=0, max_missiles=35)
+        opener = {"beam": "wave", "via": "grate", "owned": True, "point_rel": [300, -320]}
+        boss = dict(state["enemies"][0], id="e1", type="tidal_heart", is_boss=True, hurt_by=[])
+        boss.update(stage=3, attack="", attack_state="idle", open=False, opener=opener)
+        boss["switch_to"] = "wave"
+        state["enemies"] = [boss]
+        state["hazards"] = [
+            {"kind": "lava", "rel": [64, 0], "size": [256, 64], "gap": 0, "state": ""},
+            {"kind": "stalactite", "rel": [0, -900], "size": [96, 128], "gap": 700, "state": ""},
+        ]
+        state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [600, 0]}]
+        return state
+
+    def test_compact_state_carries_shell_bolts_hazards_and_refills(self):
+        compact = jev_backend.compact_state(self.state(), {})
+        threat = compact["threats"][0]
+        self.assertEqual(
+            threat["shell"], "closed; an Echo (wave) shot through the grate in front of it opens it"
+        )
+        self.assertEqual(threat["hurt_by_bolt"], "Echo (wave)")
+        self.assertEqual(compact["facts"]["boss_shell"], threat["shell"])
+        self.assertEqual(compact["player"]["bolt"], "Snare (ice)")
+        self.assertEqual(len(compact["player"]["bolts_owned"]), 3)
+        # Only the lava is within four tiles; it touches the player.
+        self.assertEqual(compact["hazards"], [{"kind": "lava", "where": "right", "touching": True}])
+        self.assertEqual(compact["facts"]["refill_here_for"], "harpoons")
+
+    def test_new_kinds_have_rubric_groups_and_legality(self):
+        for kind in ("jump_shoot", "open_boss", "select_beam", "pulse", "go_to_refill"):
+            self.assertIn(kind, jev_backend.RUBRIC)
+            self.assertIn(kind, jev_feedback.GROUPS)
+        candidates = [
+            {"key": "idle", "kind": "idle", "label": "stand still"},
+            {"key": "pulse:e1", "kind": "pulse", "label": "roll in and drop a pulse"},
+            {"key": "select_beam:wave", "kind": "select_beam", "label": "switch to Echo"},
+        ]
+        kept = jev_backend.legal(candidates, self.state(), "idle")
+        self.assertEqual([c["key"] for c in kept], ["idle", "select_beam:wave"])
+        request = jev_backend.build_request("jev-test", self.state(), kept, {})
+        self.assertIn(
+            "equipped bolt", request["questions"]["action"]["criteria"]["select_beam:wave"]
+        )
+
+
 class JevFeedbackTest(unittest.TestCase):
     def record(self, t, cell, probabilities, confidence, danger, hint="shoot:e1:forward"):
         choice = max(probabilities, key=probabilities.get)

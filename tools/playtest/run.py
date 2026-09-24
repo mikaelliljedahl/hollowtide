@@ -19,6 +19,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -64,6 +65,8 @@ def build_command(args: argparse.Namespace, seed: int, out: Path, port: int) -> 
         f"--playtest-breaks={break_specs()}",
         f"--playtest-shots={args.shots}",
     ]
+    if getattr(args, "trial", None):
+        command.append(f"--playtest-trial={args.trial}")
     if args.spawn:
         command.append(f"--playtest-spawn={args.spawn}")
     if port:
@@ -98,6 +101,9 @@ def run_one(args: argparse.Namespace, seed: int, base: Path) -> tuple[Path, Back
         process = subprocess.Popen(
             command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
+        # A game that stops ending (paused tree, hung scene) must not outlive its run.
+        watchdog = threading.Timer(args.seconds * 4 + 120, process.kill)
+        watchdog.start()
         assert process.stdout is not None
         written = 0
         for line in process.stdout:
@@ -107,6 +113,7 @@ def run_one(args: argparse.Namespace, seed: int, base: Path) -> tuple[Path, Back
             if line.startswith(b"PLAYTEST REPORT") or line.startswith(b"  - "):
                 sys.stdout.write(line.decode("utf-8", "replace"))
         process.wait(timeout=args.seconds * 4 + 120)
+        watchdog.cancel()
     if server:
         server.join(timeout=5)
         for error in server.stats.backend_errors[:3]:
@@ -124,7 +131,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--room", required=True)
+    parser.add_argument("--room", help="campaign room id (required unless --trial)")
+    parser.add_argument(
+        "--trial", choices=["gauntlet", "boss_rush"], help="play a Trial on its fixed kit"
+    )
     parser.add_argument("--kit", default="", help="abilities and pickups, kind:count repeats")
     parser.add_argument("--spawn", default="", help="feet cell x,y in room tiles")
     parser.add_argument("--seeds", default="1", help="comma-separated seeds, one run each")
@@ -154,6 +164,10 @@ def main() -> int:
     parser.add_argument("--godot", default=os.environ.get("GODOT", "godot"))
     parser.add_argument("--out", type=Path, help="output directory (default: under the temp dir)")
     args = parser.parse_args()
+    if args.trial:
+        args.room = f"trials_{args.trial}"
+    elif not args.room:
+        parser.error("--room is required unless --trial is given")
     if args.backend == jev_backend.JevBackend.name:
         if args.policy != "external":
             parser.error("--backend jev needs --policy external")

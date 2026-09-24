@@ -52,6 +52,6 @@ position = Vector2(64, 512)
 script = ExtResource("6_rising")
 shaft_size = Vector2(1792, 1536)
 rest_depth = 64
-safe_line = 192
+safe_line = 832
 speed = 110
 kind = &"water"

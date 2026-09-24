@@ -6,20 +6,24 @@ extends RefCounted
 
 const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const Hazards = preload("res://tools/playtest_hazards.gd")
+const Boss = preload("res://tools/playtest_boss.gd")
 const TILE := 64.0
 const MAX_ENEMIES := 6
 const MAX_PROJECTILES := 8
 const MAX_PICKUPS := 4
 const MAX_HAZARDS := 4
+const MAX_REFILLS := 3
 const PROJECTILE_RADIUS := 900.0
 const HAZARD_RADIUS := 1200.0
-const HAZARD_GROUPS: Array[StringName] = [
-	&"worldfx_crusher",
-	&"worldfx_stalactite",
-	&"worldfx_rising_shaft",
-	&"worldfx_crumble",
-	&"campaign_heat",
-]
+## What each shrine kind (scripts/campaign/station.gd) and combat drop restores.
+const RESTORES := {
+	&"save": ["health", "harpoons"],
+	&"refill": ["health", "harpoons"],
+	&"missilerefill": ["harpoons"],
+	&"energy_refill": ["health"],
+	&"missile_refill": ["harpoons"],
+}
 ## Crossbow height above the feet, used for line-of-sight checks.
 const EYE := Vector2(0, -100)
 const ARENA_STATES := ["armed", "sealing", "fighting", "cleared", "intermission"]
@@ -55,7 +59,8 @@ func snapshot(root: Node, player: Player, tick: int, seconds: float) -> Dictiona
 		"ambush": ambush(tree, feet),
 		"exits": exits(room, room_id, feet),
 		"pickups": pickups(room, feet),
-		"hazards": _hazards(tree, feet),
+		"hazards": hazards(player),
+		"refills": refills(room, tree, feet),
 	}
 
 
@@ -67,6 +72,7 @@ static func kit() -> Dictionary:
 	return {
 		"abilities": owned,
 		"beam": String(GameState.active_beam),
+		"beams": Boss.owned_beams(),
 		"missiles": GameState.missile_count,
 		"max_missiles": GameState.max_missiles,
 	}
@@ -140,6 +146,7 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		"telegraph": false,
 		"ambush": enemy.is_in_group(&"worldfx_ambush_enemy"),
 		"hurt_by": hurt_by(enemy),
+		"switch_to": switch_to(enemy),
 		"visible": clear_line(enemy, feet + EYE, enemy.global_position),
 	}
 	if enemy.has_method(&"presentation_state"):
@@ -154,6 +161,7 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		entry["attack"] = String(enemy.get("_attack_id"))
 		entry["attack_state"] = String(enemy.get("_attack_state"))
 		entry["engaged"] = enemy.get("_player_engaged") == true
+		entry.merge(Boss.facts(enemy, feet))
 	return entry
 
 
@@ -163,7 +171,8 @@ static func clear_line(node: Node2D, from: Vector2, to: Vector2) -> bool:
 	return node.get_world_2d().direct_space_state.intersect_ray(query).is_empty()
 
 
-## Damage kinds the player owns that hurt `enemy` right now (active beam kind, missile, dash).
+## Damage kinds the player can use on `enemy` right now: the equipped beam kind, the Harpoon while
+## a shot's worth of bolts is left, the Resonance Pulse, the dash.
 static func hurt_by(enemy: Node) -> Array:
 	var kinds: Array = []
 	if not enemy.has_method(&"is_vulnerable_to"):
@@ -172,19 +181,42 @@ static func hurt_by(enemy: Node) -> Array:
 		var beam := beam_kind()
 		if enemy.call(&"is_vulnerable_to", beam):
 			kinds.append(String(beam))
-	if GameState.has_missiles and enemy.call(&"is_vulnerable_to", &"missile"):
+	if harpoons_ready() and enemy.call(&"is_vulnerable_to", &"missile"):
 		kinds.append("missile")
+	if GameState.has_ability(&"bombs") and enemy.call(&"is_vulnerable_to", &"bomb"):
+		kinds.append("bomb")
 	if GameState.has_ability(&"undertow_dash") and enemy.call(&"is_vulnerable_to", &"undertow"):
 		kinds.append("undertow")
 	return kinds
 
 
+## True while one Harpoon shot's bolts are left (a Tide Glyph can make a shot cost more).
+static func harpoons_ready() -> bool:
+	var cost := 1 + GameState.tide.add(&"harpoon_bolt_add")
+	return GameState.has_missiles and GameState.missile_count >= cost
+
+
+## An owned, unequipped beam (GameState id) that hurts `enemy` now when the equipped one does not;
+## "" otherwise.
+static func switch_to(enemy: Node) -> String:
+	if not enemy.has_method(&"is_vulnerable_to") or enemy.call(&"is_vulnerable_to", beam_kind()):
+		return ""
+	for beam in Boss.owned_beams():
+		if beam != String(GameState.active_beam) and enemy.call(&"is_vulnerable_to", _kind(beam)):
+			return beam
+	return ""
+
+
 ## Damage kind of the equipped beam, as enemies test it.
 static func beam_kind() -> StringName:
-	match GameState.active_beam:
-		&"ice":
+	return _kind(String(GameState.active_beam))
+
+
+static func _kind(beam: String) -> StringName:
+	match beam:
+		"ice":
 			return &"ice"
-		&"wave":
+		"wave":
 			return &"wave"
 	return &"beam"
 
@@ -296,17 +328,60 @@ static func pickups(room: Node2D, feet: Vector2) -> Array:
 	return found.slice(0, MAX_PICKUPS)
 
 
-static func _hazards(tree: SceneTree, feet: Vector2) -> Array:
-	var found: Array = []
-	for group in HAZARD_GROUPS:
-		for node in tree.get_nodes_in_group(group):
-			var hazard := node as Node2D
-			if hazard == null or feet.distance_to(hazard.global_position) > HAZARD_RADIUS:
-				continue
-			found.append(
+## Hazards within HAZARD_RADIUS of the player's hitbox, nearest first: `kind`, `rel` (the nearest
+## point of the hazard's body), `size`, `gap` (px from her hitbox, 0 when touching) and `state`
+## (a stalactite's, flood's or crusher's phase, else "").
+static func hazards(player: Player) -> Array:
+	var feet := player.global_position
+	var body := Hazards.body_rect(player)
+	var result: Array = []
+	for hazard in Hazards.near(player.get_tree(), body, HAZARD_RADIUS, false).slice(0, MAX_HAZARDS):
+		var rect: Rect2 = hazard["rect"]
+		(
+			result
+			. append(
 				{
-					"kind": String(group).trim_prefix("worldfx_"),
-					"rel": rel(feet, hazard.global_position)
+					"kind": hazard["kind"],
+					"rel": rel(feet, Hazards.nearest_point(rect, body.get_center())),
+					"size": [roundi(rect.size.x), roundi(rect.size.y)],
+					"gap": roundi(hazard["gap"]),
+					"state": hazard["state"],
 				}
 			)
-	return found.slice(0, MAX_HAZARDS)
+		)
+	return result
+
+
+## Shrines in the current room and dropped refills, nearest first: `kind`, `restores` ("health",
+## "harpoons") and `rel`.
+static func refills(room: Node2D, tree: SceneTree, feet: Vector2) -> Array:
+	var found: Array = []
+	for node in tree.get_nodes_in_group(&"campaign_station"):
+		var station := node as Node2D
+		if station != null and room.is_ancestor_of(station):
+			found.append([StringName(station.get("station_kind")), station.global_position])
+	for node in tree.get_nodes_in_group(&"transient"):
+		var loot := node as CombatLoot
+		if loot != null and not loot.is_queued_for_deletion():
+			found.append([loot.kind, loot.global_position])
+	var result: Array = []
+	for pair in found:
+		if RESTORES.has(pair[0]):
+			(
+				result
+				. append(
+					{
+						"kind": String(pair[0]),
+						"restores": RESTORES[pair[0]],
+						"rel": rel(feet, pair[1]),
+					}
+				)
+			)
+	result.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return (
+				Vector2(a["rel"][0], a["rel"][1]).length()
+				< Vector2(b["rel"][0], b["rel"][1]).length()
+			)
+	)
+	return result.slice(0, MAX_REFILLS)

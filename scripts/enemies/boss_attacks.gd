@@ -22,9 +22,9 @@ const MAELSTROM_STEPS := 12
 const MAELSTROM_INTERVAL := 0.1
 const MAELSTROM_TURN := 0.42
 const CHARGE_SPEEDS := {&"shoulder_charge": 640.0, &"scuttle_rush": 580.0}
-## Floor the Shoulder Charge leaves clear before the first wall or the lane end, so a player backed
-## against the wall is outside the body's reach when it stops.
-const CHARGE_WALL_POCKETS := {&"shoulder_charge": 128.0}
+## Floor every charge leaves clear before the first wall (a low roof or an arena step counts) or
+## the lane end, so a player backed against the wall is outside the body's reach when it stops.
+const CHARGE_WALL_POCKET := 128.0
 const STYLES := {
 	&"stone_guardian": &"rock",
 	&"furnace_mother": &"fire",
@@ -115,8 +115,7 @@ static func plan(boss: Node2D, attack: StringName) -> Dictionary:
 			# Without an arena there is no lane to charge along (test benches only).
 			if bounds.size != Vector2.ZERO:
 				var limit := _first_wall_x(boss, direction, lane.y if direction > 0.0 else lane.x)
-				var stop := BODY_RADIUS + float(CHARGE_WALL_POCKETS.get(attack, 0.0))
-				end_x = limit - direction * stop
+				end_x = limit - direction * (BODY_RADIUS + CHARGE_WALL_POCKET)
 			result["charge_direction"] = direction
 			result["charge_end_x"] = end_x
 			var y := floor_y - 20.0

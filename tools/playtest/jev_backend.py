@@ -39,14 +39,30 @@ RETRY_AFTER_CAP = 10.0
 QUESTION_ACTION = "action"
 QUESTION_DANGER = "danger"
 QUESTION_UNSURE = "unsure"
-MOVING_KINDS = ("approach", "retreat", "go_to_exit", "go_to_ambush", "pick_up", "jump")
+MOVING_KINDS = (
+    "approach",
+    "retreat",
+    "go_to_exit",
+    "go_to_ambush",
+    "pick_up",
+    "jump",
+    "go_to_refill",
+)
+MAX_HAZARDS = 2
+HAZARD_ALERT_TILES = 4.0
+BEAM_NAMES = {"base": "seed bolt", "ice": "Snare (ice)", "wave": "Echo (wave)"}
 # One line of guidance per candidate kind, appended to the game's own label.
 RUBRIC = {
     "idle": "Right only when nothing threatens the player and waiting helps.",
     "approach": "Closes distance; right when the target is in sight, reachable and safe to near.",
     "retreat": "Gains distance; right when a threat is close, winding up, or health is low.",
     "shoot": "Right when the target is in line, the crossbow hurts it, and no hit is imminent.",
-    "harpoon": "Limited ammo; right for a boss or an enemy the crossbow cannot hurt.",
+    "harpoon": "Limited ammo; right for an open boss or an enemy the crossbow cannot hurt.",
+    "jump_shoot": "Right for a target too high for a standing shot, when no hit is imminent.",
+    "open_boss": "Opens a closed boss shell for the Harpoon; right when the boss is not about to hit.",
+    "select_beam": "Right when the equipped bolt cannot hurt or open the target and this one can.",
+    "pulse": "Right for a close, level enemy that only the Resonance Pulse hurts.",
+    "go_to_refill": "Right when out of Harpoons or low on health and no hit is imminent.",
     "jump_over": "Right when a ground enemy is about to touch the player.",
     "dash_through": "Dashing into a shot deflects it; right when a shot is about to hit.",
     "wall_jump": "Right when clinging to a wall and the way on is upward.",
@@ -133,7 +149,8 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
         kind = candidate.get("kind", "")
         blocked = (
             (kind == "harpoon" and int(kit.get("missiles", 0)) <= 0)
-            or (kind == "shoot" and "beam" not in kit.get("abilities", []))
+            or (kind in ("shoot", "jump_shoot") and "beam" not in kit.get("abilities", []))
+            or (kind == "pulse" and "bombs" not in kit.get("abilities", []))
             or (kind == "dash_through" and not player.get("dash_ready", False))
             or (kind == "wall_jump" and not player.get("on_wall", False))
             or (kind == "jump_over" and not player.get("grounded", False))
@@ -158,10 +175,40 @@ def _threat(enemy: dict[str, Any]) -> dict[str, Any]:
         "in_line_of_sight": bool(enemy.get("visible")),
         "arena_enemy": bool(enemy.get("ambush")),
     }
+    if enemy.get("switch_to"):
+        entry["hurt_by_bolt"] = BEAM_NAMES.get(enemy["switch_to"], enemy["switch_to"])
     if enemy.get("is_boss"):
         entry["boss_stage"] = enemy.get("stage")
         entry["boss_attack"] = enemy.get("attack") or "none"
         entry["boss_attack_state"] = enemy.get("attack_state") or "idle"
+        entry["shell"] = shell_text(enemy)
+    return entry
+
+
+def shell_text(boss: dict[str, Any]) -> str:
+    """The boss's shell in words: open, or closed and what opens it (tools/playtest_boss.gd)."""
+    if boss.get("open", True):
+        return "open: the Harpoon hurts it now"
+    opener = boss.get("opener")
+    if not opener:
+        return "closed"
+    if opener["via"] == "punish":
+        return "closed; it opens while the boss recovers after an attack"
+    where = "through the grate in front of it" if opener["via"] == "grate" else "at its body"
+    bolt = BEAM_NAMES.get(opener["beam"], opener["beam"])
+    article = "an" if bolt[:1].lower() in "aeiou" else "a"
+    text = f"closed; {article} {bolt} shot {where} opens it"
+    return text if opener.get("owned") else f"{text} (not in the kit)"
+
+
+def _hazard(hazard: dict[str, Any]) -> dict[str, Any]:
+    entry = {
+        "kind": hazard["kind"],
+        "where": side(hazard["rel"]),
+        "touching": hazard.get("gap", 1) <= 0,
+    }
+    if hazard.get("state"):
+        entry["state"] = hazard["state"]
     return entry
 
 
@@ -198,6 +245,13 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
     ][:MAX_SHOTS]
     arena = state.get("ambush")
     boss = next((enemy for enemy in state.get("enemies", []) if enemy.get("is_boss")), None)
+    kit = state["kit"]
+    hazards = [
+        _hazard(hazard)
+        for hazard in state.get("hazards", [])
+        if hazard.get("gap", 0) / TILE <= HAZARD_ALERT_TILES
+    ][:MAX_HAZARDS]
+    refills = sorted({need for refill in state.get("refills", []) for need in refill["restores"]})
     facts: dict[str, Any] = {
         "health": "healthy" if health_pct >= 60 else "hurt" if health_pct >= 30 else "critical",
         "nearest_threat": threats[0]["range"] if threats else "none",
@@ -206,6 +260,7 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
         "shot_incoming": any(shot["approaching"] for shot in shots),
         "in_arena": bool(arena and arena.get("inside")),
         "stalled": bool(last.get("stalled")),
+        "refill_here_for": ", ".join(refills) or "none",
     }
     if arena:
         facts["arena"] = (
@@ -214,6 +269,7 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
     if boss:
         facts["boss_stage"] = boss.get("stage")
         facts["boss_attack"] = boss.get("attack") or "none"
+        facts["boss_shell"] = shell_text(boss)
     return {
         "goal": goal_text(state),
         "player": {
@@ -223,10 +279,13 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
             "facing": "right" if player["facing"] > 0 else "left",
             "form": player["form"],
             "dash_ready": player["dash_ready"],
-            "harpoons_left": state["kit"]["missiles"],
+            "harpoons_left": kit["missiles"],
+            "bolt": BEAM_NAMES.get(kit.get("beam", "base"), kit.get("beam", "base")),
+            "bolts_owned": [BEAM_NAMES.get(beam, beam) for beam in kit.get("beams", [])],
         },
         "threats": threats,
         "incoming_shots": shots,
+        "hazards": hazards,
         "facts": facts,
         "last_action": last.get("summary", "none"),
     }

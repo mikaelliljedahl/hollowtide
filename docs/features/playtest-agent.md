@@ -18,7 +18,7 @@ to game code.
 ## 2. Rules
 
 - **R1 Inputs only.** The agent presses and releases the game's input actions with
-  `Input.parse_input_event` and `Input.flush_buffered_events` (`tools/playtest_actions.gd:309`). It
+  `Input.parse_input_event` and `Input.flush_buffered_events` (`tools/playtest_programs.gd:198`). It
   never moves the player, sets health or kills enemies. Setup is the only exception: the launch
   scene resets progress, grants the kit and sets the checkpoint before the campaign loads
   (`tools/playtest_agent.gd:86`).
@@ -37,16 +37,20 @@ to game code.
 | Part | File | Role |
 |---|---|---|
 | Launch scene | `tools/playtest_agent.gd`, `tools/playtest_agent.tscn` | Parses flags, loads the campaign in one room with a kit, runs the loop, ends the run, writes the report and screenshots. |
-| Loop | `tools/playtest_loop.gd:49` | Once per physics frame, before the player: when the current program is done, export state, build candidates, ask the policy, start the chosen program. |
-| State exporter | `tools/playtest_state.gd:40` | One JSON-safe Dictionary per decision (section 4). |
-| Candidates and driver | `tools/playtest_actions.gd:25` | 6 to 12 labelled macro actions, each a per-frame program of held actions (section 5). |
+| Loop | `tools/playtest_loop.gd:50` | Once per physics frame, before the player: when the current program is done, export state, build candidates, ask the policy, start the chosen program. |
+| State exporter | `tools/playtest_state.gd:44` | One JSON-safe Dictionary per decision (section 4). |
+| Candidates | `tools/playtest_actions.gd:35` | 6 to 14 labelled macro actions, each a per-frame program of held actions (section 5). |
+| Programs and driver | `tools/playtest_programs.gd:151` | Builds the per-frame programs and plays them as input events. |
+| Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
+| Boss facts | `tools/playtest_boss.gd:41` | Protection phase, open shell, opener table and arena for the state. |
+| Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
 | Policies | `tools/playtest_policy.gd:44` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
 | Telemetry | `tools/playtest_telemetry.gd:61` | Signals and per-frame sampling (section 8). |
 | Report | `tools/playtest_report.gd:10` | Findings, `report.json` and `report.md`. |
 | Runner | `tools/playtest/run.py:70` | Launches Godot per seed, hosts the policy server, aggregates. |
 | Policy server | `tools/playtest/policy_server.py:57` | Serves one game connection with a backend. |
-| Jev backend | `tools/playtest/jev_backend.py:329` | Hosted Jev or any `/v1/systemone` server (section 12). |
+| Jev backend | `tools/playtest/jev_backend.py:391` | Hosted Jev or any `/v1/systemone` server (section 12). |
 | Jev feedback | `tools/playtest/jev_feedback.py:103` | Confusion hotspots, danger peaks, disagreement (section 12). |
 | Aggregate | `tools/playtest/aggregate.py:28` | Cross-run findings over several seeds or runs. |
 
@@ -57,52 +61,68 @@ A jump is committed for 28 frames, so the effective rate is 3 to 10 Hz. While th
 ## 4. State
 
 Coordinates of other things are pixels relative to the player's feet (x right, y down); the
-player's own position is room-local. Built by `tools/playtest_state.gd:40`.
+player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 
 | Key | Contents |
 |---|---|
 | `tick`, `t` | Decision number and game seconds since the agent started. |
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
-| `kit` | `abilities` (internal ids), active `beam`, `missiles`, `max_missiles`. |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow included), `ambush`, `hurt_by` (owned damage kinds that hurt it now, from the enemy's own `is_vulnerable_to`), `visible` (no tile on the line from the crossbow). Bosses add `stage`, `attack`, `attack_state` and `engaged`. |
+| `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`. |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow). Bosses add `stage`, `attack`, `attack_state`, `engaged`, `phase` (protection phase), `open` (the shell is open to the Harpoon), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
 | `pickups` | Up to 4 uncollected progression pickups: `id`, `kind`, `rel`. |
-| `hazards` | Up to 4 world hazards within 1200 px: `kind`, `rel`. |
+| `hazards` | Up to 4 hazards within 1200 px of the player's hitbox, measured to the hazard's body rect (`tools/playtest_hazards.gd:43`): `kind` (lava, fire, steam from the `dev_hazard` group; stalactite, crusher, crumble, heat, rising_lava, rising_water), `rel` (nearest point of the body), `size`, `gap` (px between the hitboxes, 0 when touching) and `state` (a spike's, flood's or crusher's phase). |
+| `refills` | Up to 3, nearest first: shrines in the room (`save`, `refill`, `missilerefill`) and dropped refills, with `kind`, `restores` (health, harpoons) and `rel`. |
 
 ## 5. Candidates
 
-`idle` is always first; the rest follow a fixed priority and the list is cut at 12
-(`tools/playtest_actions.gd:25`). The fight options aim at one primary target: the nearest visible
-enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:139`).
+`idle` is always first and the two plain jumps always last; the rest follow a fixed priority and
+the list is cut at 14 (`tools/playtest_actions.gd:35`). The fight options aim at one primary target:
+the nearest visible enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:342`).
 
 | Key | Offered when | Program |
 |---|---|---|
-| `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks or it is above; wall-jump when clinging below it. |
-| `retreat` | An enemy exists | Run away from it for 12 frames. |
-| `shoot:<id>:<aim>` | Beam owned, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
-| `harpoon:<id>:<aim>` | Harpoons left, an enemy the Harpoon hurts that is a boss or immune to the beam, and an aim that reaches it | Same with `fire_missile`. |
-| `jump_over:<id>` | Grounded, target within 420 px | Jump toward it, 20 frames held. |
+| `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks or it is above; wall-jump when clinging below it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one). |
+| `retreat` | An enemy exists; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
+| `open_boss:<id>:<aim>` | A closed boss whose opener beam is owned and equipped, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
+| `shoot:<id>:<aim>` | Beam owned, not in ball form, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
+| `jump_shoot:<id>` | Grounded, no standing aim reaches a non-boss target up to 240 px above the crossbow | Jump straight up and fire level on the frame the crossbow reaches its height (`tools/playtest_aim.gd`, Updraft Cloak speed when owned). |
+| `harpoon:<id>:<aim>` | A shot's worth of Harpoons left, an enemy the Harpoon hurts that is a boss or immune to the beam, and an aim that reaches it | Same with `fire_missile`. |
+| `pulse:<id>` | Resonance Pulse and Slipstream owned, the pulse hurts the target and the beam does not, target within 400 px and 96 px level, grounded or in ball form | Curl into ball form, roll toward it, drop the pulse (`fire_beam` in ball form), roll back 24 frames, stand up. |
+| `select_beam:<beam>` | Per owned, unequipped beam while a target exists; the label says when it hurts or opens the target | Tap `cycle_beam` as often as the owned order needs. |
+| `jump_over:<id>` | Grounded, target within 420 px, not a boss floating more than 160 px above the feet | Jump toward it, 20 frames held. |
 | `dash_through` | Undertow Dash ready and a shot flying at the player within 420 px | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
+| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it | Steer to it, running. |
 | `go_to_ambush` | Armed arena, player not at its trigger | Steer to the trigger centre. |
 | `pick_up:<id>` | Up to two pickups | Steer to it. |
 | `go_to_exit:<edge:target>` | Up to three ungated exits, none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
 | `jump:left`, `jump:right` | Always | Plain jumps, used to break a stall. |
 
 Stuck detection is positional: 3 s in which the player chose movement but stayed inside a 48 px
-box (`tools/playtest_telemetry.gd:381`).
+box (`tools/playtest_telemetry.gd:380`).
+
+The driver sends `cycle_beam` presses when the physics step ends, after the player has moved
+(`LATE_PRESSES`, `tools/playtest_programs.gd:19`). Measured in the check: a press sent before the
+player counts twice for her (just pressed in that frame, then her queued `_input` press in the
+next), so one tap stepped two beams. Every other press still goes out before the player; the second
+count is absorbed by the fire cooldowns and the Slipstream curl.
 
 ## 6. Policies
 
 - **heuristic** (`tools/playtest_policy.gd:44`): dash into incoming shots; when stuck, wall-jump or
-  alternate jumps; fight the primary target if it is visible, given up on no longer, or the arena is
-  sealed, else go to the ambush trigger, a pickup or an exit. In a fight: jump over or back off from
-  a boss wind-up, harpoon a boss or beam-immune enemy, keep distance from a boss that cannot be hurt
-  right now, jump over rushers closer than 130 px, and walk closer after 2.5 s of shots that do not
-  land (three such tries ignore that target for 15 s).
+  alternate jumps; go to a refill when one is offered and no close enemy is winding up; fight the
+  primary target if it is visible, given up on no longer, or the arena is sealed, else go to the
+  ambush trigger, a pickup or an exit. With a boss (`tools/playtest_policy.gd:128`): jump over or
+  back off from a close wind-up, fire the opener, harpoon it while open, switch to the opener's
+  beam, walk to where the opener lines up, and keep 360 px from a boss nothing hurts (the retreat
+  falls back to the approach when the arena edge is behind). Otherwise: harpoon a beam-immune
+  enemy, pulse a pulse-only one, switch to a beam that hurts it, shoot or jump-shoot, jump over
+  rushers closer than 130 px, and walk closer after 2.5 s of shots that do not land (three such
+  tries ignore that target for 15 s).
 - **random** (`tools/playtest_policy.gd:39`): a seeded uniform pick; the baseline a smarter policy
   must beat.
 - **external**: the bridge in section 7. The heuristic's pick travels along as `hint` and is used
@@ -144,11 +164,15 @@ Recorded per run by `tools/playtest_telemetry.gd`:
 - decisions per policy with mean and max latency and fallbacks by reason, and action counts.
 
 The game does not report who hit the player, so the source is attributed by proximity when health
-drops (`tools/playtest_telemetry.gd:447`): a shot within 170 px, credited to a boss attack if a
-boss released one in the last 3 s; then a boss within 420 px, credited to its charge while one runs
-and to `contact` otherwise; then a boss attack released in the last 3 s; then the nearest enemy
-within 280 px; then a hazard; else `unknown`. Before round 2, contact within 3 s of any release was
-credited to that attack. Every boss node is watched as it appears (`tools/playtest_telemetry.gd:275`),
+drops (`tools/playtest_telemetry.gd:447`): a hazard whose body overlaps the player's hitbox
+(`hazard:lava`, `hazard:stalactite`, `hazard:rising_water`, ...); a shot within 170 px, credited to
+a boss attack if a boss released one in the last 3 s; then a boss within 420 px, credited to its
+charge while one runs and to `contact` otherwise; then a boss attack released in the last 3 s; then
+the nearest enemy within 280 px; then the nearest hazard body within 320 px of her hitbox; else
+`unknown`. Hazards are measured to their body rects, not their node origins: a flood's origin is its
+top-left corner, a stalactite's the ceiling, and campaign lava is a `DevHazard` in `dev_hazard`,
+which round 2 did not look at. Before round 2, contact within 3 s of any release was
+credited to that attack. Every boss node is watched as it appears (`tools/playtest_telemetry.gd:274`),
 so a boss rebuilt after a death still reports its stages and defeat.
 
 ## 9. Reports
@@ -201,29 +225,32 @@ return the hint or let the server's null-key fallback count it.
 
 `--policy external --backend jev` asks TypeSafe's hosted Jev (a System One model) for each decision:
 one `POST {base_url}/v1/systemone` with `Authorization: Bearer <key>`, standard library only, over
-one keep-alive connection opened before the first decision (`tools/playtest/jev_backend.py:266`).
+one keep-alive connection opened before the first decision (`tools/playtest/jev_backend.py:349`).
 The contract comes from `.agent-reports/jev-research.md` section 1.
 
-Request (`tools/playtest/jev_backend.py:232`):
+Request (`tools/playtest/jev_backend.py:294`):
 
 - `model`: default `jev-1.13.0`, pinned. On 2026-09-24 the API accepted it, `GET /v1/models` listed
   only the aliases `jev-latest` and `jev-preview`, and `jev-latest` answered as `jev-1.13.0`.
-- `state` (`tools/playtest/jev_backend.py:186`): a compact view of section 4, not the raw export.
+- `state` (`tools/playtest/jev_backend.py:236`): a compact view of section 4, not the raw export.
   A `goal` sentence (defeat the boss; start the armed arena by walking in; clear the running arena;
   or explore); `player` with `health_pct`, grounded, on_wall, facing, form, dash_ready and
-  harpoons left; up to 3 `threats` with `dx_tiles`/`dy_tiles`, a `where` phrase (left, right,
+  harpoons left, the equipped `bolt` and `bolts_owned` by player-facing name; up to 3 `threats` with `dx_tiles`/`dy_tiles`, a `where` phrase (left, right,
   above, below), a `range` word (touching, close, mid range, far), health %, winding up, whether
-  the kit hurts it, line of sight, whether it belongs to the arena, and boss stage and attack; up to 3
-  `incoming_shots` within 6 tiles with `approaching` computed in code; `facts` (health word,
-  nearest threat range and direction, any wind-up, shot incoming, in arena, arena wave line, boss
-  stage and attack, stalled); and `last_action` with how far the previous action moved the player.
+  the kit hurts it, `hurt_by_bolt` (the owned bolt that would), line of sight, whether it belongs to
+  the arena, and boss stage, attack and `shell` (open, or closed and what opens it, in words); up to
+  3 `incoming_shots` within 6 tiles with `approaching` computed in code; up to 2 `hazards` within 4
+  tiles (kind, where, touching, state); `facts` (health word, nearest threat range and direction, any
+  wind-up, shot incoming, in arena, arena wave line, boss stage, attack and shell, stalled, and what
+  the room's refills restore); and `last_action` with how far the previous action moved the player.
   All arithmetic happens here, because Jev is weak at numbers.
 - `questions`: `action` (`choice` over the candidate keys, each criterion the game's label plus a
   one-line rubric for its kind), `danger` (`score`: low, medium, high) and `unsure` (`noul`: stuck
   or unclear which action is right).
-- Illegal candidates are removed in code before sending (`tools/playtest/jev_backend.py:127`): a
-  harpoon without ammo, a shot without the crossbow, a dash that is not ready, a wall jump off the
-  wall, a jump-over while airborne. The hint always stays. With one option left no request is sent.
+- Illegal candidates are removed in code before sending (`tools/playtest/jev_backend.py:143`): a
+  harpoon without ammo, a shot or jump shot without the crossbow, a pulse without the Resonance
+  Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne. Each new
+  round 3 kind has its own rubric line and feedback group. The hint always stays. With one option left no request is sent.
 
 The answer's `choice` is played when it is a sent key and its `confidence` is at least
 `--jev-min-confidence`; otherwise the hint is played and the reason recorded. The game is frozen
@@ -238,7 +265,7 @@ while it waits, so latency costs wall time only; the runner raises `--timeout-ms
 | `--jev-min-confidence` | 0.35 | Below it the heuristic's hint is played (`low_confidence`). |
 | `--jev-hz` | 5 | At most this many requests per game second; decisions in between play the hint and are recorded as `skip:rate`. |
 
-Sources per decision (`tools/playtest/jev_backend.py:384`): `jev`; `skip:rate`,
+Sources per decision (`tools/playtest/jev_backend.py:532`): `jev`; `skip:rate`,
 `skip:single_option`, `skip:no_room`; `fallback:<reason>` with `timeout`, `network`,
 `low_confidence`, `bad_choice`, `bad_response`, `http_<status>`, `cooldown` (after a 429 or 529,
 honouring `retry-after` up to 10 s), `rate_limit` (the 1,200 requests per minute cap, counted in
@@ -290,7 +317,7 @@ local server that ignores it.
 - Jev specifically (the user accepted this outbound edge on 2026-09-24): per request the compact
   state of section 12 (room id, relative tile positions, enemy types, health, arena and boss
   status) and the candidate keys with their labels go to `api.typesafe.ai`. The key is read from
-  `TYPESAFE_API_KEY` inside each request (`tools/playtest/jev_backend.py:299`), never stored,
+  `TYPESAFE_API_KEY` inside each request (`tools/playtest/jev_backend.py:361`), never stored,
   printed, logged, written or passed on a command line; the Authorization header is redacted in
   `jev_request_sample.json`, and server error text is scrubbed of the key.
 - TypeSafe's terms, per `.agent-reports/jev-research.md` section 4: customer requests are not used
@@ -309,10 +336,21 @@ local server that ignores it.
   records the kill and a shot's damage source, the bridge round-trips hello, decide and bye with a
   stub server, a silent server times out within the bound and falls back, and a missing server
   falls back. Round 2 adds: no shot at a boss far below a grounded player, no exit while a boss
-  lives, a twitching drop spider exported as winding up, and kit pickups that stack.
+  lives, a twitching drop spider exported as winding up, and kit pickups that stack. Round 3
+  (`tools/check_playtest_round3.gd`, run by the same suite): the kit's beams; a closed Tidal Heart
+  offers the Snare, the heuristic switches, real `cycle_beam` taps equip it, and the opener is then
+  offered and chosen; a real Tidal Heart reads closed with the Snare as opener and its grate is
+  found; no harpoon without bolts; a floating boss gets no jump-over and an approach without jumps;
+  a Resonance Pulse is offered, chosen and really placed through inputs; the Harpoon leaves
+  `hurt_by` at zero bolts; a real refill shrine is exported, walked to and refills; low health
+  offers the health refill; real lava and a real falling stalactite are in the state and credited
+  as `hazard:lava` and `hazard:stalactite`; a target 232 px up gets a jump shot instead of a level
+  shot, and the real jump fires about 132 px up; no retreat out of a live boss's arena; at most 14
+  candidates with the jumps last.
 - `tools/check_playtest_bridge.py` (suite `playtest bridge`): the Python server's wire format, the
   null key on a backend error, the runner's argument vector (always `--test-mode`), and the
-  cross-run findings. The jev backend runs against a stub `/v1/systemone` on 127.0.0.1, never the
+  cross-run findings; round 3's shell, bolt, hazard and refill facts in Jev's compact state, and
+  the new kinds' rubric lines, feedback groups and legality. The jev backend runs against a stub `/v1/systemone` on 127.0.0.1, never the
   network: request shape (path, bearer header, the three questions, illegal candidates removed,
   compact state in tiles), answer parsing, the rate cap, the timeout and low-confidence fallbacks,
   a missing key (error names the variable only, no request, backend disabled), a 401 whose body
@@ -398,3 +436,31 @@ Read with care: round 2 fights are short, so the peak counts are small; the attr
 moves contact damage out of the attack rows; and a danger peak is keyed on the boss's last attack
 even while it idles, so "slam 0/6" counts contact and other hits within 1.5 s of a slam. The probe
 gives Fault Slam 0.33 to 0.67 s jump windows; in round 1 Jev answered it with `retreat`.
+
+## 18. Results round 3 (2026-09-24)
+
+Round 3 answers the harness findings of the sweep reports (`.agent-reports/jev-sweep-*.md`): beam
+switching and boss openers, the Resonance Pulse, ammo truth and refills, lava and falling spikes in
+the state and the damage record, the jump shot, and boss-room bounds. Setup as the sweep:
+`depths_02` from the west door (`--spawn 1,14`) with the first-arrival kit
+`slipstream,beam,long_beam,bombs,pressure_seal,ice_beam,wave_beam,high_jump,undertow_dash,missile_tank:7,energy_tank:3`
+(Echo equipped at the start, 35 Harpoons, 400 health), 150 s; the Boss Rush on its own kit, 300 s.
+Headless, one run at a time. Runs are under `/Volumes/Personal/Tools/hollowtide-runs/harness/`.
+
+| Run | Sweep (before) | Round 3 |
+|---|---|---|
+| depths_02 heuristic s1 | died at 142.8 s, Tidal Heart 400/400; 400 damage (contact 270) | won in 10.7 s (stages 5.7 / 1.2 / 1.3 / 2.5 s), 0 damage |
+| depths_02 Jev s1 | 400/400, left the room at 110.7 s; 320 damage (contact 270) | won in 12.7 s, reached stage 4, 10 damage (Crosscurrent) |
+| depths_02 Jev s2 | 400/400, left the room at 116.9 s; 380 damage (contact 290) | won in 12.6 s, reached stage 4, 0 damage |
+| Boss Rush heuristic s1 | not finishable (Tidal Heart invulnerable) | cleared in 40.25 s, 3 hits, 34 damage |
+| Boss Rush Jev s1 | Tidal Heart untouched for 270 s | cleared in 40.2 s, all three bosses to stage 4, 5 hits, 62 damage (Ember Fan 28) |
+
+- Jev picked the openers itself: in the two depths_02 runs its own answers included
+  `select_beam` 2 and 2 times and `open_boss` 7 and 6 times; in the Boss Rush `select_beam` 5 and
+  `open_boss` 4 times. Fallbacks: 4 of 49 and 2 of 50 calls on depths_02, 29 of 150 in the Boss
+  Rush. Estimated cost: $0.0047 for both depths_02 runs, $0.0066 for the Boss Rush.
+- Body contact with the Tidal Heart dropped from 270 to 290 per run to 0: the approach no longer
+  jumps into a floating boss.
+- For the room owners (not a harness change): with a working opener the bot beats the Tidal Heart
+  in about 11 to 13 s with at most 10 damage, and stage 1 lasts 5.7 s in every run. Compare with a
+  human run before reading it as a balance finding.
