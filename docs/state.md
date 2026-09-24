@@ -9,8 +9,8 @@ and music, three bosses and an ending with credits. `make check` passes.
 
 Round 2 (D19–D21) replaced the genre-default arsenal with an original one, added surprise enemies
 and a living environment. Most internal IDs are unchanged, but four that echoed older genre names were
-renamed afterwards: `morph_ball` became `slipstream`, `screw_attack` became `undertow_dash`, `varia`
-became `pressure_seal`, and the `screw` gate kind became `undertow` (with its flags and the
+renamed afterwards to `slipstream`, `undertow_dash` and `pressure_seal`, and the gate kind to
+`undertow` (with its flags and the
 `depths_01.undertow_hall` arena). Old saves that store a previous ability id are not migrated: the
 ability check at `scripts/autoload/game_state.gd:731` rejects the snapshot, so Continue fails
 (`scripts/campaign/campaign_entry.gd:43`). `furnace_mother`, `energy_parasite`, `energy_tank` and

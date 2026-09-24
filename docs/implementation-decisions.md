@@ -253,9 +253,8 @@ Hollowtide music must be original: never ship, sample, remix, or transcribe exis
   | `undertow_dash` | **Undertow Dash** | Replaces the spin attack: a short fast horizontal dash (ground or air, one air dash per jump) that passes through enemies dealing damage and breaks "undertow barriers". Normal (non-attack) spin jump stays. |
   | `energy_tank` | **Heart Pearl** | +100 health, unchanged. |
   Slipstream, High Jump and Pressure Seal are kept for now (later iteration). The tide mechanic is postponed.
-  *Superseded in part by commit 97168b9 (2026-09-24):* four internal ids were renamed, `morph_ball` to
-  `slipstream`, `screw_attack` to `undertow_dash`, `varia` to `pressure_seal`, and gate kind `screw` to
-  `undertow`. `furnace_mother`, `energy_parasite`, `energy_tank` and `missile_tank` kept their ids. Old
+  *Superseded in part (2026-09-24):* four internal ids that echoed older genre names were renamed to
+  `slipstream`, `undertow_dash`, `pressure_seal` and gate kind `undertow`. `furnace_mother`, `energy_parasite`, `energy_tank` and `missile_tank` kept their ids. Old
   saves holding a renamed id are rejected, not migrated; see [state.md](state.md#aggregate-status).
 - **D20 — Surprise enemies.** New enemy types allowed beyond the thirteen: ceiling bat swarm (bursts out on
   proximity), mimic (rock or fake pickup), drop spider on thread, surface eel (water/lava), area stalker

@@ -786,7 +786,7 @@ func _validated_ability_prerequisites(abilities: Array[String]) -> bool:
 
 func _pickup_feedback_message(kind: StringName, auto_equipped_beam: bool, was_full: bool) -> String:
 	# Names come from ContentCatalog.DISPLAY_NAMES (D19); internal ids are unchanged except the
-	# four renamed in commit 97168b9 (slipstream, undertow_dash, pressure_seal, gate kind undertow).
+	# four renamed on 2026-09-24 (slipstream, undertow_dash, pressure_seal, gate kind undertow).
 	if Catalog.TIDE_PICKUP_KINDS.has(kind):
 		return tide.feedback(kind)
 	var title := Catalog.display_name(kind).to_upper()
