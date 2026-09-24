@@ -24,6 +24,15 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 | [docs/devmode-contract.md](docs/devmode-contract.md) | Activated integration contract for phase 1; new APIs and file owners. |
 | [docs/code-contract.md](docs/code-contract.md) | Normative findings for file ownership, interfaces and collision rules. |
 | [docs/features/ambush-arenas.md](docs/features/ambush-arenas.md) | Feature design for sealed wave encounters (ambush arenas); rules, state machine and tests. |
+| [docs/features/assist-options.md](docs/features/assist-options.md) | Feature design for assist options (game speed, damage taken, skip ambushes); damage order and tests. |
+| [docs/features/map-pins.md](docs/features/map-pins.md) | Feature design for player map pins; rules, controls, save key and tests. |
+| [docs/features/revisit-remix.md](docs/features/revisit-remix.md) | Feature design for elite enemies in revisited rooms after each boss; tiers, stats and tests. |
+| [docs/features/boss-rework.md](docs/features/boss-rework.md) | Feature design for four-stage boss fights; telegraphs, punish windows, attack tables and tests. |
+| [docs/features/dash-deflect.md](docs/features/dash-deflect.md) | Feature design for turning enemy shots with the Undertow Dash; binding patent and naming constraints. |
+| [docs/features/fast-travel.md](docs/features/fast-travel.md) | Feature design for fast travel between save shrines and boss shortcuts; refusal rules and tests. |
+| [docs/features/sequence-breaks.md](docs/features/sequence-breaks.md) | Feature design for three intended sequence breaks; routes, solver model and tests. |
+| [docs/features/tide-modules.md](docs/features/tide-modules.md) | Feature design for Tide Sockets and Tide Glyphs; catalogue, save key and binding legal constraints. |
+| [docs/features/trials.md](docs/features/trials.md) | Feature design for the post-ending Trials (Gauntlet, Boss Rush); rules, flow, save key and tests. |
 | [docs/epics/E01-rorelse-game-feel.md](docs/epics/E01-rorelse-game-feel.md) | PRD for completed movement base. |
 | [docs/epics/E02-slipstream-forsta-scen.md](docs/epics/E02-slipstream-forsta-scen.md) | PRD for finished slipstream and first ability port. |
 | [docs/epics/E03-grafikpipeline.md](docs/epics/E03-grafikpipeline.md) | PRD for finished graphics pipeline. |
@@ -37,7 +46,7 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 - Normal boot runs with `make run`; development start runs with `make dev`. Help in start menu/pause is
   approved text outside the game world; don't put tutorial text in the game world.
 - Phase 1 is done. Phase 2's 16-room mini-campaign is playable (beaten by the user); next is a bigger
-  world, harder bosses and a release export. Player-visible names follow D19; internal IDs are unchanged.
+  world, harder bosses and a release export. Player-visible names follow D19; internal IDs are unchanged except four renamed ones (see `docs/state.md`).
 
 ## Absolute work rules
 - Read relevant normative contracts before code or graphics work; never guess dimensions, paths or interfaces.

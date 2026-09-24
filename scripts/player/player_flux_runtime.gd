@@ -2,6 +2,7 @@ class_name PlayerFluxRuntime
 extends RefCounted
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const TideModules = preload("res://scripts/progression/tide_modules.gd")
 const FLUX_AURA_SCENE: PackedScene = preload("res://scenes/effects/flux/flux_shield_aura.tscn")
 const ECHO_SCAN_SCENE: PackedScene = preload("res://scenes/effects/flux/echo_scan_pulse.tscn")
 
@@ -66,7 +67,11 @@ func shield_active() -> bool:
 	)
 
 
+## Damage the player takes from a hit after Tide Glyph scaling and the Flux Shield. The glyph step
+## lives here because Player.take_damage routes every hit through this call.
 func absorb_damage(amount: int) -> int:
+	var tide: TideModules = GameState.tide
+	amount = tide.scale_int(&"damage_taken", amount)
 	if not shield_active():
 		return amount
 	var absorbed := mini(amount, GameState.flux_current)

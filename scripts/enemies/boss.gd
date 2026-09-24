@@ -1,41 +1,60 @@
 class_name CombatBoss extends CharacterBody2D
+## Regional boss. Health drives four fight stages (docs/features/boss-rework.md); stages 1-2
+## use damage-matrix phase B1 and stages 3-4 use B2. Every attack runs idle -> telegraph ->
+## active -> recover, and the recover step is the punish window (B2 armor opens during it).
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
-const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const DefeatRewardsScript = preload("res://scripts/enemies/defeat_rewards.gd")
 const VisualProfiles = preload("res://scripts/enemies/effects/runtime_visual_profiles.gd")
 const ProjectileHurtboxScript = preload("res://scripts/enemies/projectile_hurtbox.gd")
 const HitResult = preload("res://scripts/combat/hit_result.gd")
 const BossVisuals = preload("res://scripts/enemies/effects/boss_visuals.gd")
-const MAX_TELEGRAPH_SECONDS := 0.6
+const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Attacks = preload("res://scripts/enemies/boss_attacks.gd")
+const Motion = preload("res://scripts/enemies/boss_motion.gd")
 const HIT_FLASH_SECONDS := 0.14
 const BLOCK_FLASH_SECONDS := 0.1
 const CORE_BUBBLE_RADIUS := 84.0
 const OPEN_WINDOW_SECONDS := 2.0
+const CLOSED_WINDOW_SECONDS := 999999.0
 const CLOSING_WARNING_SECONDS := 0.45
 const STAGGER_SECONDS := 0.75
 const HEALTH_TRAIL_DELAY := 0.35
-const PROJECTILE_STYLES := {
-	&"stone_guardian": &"rock",
-	&"furnace_mother": &"fire",
-	&"tidal_heart": &"water",
-}
+const DISENGAGED_ATTACK_DELAY := 0.35
 
 signal defeated(id: StringName)
+signal stage_changed(stage: int)
+signal attack_telegraphed(attack: StringName)
+signal attack_released(attack: StringName)
 
 @export var runtime_id: StringName = &"stone_guardian"
 
 var enemy_id: StringName = &""
 var health := 1
 var max_health := 1
+## Damage-matrix protection phase (B1 = 1, B2 = 2), derived from `stage`.
 var phase := 1
+## Fight stage 1-4; 4 is the desperation stage.
+var stage := 1
 var is_frozen := false
 var _dying := false
 var _age := 0.0
 var _branch_open := false
 var _branch_timer := 0.0
+var _window_length := OPEN_WINDOW_SECONDS
 var _attack_timer := 1.0
+var _attack_state: StringName = &"idle"
+var _attack_id: StringName = &""
+var _attack_chain: Array[StringName] = []
+var _attack_plan := {}
+var _rotation_index := 0
 var _telegraph_remaining := 0.0
+var _telegraph_length := 0.0
+var _active_elapsed := 0.0
+var _active_length := 0.0
+var _recover_remaining := 0.0
+var _emissions: Array[Dictionary] = []
+var _charge_done := false
 var _player_detector: Area2D
 var _sprite: Sprite2D
 var _projectile_hurtbox: EnemyProjectileHurtbox
@@ -53,6 +72,7 @@ var arena_bounds := Rect2()
 var _fx: ShaderMaterial
 var _overlay: Node2D
 var _pending_directions: Array[Vector2] = []
+var _telegraph_marks: Array[Dictionary] = []
 var _was_open := false
 var _open_elapsed := 0.0
 var _block_flash_remaining := 0.0
@@ -72,9 +92,7 @@ var _core_bubble: BubbleVisual
 
 func _ready() -> void:
 	enemy_id = runtime_id
-	max_health = int(
-		Catalog.BOSS_DATA.get(enemy_id, Catalog.BOSS_DATA[&"stone_guardian"])["max_health"]
-	)
+	max_health = int(_boss_data()["max_health"])
 	health = max_health
 	_health_trail = float(max_health)
 	add_to_group(&"enemies")
@@ -101,32 +119,21 @@ func _physics_process(delta: float) -> void:
 	if _dying:
 		return
 	_age += delta
-	_advance_presentation_timers(delta)
+	BossVisuals.advance_timers(self, delta)
 	var player := get_tree().get_first_node_in_group(&"player") as Node2D
 	_player_engaged = player != null and _in_arena(player.global_position)
 	if player != null and not _player_engaged:
 		velocity = Vector2.ZERO
-		_telegraph_remaining = 0.0
-		_attack_timer = 0.35
+		_cancel_attack(DISENGAGED_ATTACK_DELAY)
 		_update_visual_presentation()
 		queue_redraw()
 		return
 	if player != null:
-		_move_boss(delta, player)
+		Motion.move(self, delta, player)
 	_branch_timer -= delta
-	_attack_timer -= delta
-	var was_telegraphing := _telegraph_remaining > 0.0
-	_telegraph_remaining = maxf(_telegraph_remaining - delta, 0.0)
 	if _branch_timer <= 0.0:
 		_advance_attack_window()
-	if was_telegraphing and _telegraph_remaining == 0.0:
-		_fire_boss_attack()
-	elif not was_telegraphing and _attack_timer <= 0.0:
-		_telegraph_remaining = minf(0.35, MAX_TELEGRAPH_SECONDS)
-		_attack_timer = 1.8
-		# Aim is locked when the telegraph starts so the warning lines tell the truth.
-		_pending_directions = _attack_directions()
-		GameJuice.play_sfx(&"boss_telegraph")
+	_advance_attack(delta)
 	_update_visual_presentation()
 	queue_redraw()
 
@@ -134,14 +141,23 @@ func _physics_process(delta: float) -> void:
 func set_test_phase(requested_phase: int) -> void:
 	if requested_phase not in [1, 2]:
 		return
-	var changed := phase != requested_phase
-	phase = requested_phase
+	set_test_stage(1 if requested_phase == 1 else Patterns.ARMORED_STAGE)
+
+
+## Dev/test entry into a fight stage without changing health.
+func set_test_stage(requested_stage: int) -> void:
+	if requested_stage < 1 or requested_stage > Patterns.DESPERATION_STAGE:
+		return
+	var changed := stage != requested_stage
+	stage = requested_stage
+	phase = Patterns.protection_phase(stage)
 	_branch_open = false
 	_branch_timer = 0.0
-	_attack_timer = 0.2
-	_telegraph_remaining = 0.0
+	_cancel_attack(0.2)
+	_rotation_index = 0
 	if changed:
 		_spawn_phase_burst()
+		stage_changed.emit(stage)
 	_update_visual_presentation()
 	queue_redraw()
 
@@ -153,7 +169,8 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 	var direction := _hit_direction(hit_context, impact)
 	if enemy_id == &"tidal_heart" and phase == 1 and kind == &"ice":
 		_branch_open = true
-		_branch_timer = 2.0
+		_branch_timer = OPEN_WINDOW_SECONDS
+		_window_length = OPEN_WINDOW_SECONDS
 		_core_cracked = false
 		ArsenalFx.spawn_rings(
 			_effect_parent(), _core_world_position(), 110.0, Color(0.72, 0.95, 1.0, 0.9), 0.4, 2
@@ -166,16 +183,14 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 	if amount <= 0:
 		return HitResult.Reaction.PASS
 	if not is_vulnerable_to(kind):
-		_spawn_blocked_hit(impact, direction)
+		BossVisuals.spawn_blocked_hit(self, impact, direction)
 		return HitResult.Reaction.BLOCKED
 	health = maxi(health - amount, 0)
 	_health_trail_delay = HEALTH_TRAIL_DELAY
-	if health > 0 and phase == 1 and health <= maxi(max_health / 2, 1):
-		phase = 2
-		_branch_open = false
-		_branch_timer = 0.0
-		_spawn_phase_burst()
-		queue_redraw()
+	if health > 0:
+		var reached := Patterns.stage_for(health, max_health)
+		if reached > stage:
+			_enter_stage(reached)
 	if health == 0:
 		_die()
 	else:
@@ -186,7 +201,7 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 			_core_cracked = true
 			ArsenalFx.spawn_bubble_pop(_effect_parent(), _core_world_position(), CORE_BUBBLE_RADIUS)
 			GameJuice.play_sfx(&"bubble_pop", &"ice_shatter")
-		_spawn_compact_hit(impact, direction, heavy)
+		BossVisuals.spawn_compact_hit(self, impact, direction, heavy)
 		GameJuice.shake(self, 5.0 if heavy else 2.0, 0.18)
 		GameJuice.play_sfx(&"enemy_hit", &"missile_hit" if heavy else &"")
 		_update_visual_presentation()
@@ -208,8 +223,6 @@ func is_vulnerable_to(kind: StringName) -> bool:
 				return kind in [&"wave", &"missile"]
 			return kind == &"missile" and _branch_open
 		&"tidal_heart":
-			if phase == 1:
-				return kind == &"missile" and _branch_open
 			return kind == &"missile" and _branch_open
 	return false
 
@@ -225,7 +238,8 @@ func open_wave_window() -> void:
 		_tether_flash = 0.5
 		GameJuice.shake(self, 4.0, 0.2)
 	_branch_open = true
-	_branch_timer = 2.0
+	_branch_timer = OPEN_WINDOW_SECONDS
+	_window_length = OPEN_WINDOW_SECONDS
 	_update_visual_presentation()
 	queue_redraw()
 
@@ -233,11 +247,13 @@ func open_wave_window() -> void:
 func reset_runtime() -> void:
 	_dying = false
 	health = max_health
+	stage = 1
 	phase = 1
 	_branch_open = false
 	_branch_timer = 0.0
-	_attack_timer = 1.0
-	_telegraph_remaining = 0.0
+	_window_length = OPEN_WINDOW_SECONDS
+	_cancel_attack(1.0)
+	_rotation_index = 0
 	_hit_flash_remaining = 0.0
 	_phase_burst_count = 0
 	_movement_direction = 1.0
@@ -247,7 +263,6 @@ func reset_runtime() -> void:
 	_stagger_remaining = 0.0
 	_block_flash_remaining = 0.0
 	_was_open = false
-	_pending_directions.clear()
 	_shield_ripples.clear()
 	velocity = Vector2.ZERO
 	collision_layer = 8
@@ -259,114 +274,139 @@ func reset_runtime() -> void:
 	_update_visual_presentation()
 
 
-func _move_boss(delta: float, player: Node2D) -> void:
-	if arena_bounds.size == Vector2.ZERO:
+func _enter_stage(new_stage: int) -> void:
+	stage = new_stage
+	var new_phase := Patterns.protection_phase(stage)
+	if new_phase != phase:
+		phase = new_phase
+		_branch_open = false
+		_branch_timer = 0.0
+	# The stagger is a free breather: whatever was winding up is dropped unfired.
+	_cancel_attack(Patterns.STAGE_BREATHER)
+	_rotation_index = 0
+	_spawn_phase_burst()
+	stage_changed.emit(stage)
+	queue_redraw()
+
+
+func _advance_attack(delta: float) -> void:
+	match _attack_state:
+		&"idle":
+			_attack_timer -= delta
+			if _attack_timer <= 0.0:
+				_attack_chain = Patterns.chain_at(enemy_id, stage, _rotation_index)
+				_rotation_index += 1
+				_start_telegraph()
+		&"telegraph":
+			_telegraph_remaining = maxf(_telegraph_remaining - delta, 0.0)
+			if _telegraph_remaining == 0.0:
+				_release_attack()
+		&"active":
+			_active_elapsed += delta
+			_fire_due_emissions()
+			var done := _active_elapsed >= _active_length
+			if Patterns.is_charge(_attack_id):
+				done = _charge_done or done
+			if done and _emissions.is_empty():
+				_finish_attack()
+		&"recover":
+			_recover_remaining -= delta
+			if _recover_remaining <= 0.0:
+				_attack_state = &"idle"
+				_attack_timer = Patterns.idle_seconds(stage)
+
+
+func _start_telegraph() -> void:
+	_attack_id = _attack_chain.pop_front()
+	_attack_state = &"telegraph"
+	_telegraph_length = Patterns.telegraph_seconds(_attack_id, stage)
+	_telegraph_remaining = _telegraph_length
+	# Aim, lanes and floor targets lock now so the telegraph tells the truth.
+	_attack_plan = Attacks.plan(self, _attack_id)
+	_pending_directions = _attack_plan["directions"]
+	_telegraph_marks = _attack_plan["marks"]
+	if Patterns.is_charge(_attack_id):
+		_facing = float(_attack_plan["charge_direction"])
+	GameJuice.play_sfx(&"boss_telegraph")
+	attack_telegraphed.emit(_attack_id)
+
+
+func _release_attack() -> void:
+	_attack_state = &"active"
+	_active_elapsed = 0.0
+	_active_length = Patterns.active_seconds(_attack_id, stage)
+	_emissions = Attacks.emissions(self, _attack_id, _attack_plan)
+	_charge_done = false
+	if Patterns.is_charge(_attack_id):
+		_charge_done = absf(float(_attack_plan["charge_end_x"]) - global_position.x) < 4.0
+	_pending_directions = []
+	attack_released.emit(_attack_id)
+	BossVisuals.release_feedback(self, _attack_id)
+	_fire_due_emissions()
+
+
+func _fire_due_emissions() -> void:
+	while not _emissions.is_empty() and float(_emissions[0]["at"]) <= _active_elapsed:
+		Attacks.fire(self, _emissions.pop_front())
+
+
+func _finish_attack() -> void:
+	_telegraph_marks = []
+	if not _attack_chain.is_empty():
+		_start_telegraph()
 		return
-	var left := arena_bounds.position.x + 104.0
-	var right := arena_bounds.end.x - 104.0
-	match enemy_id:
-		&"stone_guardian":
-			var pursuit := signf(player.global_position.x - global_position.x)
-			velocity.x = pursuit * (138.0 if phase == 2 else 92.0)
-			velocity.y = minf(velocity.y + 1800.0 * delta, 900.0)
-			move_and_slide()
-		&"furnace_mother":
-			_movement_timer -= delta
-			if _movement_timer <= 0.0 or global_position.x <= left or global_position.x >= right:
-				_movement_direction *= -1.0
-				_movement_timer = 1.15 if phase == 2 else 1.55
-			velocity.x = _movement_direction * (210.0 if phase == 2 else 145.0)
-			velocity.y = minf(velocity.y + 1800.0 * delta, 900.0)
-			move_and_slide()
-		&"tidal_heart":
-			var target := Vector2(
-				clampf(player.global_position.x, left + 60.0, right - 60.0),
-				_home_position.y - 100.0 + sin(_age * 1.15) * 110.0
-			)
-			velocity = (target - global_position).limit_length(150.0 if phase == 2 else 105.0)
-			move_and_slide()
-	global_position.x = clampf(global_position.x, left, right)
-	global_position.y = clampf(
-		global_position.y, arena_bounds.position.y + 104.0, arena_bounds.end.y - 92.0
-	)
-	if is_on_wall():
-		_movement_direction *= -1.0
+	_attack_state = &"recover"
+	_recover_remaining = Patterns.punish_seconds(_attack_id, stage)
+	_open_punish_window(_recover_remaining)
+
+
+func _cancel_attack(idle_delay: float) -> void:
+	_attack_state = &"idle"
+	_attack_timer = idle_delay
+	_attack_chain.clear()
+	_emissions.clear()
+	_telegraph_remaining = 0.0
+	_recover_remaining = 0.0
+	_pending_directions = []
+	_telegraph_marks = []
+
+
+## B2 armor/overheat opens for the whole punish window; B1 bodies are already open.
+func _open_punish_window(seconds: float) -> void:
+	if phase != 2 or enemy_id == &"tidal_heart":
+		return
+	_branch_open = true
+	_branch_timer = seconds
+	_window_length = seconds
 
 
 func _advance_attack_window() -> void:
-	_branch_timer = 2.0
+	_branch_timer = OPEN_WINDOW_SECONDS
+	_window_length = OPEN_WINDOW_SECONDS
 	match enemy_id:
-		&"stone_guardian":
-			_branch_open = phase == 1 or not _branch_open
-		&"furnace_mother":
-			_branch_open = phase == 1 or not _branch_open
+		&"stone_guardian", &"furnace_mother":
+			# B1 stays open; B2 opens only through a punish window after an attack.
+			_branch_open = phase == 1
+			if phase == 2:
+				_branch_timer = CLOSED_WINDOW_SECONDS
 		&"tidal_heart":
+			_branch_open = false
 			if phase == 2:
-				_branch_open = false
-				_branch_timer = 999999.0
-			else:
-				_branch_open = false
-
-
-func _attack_directions() -> Array[Vector2]:
-	var player := get_tree().get_first_node_in_group(&"player") as Node2D
-	var target_direction := Vector2.DOWN
-	if player != null and _in_arena(player.global_position):
-		var aim_point := player.global_position + Vector2(0.0, -80.0)
-		target_direction = (aim_point - _core_world_position()).normalized()
-	var directions: Array[Vector2] = [target_direction]
-	match enemy_id:
-		&"stone_guardian":
-			if phase == 2:
-				directions = [
-					target_direction.rotated(-0.22),
-					target_direction,
-					target_direction.rotated(0.22),
-				]
-		&"furnace_mother":
-			directions = [
-				target_direction.rotated(-0.3),
-				target_direction,
-				target_direction.rotated(0.3),
-			]
-			if phase == 2:
-				directions.push_front(target_direction.rotated(-0.56))
-				directions.append(target_direction.rotated(0.56))
-		&"tidal_heart":
-			directions.clear()
-			for index in 8:
-				directions.append(Vector2.RIGHT.rotated(TAU * float(index) / 8.0))
-	return directions
-
-
-func _fire_boss_attack() -> void:
-	var directions := _pending_directions
-	if directions.is_empty():
-		directions = _attack_directions()
-	_pending_directions = []
-	var origin := _core_world_position()
-	for direction in directions:
-		var projectile := ENEMY_PROJECTILE_SCENE.instantiate() as EnemyProjectile
-		if projectile == null:
-			continue
-		var parent := (
-			get_tree().current_scene if get_tree().current_scene != null else get_tree().root
-		)
-		parent.add_child(projectile)
-		projectile.global_position = origin + direction * 60.0
-		projectile.style = PROJECTILE_STYLES.get(enemy_id, &"orb")
-		projectile.size_scale = 1.6
-		projectile.launch(direction, int(Catalog.BOSS_DATA[enemy_id]["contact_damage"]))
-		if projectile.has_method("configure_arena"):
-			projectile.call("configure_arena", arena_bounds)
-	CombatFx.spawn_muzzle_flash(_effect_parent(), origin, Vector2.UP, _boss_accent_color())
+				_branch_timer = CLOSED_WINDOW_SECONDS
 
 
 func _on_player_detector_body_entered(body: Node2D) -> void:
 	if _dying or not body.has_method(&"take_damage") or not _in_arena(body.global_position):
 		return
-	var data: Dictionary = Catalog.BOSS_DATA[enemy_id]
-	body.call(&"take_damage", int(data["contact_damage"]), global_position)
+	body.call(&"take_damage", _contact_damage(), global_position)
+
+
+func _boss_data() -> Dictionary:
+	return Catalog.BOSS_DATA.get(enemy_id, Catalog.BOSS_DATA[&"stone_guardian"])
+
+
+func _contact_damage() -> int:
+	return int(_boss_data()["contact_damage"])
 
 
 func _die() -> void:
@@ -374,6 +414,7 @@ func _die() -> void:
 	health = 0
 	collision_layer = 0
 	collision_mask = 0
+	_cancel_attack(0.0)
 	if _player_detector != null:
 		_player_detector.set_deferred("monitoring", false)
 	if _projectile_hurtbox != null:
@@ -452,103 +493,33 @@ func weak_point_exposed() -> bool:
 
 
 func window_fraction_left() -> float:
-	if not _branch_open or _branch_timer > OPEN_WINDOW_SECONDS + 0.01:
+	if not _branch_open or _branch_timer > _window_length + 0.01:
 		return -1.0
 	if phase == 1 and enemy_id != &"tidal_heart":
 		return -1.0
-	return clampf(_branch_timer / OPEN_WINDOW_SECONDS, 0.0, 1.0)
-
-
-func _advance_presentation_timers(delta: float) -> void:
-	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
-	_block_flash_remaining = maxf(_block_flash_remaining - delta, 0.0)
-	_stagger_remaining = maxf(_stagger_remaining - delta, 0.0)
-	_tether_flash = maxf(_tether_flash - delta, 0.0)
-	_recoil *= exp(-14.0 * delta)
-	_health_trail_delay = maxf(_health_trail_delay - delta, 0.0)
-	if _health_trail_delay == 0.0:
-		_health_trail = move_toward(_health_trail, float(health), float(max_health) * delta * 0.6)
-	_health_trail = maxf(_health_trail, float(health))
-	for ripple in _shield_ripples:
-		ripple["age"] = float(ripple["age"]) + delta
-	_shield_ripples = _shield_ripples.filter(func(r): return float(r["age"]) < 0.45)
-	var exposed := weak_point_exposed()
-	var window := phase == 2 or enemy_id == &"tidal_heart"
-	if exposed != _was_open and window:
-		if exposed:
-			GameJuice.play_sfx(&"boss_open")
-			CombatFeedback.spawn_phase_burst(self, _boss_accent_color(), _core_local())
-		else:
-			GameJuice.play_sfx(&"boss_close")
-			_spawn_close_puff()
-	_was_open = exposed
-	_open_elapsed = _open_elapsed + delta if exposed else 0.0
-	if enemy_id == &"furnace_mother" and phase == 2:
-		_steam_timer -= delta
-		if _steam_timer <= 0.0:
-			_steam_timer = 0.12 if _branch_open else 0.3
-			_spawn_heat_particle()
+	return clampf(_branch_timer / _window_length, 0.0, 1.0)
 
 
 func _update_visual_presentation() -> void:
 	if not _has_art or _sprite == null:
 		return
-	var accent := _boss_accent_color()
 	_update_facing()
-	_apply_state_art()
-	_sprite.position = _visual_base_position + _recoil
-	_sprite.position.y += sin(_age * 1.8) * (4.0 if enemy_id == &"tidal_heart" else 1.5)
-	_sprite.scale = _visual_base_scale
-	_sprite.rotation = sin(_age * 1.25) * (0.018 if enemy_id == &"tidal_heart" else 0.008)
-	_sprite.modulate = Color.WHITE
-	var look := BossVisuals.state_look(self)
-	var glow: float = look["glow"]
-	var darken: float = look["darken"]
-	var frost: float = look["frost"]
-	var glow_color: Color = look["glow_color"]
-	var flash := 0.0
-	var flash_color := Color.WHITE
-	if _telegraph_remaining > 0.0:
-		var attack_pulse := 0.5 + 0.5 * sin(_age * 26.0)
-		_sprite.scale *= Vector2(1.035 + attack_pulse * 0.035, 0.98 - attack_pulse * 0.015)
-		glow = maxf(glow, 0.45 + attack_pulse * 0.35)
-		glow_color = accent
-	if _stagger_remaining > 0.0:
-		var shake := _stagger_remaining / STAGGER_SECONDS
-		_sprite.position += Vector2(sin(_age * 80.0), cos(_age * 67.0)) * 6.0 * shake
-		flash = maxf(flash, 0.35 * shake)
-		flash_color = accent
-	var strength := GameJuice.flash_strength()
-	if _hit_flash_remaining > 0.0:
-		flash = clampf(_hit_flash_remaining / HIT_FLASH_SECONDS, 0.0, 1.0) * 0.85 * strength
-		flash_color = Color(1.0, 0.97, 0.9)
-		_sprite.scale *= 1.02
-	elif _block_flash_remaining > 0.0:
-		flash = 0.45 * strength
-		flash_color = Color(0.6, 0.66, 0.76)
-		_sprite.position.x += sin(_age * 95.0) * 2.5
-	if _fx != null:
-		_fx.set_shader_parameter(&"flash_amount", flash)
-		_fx.set_shader_parameter(&"flash_color", flash_color)
-		_fx.set_shader_parameter(&"glow_amount", glow)
-		_fx.set_shader_parameter(&"glow_color", glow_color)
-		_fx.set_shader_parameter(&"frost_amount", frost)
-		_fx.set_shader_parameter(&"darken_amount", darken)
-	if _overlay != null:
-		_overlay.queue_redraw()
+	BossVisuals.apply_state_art(self)
+	BossVisuals.apply_presentation(self)
 
 
 func _update_facing() -> void:
-	match enemy_id:
-		&"stone_guardian":
-			var player := get_tree().get_first_node_in_group(&"player") as Node2D
-			if player != null and _player_engaged:
-				var dx := player.global_position.x - global_position.x
-				if absf(dx) > 24.0:
-					_facing = signf(dx)
-		&"furnace_mother":
-			if absf(velocity.x) > 8.0:
-				_facing = signf(velocity.x)
+	if _attack_state == &"idle":
+		match enemy_id:
+			&"stone_guardian":
+				var player := get_tree().get_first_node_in_group(&"player") as Node2D
+				if player != null and _player_engaged:
+					var dx := player.global_position.x - global_position.x
+					if absf(dx) > 24.0:
+						_facing = signf(dx)
+			&"furnace_mother":
+				if absf(velocity.x) > 8.0:
+					_facing = signf(velocity.x)
 	_sprite.flip_h = _facing < 0.0
 	if _projectile_hurtbox != null:
 		_projectile_hurtbox.scale = Vector2(-1.0 if _facing < 0.0 else 1.0, 1.0)
@@ -586,26 +557,6 @@ func _hit_direction(hit_context: Dictionary, impact: Vector2) -> Vector2:
 	return away.normalized() if away.length() > 4.0 else Vector2.RIGHT
 
 
-func _spawn_compact_hit(
-	impact_position: Vector2, direction := Vector2.ZERO, heavy := false
-) -> void:
-	var parent := _effect_parent()
-	if parent != null:
-		var tint := _boss_accent_color().lightened(0.25)
-		CombatFeedback.spawn_hit(parent, impact_position, false, direction, heavy, tint)
-
-
-func _spawn_blocked_hit(impact_position: Vector2, direction := Vector2.ZERO) -> void:
-	var parent := _effect_parent()
-	if parent != null:
-		CombatFeedback.spawn_blocked_hit(parent, impact_position, direction)
-	_block_flash_remaining = BLOCK_FLASH_SECONDS
-	if enemy_id == &"tidal_heart" and phase == 2:
-		_shield_ripples.append({"position": to_local(impact_position), "age": 0.0})
-	if Audio.has_method(&"play_sfx"):
-		GameJuice.play_sfx(&"armor_clink", &"beam_ricochet")
-
-
 func _spawn_phase_burst() -> void:
 	_phase_burst_count += 1
 	_stagger_remaining = STAGGER_SECONDS
@@ -613,54 +564,6 @@ func _spawn_phase_burst() -> void:
 	GameJuice.shake(self, 9.0, 0.45)
 	GameJuice.hit_stop(self, 0.1)
 	GameJuice.play_sfx(&"boss_phase")
-
-
-func _spawn_close_puff() -> void:
-	var parent := _effect_parent()
-	if parent == null:
-		return
-	var tint := Color(0.5, 0.5, 0.52, 0.5)
-	for index in 3:
-		var puff := CombatFx.Puff.new()
-		parent.add_child(puff)
-		puff.global_position = _core_world_position()
-		puff.z_index = 6
-		puff.configure(
-			Vector2.RIGHT.rotated(TAU * float(index) / 3.0 + _age) * 70.0, 0.35, 10.0, 34.0, tint
-		)
-
-
-func _spawn_heat_particle() -> void:
-	var parent := _effect_parent()
-	if parent == null or not is_inside_tree():
-		return
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var puff := CombatFx.Puff.new()
-	parent.add_child(puff)
-	var spread := Vector2(rng.randf_range(-150.0, 150.0), rng.randf_range(-170.0, -40.0))
-	puff.global_position = global_position + _visual_base_position + spread
-	puff.z_index = 6
-	if _branch_open:
-		# Cooling window: pale steam vents off the cracked shell.
-		puff.configure(
-			Vector2(0.0, -rng.randf_range(80.0, 150.0)),
-			0.7,
-			8.0,
-			36.0,
-			Color(0.85, 0.87, 0.9, 0.4),
-			1.5
-		)
-	else:
-		# Overheated: embers rise off the white-hot carapace.
-		puff.configure(
-			Vector2(rng.randf_range(-20.0, 20.0), -rng.randf_range(120.0, 220.0)),
-			0.45,
-			3.0,
-			5.0,
-			Color(1.0, 0.72, 0.3, 0.9),
-			0.5
-		)
 
 
 func _draw() -> void:
@@ -676,41 +579,6 @@ func _draw_overlay_on(canvas: CanvasItem) -> void:
 ## Tidal Heart has authored closed/open shell art; other bosses use shader states only.
 func has_state_art() -> bool:
 	return _closed_texture != null and _open_texture != null
-
-
-func _apply_state_art() -> void:
-	if not has_state_art():
-		return
-	var exposed := weak_point_exposed()
-	_sprite.texture = _open_texture if exposed else _closed_texture
-	# D19 "Bubble -> Harpoon": Bubble Snare encases the exposed core; a harpoon pops it.
-	var bubbled := phase == 1 and _branch_open and not _core_cracked
-	if bubbled and not is_instance_valid(_core_bubble):
-		_core_bubble = BubbleVisual.attach(
-			self,
-			Rect2(
-				-CORE_BUBBLE_RADIUS,
-				-CORE_BUBBLE_RADIUS,
-				CORE_BUBBLE_RADIUS * 2.0,
-				CORE_BUBBLE_RADIUS * 2.0
-			),
-			4
-		)
-	if is_instance_valid(_core_bubble):
-		_core_bubble.visible = bubbled
-		_core_bubble.position = _core_local()
-		_core_bubble.warning = (
-			clampf(1.0 - _branch_timer / CLOSING_WARNING_SECONDS, 0.0, 1.0) if bubbled else 0.0
-		)
-
-
-func _boss_color() -> Color:
-	match enemy_id:
-		&"furnace_mother":
-			return Color(0.78, 0.18, 0.08, 1.0)
-		&"tidal_heart":
-			return Color(0.08, 0.38, 0.75, 1.0)
-	return Color(0.35, 0.38, 0.45, 1.0)
 
 
 func _boss_accent_color() -> Color:

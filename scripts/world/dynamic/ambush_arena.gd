@@ -13,8 +13,11 @@ signal sealed
 signal cleared
 signal aborted
 signal telegraphed(at: Vector2)
+signal spawned(enemy: Node2D)
 
 enum State { ARMED, SEALING, FIGHTING, CLEARED, INTERMISSION }
+
+const Assist = preload("res://scripts/progression/assist.gd")
 
 const SPAWN_DELAY := 0.55
 const SPAWN_STAGGER := 0.32
@@ -44,6 +47,9 @@ const LEASH_FLOOR_MARGIN := 16.0
 ## Aborts the fight when no ambush enemy loses health for this long.
 @export var stall_seconds := 40.0
 @export var area_override: StringName = &""
+## False for arenas that are the whole point of the room (the Trials gauntlet): the skip-ambushes
+## assist leaves them armed.
+@export var assist_skippable := true
 
 var state := State.ARMED
 var enemies: Array = []
@@ -150,7 +156,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var player := WorldFx.player_of(self)
 	if state == State.ARMED:
-		if player == null or GameState.health <= 0:
+		if player == null or GameState.health <= 0 or _skipped_by_assist():
 			return
 		if not _player_committed(player):
 			_await_exit = false
@@ -319,6 +325,11 @@ func _spawn(enemy_id: StringName, index: int, at: Vector2) -> void:
 	WorldFx.dust(get_parent(), enemy.global_position, Vector2(30, 30), colors["dust"], 24, 200.0)
 	_emerge_flash(enemy.global_position, colors["accent"], 18)
 	WorldFx.play(self, &"world_emerge", enemy.global_position, -3.0, randf_range(0.9, 1.1))
+	spawned.emit(enemy)
+
+
+func _skipped_by_assist() -> bool:
+	return assist_skippable and Assist.skip_ambushes()
 
 
 func _emerge_flash(at: Vector2, accent: Color, amount: int) -> void:

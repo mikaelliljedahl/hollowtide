@@ -7,6 +7,9 @@ const CRYSTAL_COLOR := Color(0.98, 0.66, 0.22, 1.0)
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 
+## Weapons sets both from the Tide Glyph loadout before the pulse enters the tree.
+var damage_amount := Catalog.BOMB_DAMAGE
+var fuse_seconds := Catalog.BOMB_FUSE_SECONDS
 var _age := 0.0
 var _exploded := false
 
@@ -26,7 +29,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_age += delta
 	queue_redraw()
-	if _age >= Catalog.BOMB_FUSE_SECONDS:
+	if _age >= fuse_seconds:
 		_explode()
 
 
@@ -61,18 +64,18 @@ func _explode() -> void:
 				target
 				. call(
 					&"receive_hit",
-					Catalog.BOMB_DAMAGE,
+					damage_amount,
 					&"bomb",
 					{"position": global_position, "source": self},
 				)
 			)
 		elif target.has_method(&"take_damage"):
-			target.call(&"take_damage", Catalog.BOMB_DAMAGE, &"bomb")
+			target.call(&"take_damage", damage_amount, &"bomb")
 	queue_free()
 
 
 func _draw() -> void:
-	var charge := clampf(_age / Catalog.BOMB_FUSE_SECONDS, 0.0, 1.0)
+	var charge := clampf(_age / fuse_seconds, 0.0, 1.0)
 	var hum := 0.5 + 0.5 * sin(_age * lerpf(14.0, 46.0, charge))
 	# Converging ring: the pulse gathers inward before it bursts.
 	var gather := lerpf(44.0, 14.0, fmod(_age * 2.4, 1.0))

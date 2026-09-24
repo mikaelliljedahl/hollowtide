@@ -4,18 +4,29 @@ extends Node2D
 ## Owns the player, HUD, map and fade layer for the campaign and swaps hand-authored rooms.
 ## Rooms abut on a shared tile map; leaving through a boundary opening enters the neighbour at
 ## the same world cell, so doors need no ids. Death returns to the last save in memory (no disk
-## load). Debug-only launch flags: --campaign-room=<id>, --campaign-grant=<ability,...>.
+## load). Save shrines double as fast-travel stations (docs/features/fast-travel.md) and Tide
+## Glyph sockets (docs/features/tide-modules.md), both reached through one shrine menu.
+## Debug-only launch flags: --campaign-room=<id>, --campaign-grant=<ability,...>.
 
 const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const PLAYER_SCENE: PackedScene = preload("res://scenes/player/player.tscn")
 const HUD_SCENE: PackedScene = preload("res://scenes/ui/hud.tscn")
 const MAP_SCRIPT = preload("res://scripts/campaign/campaign_map.gd")
 const MINIMAP_SCRIPT = preload("res://scripts/campaign/campaign_minimap.gd")
+const FastTravel = preload("res://scripts/campaign/fast_travel.gd")
+const TIDE_HOOK_SCRIPT = preload("res://scripts/campaign/tide_hook.gd")
+const SHRINE_MENU_SCRIPT = preload("res://scripts/ui/shrine_menu.gd")
 ## Code toggle for the top-right HUD minimap.
 const SHOW_MINIMAP := true
 const CREDITS_PATH := "res://scenes/campaign/credits.tscn"
 const TILE := 64.0
 const FADE_SECONDS := 0.16
+const TRAVEL_FADE_SECONDS := 0.4
+## Travel refusal reasons (see travel_blocker).
+const BLOCK_AMBUSH := &"ambush"
+const BLOCK_BOSS := &"boss"
+const BLOCK_HAZARD := &"hazard"
+const BLOCK_BUSY := &"busy"
 const DEATH_WAIT := 0.45
 const SIDE_EXIT := 20.0
 const TOP_EXIT := 40.0
@@ -32,6 +43,9 @@ var current_room_id := ""
 var player: Player
 var map: CanvasLayer
 var minimap: CanvasLayer
+var tide_hook: Node
+var shrine_menu: CanvasLayer
+var _shrine_from := ""
 var _world: Node2D
 var _fade_layer: CanvasLayer
 var _fade: ColorRect
@@ -57,6 +71,12 @@ func _ready() -> void:
 	minimap.name = "CampaignMinimap"
 	minimap.set("enabled", SHOW_MINIMAP)
 	add_child(minimap)
+	tide_hook = TIDE_HOOK_SCRIPT.new()
+	add_child(tide_hook)
+	shrine_menu = SHRINE_MENU_SCRIPT.new()
+	shrine_menu.name = "ShrineMenu"
+	add_child(shrine_menu)
+	shrine_menu.chosen.connect(_on_shrine_chosen)
 	_build_fade()
 	if not GameState.player_died.is_connected(_on_player_died):
 		GameState.player_died.connect(_on_player_died)
@@ -73,6 +93,10 @@ func _ready() -> void:
 		room_id = Rooms.START_ROOM
 		spawn = Rooms.START_POSITION
 		GameState.set_checkpoint(room_id, spawn)
+	# Saves from before fast travel: the shrine the slot was written at counts as activated.
+	var resumed := FastTravel.station_near(room_id, spawn)
+	if not resumed.is_empty():
+		GameState.activate_station(resumed)
 	var requested := _debug_room()
 	if Rooms.ROOMS.has(requested):
 		room_id = requested
@@ -128,10 +152,134 @@ func _unhandled_input(event: InputEvent) -> void:
 func save_at(local_position: Vector2) -> bool:
 	if current_room_id.is_empty():
 		return false
+	var station := FastTravel.station_near(current_room_id, local_position)
+	if not station.is_empty():
+		GameState.activate_station(station)
 	GameState.set_checkpoint(current_room_id, local_position)
 	var result := _save()
 	GameState.pickup_feedback.emit("PROGRESS SAVED" if result == OK else "SAVE FAILED")
 	return result == OK
+
+
+## Why fast travel is refused right now, or &"" when allowed: a transition or death in progress,
+## a sealed or fighting ambush arena, a living boss with the player in its arena, or a rising
+## flood that is not at rest. Rooms are freed on every change, so the groups hold the current room.
+func travel_blocker() -> StringName:
+	if _busy or _respawning or _ending or current_room == null or GameState.health <= 0:
+		return BLOCK_BUSY
+	var tree := get_tree()
+	for node in tree.get_nodes_in_group(&"worldfx_ambush"):
+		var arena := node as AmbushArena
+		if (
+			arena != null
+			and arena.state not in [AmbushArena.State.ARMED, AmbushArena.State.CLEARED]
+		):
+			return BLOCK_AMBUSH
+	for node in tree.get_nodes_in_group(&"campaign_boss"):
+		var boss := node as CombatBoss
+		if boss == null or boss.health <= 0:
+			continue
+		var bounds := boss.arena_bounds
+		if bounds.size == Vector2.ZERO or bounds.has_point(player.global_position):
+			return BLOCK_BOSS
+	for node in tree.get_nodes_in_group(&"worldfx_rising_shaft"):
+		var shaft := node as RisingShaft
+		if shaft != null and shaft.state != RisingShaft.State.ARMED:
+			return BLOCK_HAZARD
+	return &""
+
+
+## Travel targets from an activated shrine in the current room, limited to discovered rooms;
+## empty while travel is blocked.
+func travel_targets(from_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if FastTravel.station(from_id).get("room", "") != current_room_id or travel_blocker() != &"":
+		return result
+	for entry in FastTravel.targets(GameState.activated_stations, from_id):
+		if GameState.discovered_rooms.has(entry["room"]):
+			result.append(entry)
+	return result
+
+
+## Opens the map in travel mode at shrine `from_id` (called by the shrine). False when there is
+## nowhere to go or travel is blocked.
+func open_travel(from_id: String) -> bool:
+	var targets := travel_targets(from_id)
+	if targets.is_empty() or map == null or map.visible:
+		return false
+	map.call("open_travel", from_id, targets)
+	return true
+
+
+## What the save shrine `from_id` in the current room offers right now, in menu order:
+## travel while a target exists and nothing blocks it (travel_targets), Tide Sockets while a glyph
+## is owned. Tide Sockets ignore ambushes and bosses, as the socket screen always did; only a
+## transition, death or the ending refuses them.
+func shrine_options(from_id: String) -> Array[StringName]:
+	var result: Array[StringName] = []
+	if FastTravel.station(from_id).get("room", "") != current_room_id:
+		return result
+	if not travel_targets(from_id).is_empty():
+		result.append(SHRINE_MENU_SCRIPT.TRAVEL)
+	if not GameState.tide.owned.is_empty() and travel_blocker() != BLOCK_BUSY:
+		result.append(SHRINE_MENU_SCRIPT.TIDE)
+	return result
+
+
+## Called by a save shrine on move_up: opens the shrine menu when it offers both options, the one
+## screen directly when it offers one, nothing when it offers none.
+func open_shrine(from_id: String) -> bool:
+	var offered := shrine_options(from_id)
+	if offered.is_empty() or map.visible or shrine_menu.call("is_open"):
+		return false
+	_shrine_from = from_id
+	if offered.size() == 1:
+		_on_shrine_chosen(offered[0])
+	else:
+		shrine_menu.call("open", offered)
+	return true
+
+
+func _on_shrine_chosen(option: StringName) -> void:
+	match option:
+		SHRINE_MENU_SCRIPT.TRAVEL:
+			open_travel(_shrine_from)
+		SHRINE_MENU_SCRIPT.TIDE:
+			var shrine := FastTravel.station(_shrine_from)
+			tide_hook.call("open_at", shrine.get("position", Vector2.ZERO))
+
+
+## Fades out, loads the target shrine's room, stands the player on it, then refills, moves the
+## checkpoint there and saves, exactly like resting at that shrine. Refused unless both shrines
+## are activated, `from_id` is in the current room and nothing blocks travel.
+func travel_to(from_id: String, to_id: String) -> bool:
+	if not travel_targets(from_id).any(
+		func(entry: Dictionary) -> bool: return entry["id"] == to_id
+	):
+		return false
+	_travel(FastTravel.station(to_id))
+	return true
+
+
+func _travel(target: Dictionary) -> void:
+	_busy = true
+	_generation += 1
+	var generation := _generation
+	get_tree().paused = true
+	await _fade_to(1.0, TRAVEL_FADE_SECONDS)
+	if generation != _generation:
+		return
+	_load_room(target["room"])
+	_place_player(target["position"], true)
+	GameState.refill()
+	GameState.set_checkpoint(target["room"], target["position"])
+	var result := _save()
+	if result != OK:
+		push_warning("Campaign: travel save failed: %s" % error_string(result))
+	await get_tree().process_frame
+	get_tree().paused = false
+	await _fade_to(0.0, TRAVEL_FADE_SECONDS)
+	_busy = false
 
 
 func on_boss_defeated(_boss_id: StringName) -> bool:

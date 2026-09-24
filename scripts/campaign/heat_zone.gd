@@ -3,6 +3,8 @@ extends Area2D
 ## Superheated air. Without Pressure Seal it drains health steadily (never an instant kill); Pressure Seal makes
 ## it harmless. A warm screen tint and rising embers make the rule readable without text.
 
+const Assist = preload("res://scripts/progression/assist.gd")
+
 const DAMAGE_PER_TICK := 4
 const TICK_SECONDS := 0.5
 
@@ -63,7 +65,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_timer = 0.0
 	# Direct drain bypasses knockback/invulnerability: heat is ambient, not a hit.
-	GameState.apply_damage(DAMAGE_PER_TICK)
+	GameState.apply_damage(Assist.scale_damage(DAMAGE_PER_TICK))
 
 
 func _on_body_entered(body: Node2D) -> void:

@@ -39,6 +39,11 @@ position = Vector2(736, 480)
 instance_id = "fringe_05.missile_02"
 kind = &"missile_tank"
 
+[node name="Pickup_farcast" parent="Entities" instance=ExtResource("4_pickup")]
+position = Vector2(992, 288)
+instance_id = "fringe_05.farcast"
+kind = &"glyph_farcast"
+
 [node name="Enemy01" type="Marker2D" parent="Entities"]
 position = Vector2(928, 864)
 script = ExtResource("5_enemy")

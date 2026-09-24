@@ -25,6 +25,7 @@ const STYLE_COLORS := {
 
 func _ready() -> void:
 	add_to_group(&"transient")
+	add_to_group(&"enemy_shot")
 	collision_layer = 0
 	collision_mask = 1 | 2
 	monitoring = true
@@ -53,6 +54,9 @@ func _physics_process(delta: float) -> void:
 	if not hit.is_empty():
 		var target := hit.get("collider") as Node
 		var impact_position: Vector2 = hit.get("position", global_position)
+		if target != null and target.has_method(&"try_deflect"):
+			if target.call(&"try_deflect", self):
+				return
 		if target != null and target.has_method(&"take_damage"):
 			target.call(&"take_damage", damage, impact_position)
 		_pop(impact_position)

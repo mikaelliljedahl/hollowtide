@@ -120,6 +120,24 @@ func _build() -> void:
 		func(on: bool): Settings.set_setting("accessibility", "reduce_flashes", on)
 	)
 
+	_section(body, "Assist")
+	_step_row(
+		body,
+		"Game speed",
+		[1.0, 0.9, 0.8, 0.7, 0.6, 0.5],
+		float(Settings.assist_value("game_speed")),
+		func(v: float): Settings.set_setting("assist", "game_speed", v)
+	)
+	_step_row(
+		body,
+		"Damage taken",
+		[1.0, 0.5, 0.25, 0.0],
+		float(Settings.assist_value("damage_taken")),
+		func(v: float): Settings.set_setting("assist", "damage_taken", v)
+	)
+	var skip := _toggle_row(body, "Skip ambushes", bool(Settings.assist_value("skip_ambushes")))
+	skip.toggled.connect(func(on: bool): Settings.set_setting("assist", "skip_ambushes", on))
+
 	_section(body, "Controls")
 	var hint := Style.label(
 		body,
@@ -204,6 +222,34 @@ func _slider_row(parent: Node, title: String, value: float, on_change: Callable)
 			on_change.call(v / 100.0)
 	)
 	return slider
+
+
+## A button that cycles through fixed percentages, so assist values stay on tested steps.
+func _step_row(
+	parent: Node, title: String, steps: Array, value: float, on_change: Callable
+) -> Button:
+	var row := _row(parent, title)
+	var button := Button.new()
+	button.name = "Step_%s" % title.replace(" ", "")
+	button.custom_minimum_size = Vector2(SLOT_WIDTH, 46)
+	button.add_theme_font_size_override("font_size", Style.SIZE_BODY)
+	button.add_theme_stylebox_override("normal", _slot_box(false))
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var index := 0
+	for i in steps.size():
+		if is_equal_approx(float(steps[i]), value):
+			index = i
+	button.set_meta(&"index", index)
+	button.text = "%d%%" % roundi(float(steps[index]) * 100.0)
+	button.pressed.connect(
+		func():
+			var next: int = (int(button.get_meta(&"index")) + 1) % steps.size()
+			button.set_meta(&"index", next)
+			button.text = "%d%%" % roundi(float(steps[next]) * 100.0)
+			on_change.call(float(steps[next]))
+	)
+	row.add_child(button)
+	return button
 
 
 func _toggle_row(parent: Node, title: String, value: bool) -> CheckButton:

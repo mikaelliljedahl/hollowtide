@@ -1,12 +1,14 @@
 extends Control
 
-## Title screen: Continue / New Game / Settings / Controls / Quit (+ Dev Track with --dev-mode).
+## Title screen: Continue / New Game / Settings / Controls / Quit (+ Dev Track with --dev-mode;
+## + Trials once the campaign save is finished, docs/features/trials.md).
 
 const Style = preload("res://scripts/ui/ui_style.gd")
 const Settings = preload("res://scripts/ui/game_settings.gd")
 const SettingsMenu = preload("res://scripts/ui/settings_menu.gd")
 const ControlsPanel = preload("res://scripts/ui/controls_panel.gd")
 const ConfirmDialog = preload("res://scripts/ui/confirm_dialog.gd")
+const TrialsMenu = preload("res://scripts/trials/trials_menu.gd")
 const LEVEL_PATH := "res://scenes/levels/level_01.tscn"
 const SPLASH_PATH := "res://assets/ui/splash.png"
 const CAMPAIGN_ENTRY_PATH := "res://scripts/campaign/campaign_entry.gd"
@@ -16,6 +18,8 @@ var _menu_panel: Control
 var _settings: Control
 var _controls: Control
 var _confirm: Control
+var _trials: Control
+var _trial_records: Dictionary = {}
 var _fader: ColorRect
 var _status: Label
 var _buttons: Dictionary = {}
@@ -151,6 +155,11 @@ func _build_menu() -> void:
 	if has_save:
 		_add_button(column, "ContinueButton", "Continue", _continue_game)
 	_add_button(column, "NewGameButton", "New Game", _new_game)
+	if has_save:
+		var trials := TrialsEntry.peek()
+		_trial_records = trials["records"]
+		if trials["finished"]:
+			_add_button(column, "TrialsButton", "Trials", _show_trials)
 	if _is_dev_mode():
 		var dev := _add_button(column, "StartDevButton", "Dev Track", _start_dev)
 		dev.add_theme_color_override("font_color", Color(Style.FLUX, 0.85))
@@ -215,6 +224,11 @@ func _build_overlays() -> void:
 	_confirm.name = "ConfirmNewGame"
 	add_child(_confirm)
 	_confirm.confirmed.connect(_begin_new_game)
+	_trials = TrialsMenu.new()
+	_trials.name = "TrialsMenu"
+	add_child(_trials)
+	_trials.closed.connect(_show_menu.bind("TrialsButton"))
+	_trials.chosen.connect(_start_trial)
 
 
 func _build_fader() -> void:
@@ -246,6 +260,24 @@ func _show_help() -> void:
 
 func _hide_help() -> void:
 	_controls.call("close")
+
+
+func _show_trials() -> void:
+	_menu_panel.hide()
+	_trials.call("open", _trial_records)
+
+
+func _start_trial(mode: StringName) -> void:
+	_trials.hide()
+	_transition(
+		func() -> void:
+			if not TrialsEntry.start(mode):
+				_busy = false
+				_menu_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_fader.color.a = 0.0
+				_status.text = "The Trials need a finished campaign save."
+				_show_menu("ContinueButton")
+	)
 
 
 # --- Campaign entry -------------------------------------------------------------
@@ -338,7 +370,7 @@ func _quit_game() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed(&"ui_cancel"):
 		return
-	for overlay in [_confirm, _settings, _controls]:
+	for overlay in [_confirm, _settings, _controls, _trials]:
 		if overlay != null and bool(overlay.call("handle_back")):
 			get_viewport().set_input_as_handled()
 			return

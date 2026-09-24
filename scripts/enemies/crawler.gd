@@ -286,6 +286,7 @@ func _die() -> void:
 		_projectile_hurtbox.set_enabled(false)
 	_deflect_sparks.emitting = false
 	CombatFeedback.spawn_death(self, false, frozen_at_death)
+	EnemyElite.spawn_reward(self)
 	_visual.visible = false
 	Audio.play_sfx(&"enemy_death")
 	var tween := create_tween()

@@ -3284,6 +3284,24 @@ def arsenal_sfx() -> dict[str, np.ndarray]:
     wash = bp(rng.standard_normal(n), 200.0, 1600.0) * np.sin(np.pi * np.clip(t / d, 0.0, 1.0))
     thump = np.sin(_sweep_phase(100.0, 50.0, n)) * np.exp(-t * 14.0)
     out["barrier_break"] = _finish_one_shot(track + 0.4 * wash + 0.7 * thump, 0.42)
+
+    # Dash deflect: an undertow swirl that dips and swings back up as the shot turns, then a
+    # rising droplet. Rendered last so the shared rng leaves every earlier sound unchanged.
+    d = 0.36
+    n = round(d * SR)
+    t = np.arange(n) / SR
+    half = n // 2
+    dip = np.concatenate(
+        [_sweep_phase(420.0, 160.0, half, 0.7), _sweep_phase(160.0, 520.0, n - half, 1.4)]
+    )
+    dip[half:] += dip[half - 1]
+    swirl = np.sin(dip) * np.sin(np.pi * np.clip(t / d, 0.0, 1.0)) ** 0.7
+    churn = bp(rng.standard_normal(n), 400.0, 2200.0) * (
+        0.55 + 0.45 * np.sin(2.0 * np.pi * 17.0 * t)
+    )
+    churn *= np.exp(-t * 7.0)
+    droplet = _pad_to(_bloop(700.0, 1600.0, 0.07, 36.0), n, 0.17)
+    out["dash_deflect"] = _finish_one_shot(0.6 * swirl + 0.35 * churn + 0.4 * droplet, 0.34)
     return out
 
 

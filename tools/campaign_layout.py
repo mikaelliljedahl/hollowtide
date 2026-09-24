@@ -106,6 +106,15 @@ PICKUP_KINDS = (
     "undertow_dash",
     "energy_tank",
     "missile_tank",
+    # Tide Sockets and Glyphs (docs/features/tide-modules.md); mirrors TIDE_PICKUP_KINDS.
+    "tide_socket",
+    "glyph_quickstring",
+    "glyph_farcast",
+    "glyph_heavy_barb",
+    "glyph_brine_hide",
+    "glyph_ebb_mend",
+    "glyph_deep_pulse",
+    "glyph_spring_tide",
 )
 
 

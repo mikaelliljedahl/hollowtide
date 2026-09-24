@@ -21,6 +21,17 @@ const ABILITY_IDS := [
 ]
 const FLUX_ABILITY_IDS := [&"flux_shield", &"burst_beam", &"echo_scan"]
 const FLUX_PICKUP_KINDS := FLUX_ABILITY_IDS + [&"flux_tank", &"flux_refill"]
+# Tide Sockets and Tide Glyphs (docs/features/tide-modules.md); effects live in tide_catalog.gd.
+const TIDE_PICKUP_KINDS := [
+	&"tide_socket",
+	&"glyph_quickstring",
+	&"glyph_farcast",
+	&"glyph_heavy_barb",
+	&"glyph_brine_hide",
+	&"glyph_ebb_mend",
+	&"glyph_deep_pulse",
+	&"glyph_spring_tide",
+]
 const BEAM_IDS := [&"base", &"ice", &"wave"]
 const ENEMY_IDS := [
 	&"crawler",
@@ -135,6 +146,14 @@ const DISPLAY_NAMES: Dictionary[StringName, String] = {
 	&"echo_scan": "Echo Scan",
 	&"flux_tank": "Flux Tank",
 	&"flux_refill": "Flux",
+	&"tide_socket": "Tide Socket",
+	&"glyph_quickstring": "Quickstring",
+	&"glyph_farcast": "Farcast",
+	&"glyph_heavy_barb": "Heavy Barb",
+	&"glyph_brine_hide": "Brine Hide",
+	&"glyph_ebb_mend": "Ebb Mend",
+	&"glyph_deep_pulse": "Deep Pulse",
+	&"glyph_spring_tide": "Spring Tide",
 }
 const BEAM_DISPLAY_NAMES: Dictionary[StringName, String] = {
 	&"base": "Seed Bolt",
@@ -183,6 +202,14 @@ const PICKUP_ICON_PATHS: Dictionary[StringName, String] = {
 	&"echo_scan": "res://assets/sprites/devmode/echo_scan.png",
 	&"flux_tank": "res://assets/sprites/devmode/flux_tank.png",
 	&"flux_refill": "res://assets/sprites/devmode/flux_refill.png",
+	&"tide_socket": "res://assets/sprites/tide/tide_socket.png",
+	&"glyph_quickstring": "res://assets/sprites/tide/glyph_quickstring.png",
+	&"glyph_farcast": "res://assets/sprites/tide/glyph_farcast.png",
+	&"glyph_heavy_barb": "res://assets/sprites/tide/glyph_heavy_barb.png",
+	&"glyph_brine_hide": "res://assets/sprites/tide/glyph_brine_hide.png",
+	&"glyph_ebb_mend": "res://assets/sprites/tide/glyph_ebb_mend.png",
+	&"glyph_deep_pulse": "res://assets/sprites/tide/glyph_deep_pulse.png",
+	&"glyph_spring_tide": "res://assets/sprites/tide/glyph_spring_tide.png",
 }
 
 const PICKUP_SOUND_CATEGORIES: Dictionary[StringName, StringName] = {
@@ -205,6 +232,14 @@ const PICKUP_SOUND_CATEGORIES: Dictionary[StringName, StringName] = {
 	&"echo_scan": &"weapon_pickup",
 	&"flux_tank": &"tank_pickup",
 	&"flux_refill": &"weapon_pickup",
+	&"tide_socket": &"tank_pickup",
+	&"glyph_quickstring": &"weapon_pickup",
+	&"glyph_farcast": &"weapon_pickup",
+	&"glyph_heavy_barb": &"weapon_pickup",
+	&"glyph_brine_hide": &"weapon_pickup",
+	&"glyph_ebb_mend": &"weapon_pickup",
+	&"glyph_deep_pulse": &"weapon_pickup",
+	&"glyph_spring_tide": &"weapon_pickup",
 }
 
 const MAX_ENERGY_TANKS := 6
@@ -391,7 +426,7 @@ static func is_beam(id: StringName) -> bool:
 
 
 static func is_pickup_kind(kind: StringName) -> bool:
-	return PICKUP_KINDS.has(kind) or FLUX_PICKUP_KINDS.has(kind)
+	return PICKUP_KINDS.has(kind) or FLUX_PICKUP_KINDS.has(kind) or TIDE_PICKUP_KINDS.has(kind)
 
 
 static func pickup_icon_path(kind: StringName) -> String:

@@ -48,6 +48,11 @@ position = Vector2(288, 538)
 script = ExtResource("6_station")
 station_kind = &"save"
 
+[node name="Pickup_tide_socket" parent="Entities" instance=ExtResource("4_pickup")]
+position = Vector2(2912, 224)
+instance_id = "kiln_01.tide_socket"
+kind = &"tide_socket"
+
 [node name="Pickup_pressure_seal" parent="Entities" instance=ExtResource("4_pickup")]
 position = Vector2(3488, 864)
 instance_id = "kiln_01.pressure_seal"

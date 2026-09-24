@@ -253,6 +253,10 @@ Hollowtide music must be original: never ship, sample, remix, or transcribe exis
   | `undertow_dash` | **Undertow Dash** | Replaces the spin attack: a short fast horizontal dash (ground or air, one air dash per jump) that passes through enemies dealing damage and breaks "undertow barriers". Normal (non-attack) spin jump stays. |
   | `energy_tank` | **Heart Pearl** | +100 health, unchanged. |
   Slipstream, High Jump and Pressure Seal are kept for now (later iteration). The tide mechanic is postponed.
+  *Superseded in part by commit 97168b9 (2026-09-24):* four internal ids were renamed, `morph_ball` to
+  `slipstream`, `screw_attack` to `undertow_dash`, `varia` to `pressure_seal`, and gate kind `screw` to
+  `undertow`. `furnace_mother`, `energy_parasite`, `energy_tank` and `missile_tank` kept their ids. Old
+  saves holding a renamed id are rejected, not migrated; see [state.md](state.md#aggregate-status).
 - **D20 — Surprise enemies.** New enemy types allowed beyond the thirteen: ceiling bat swarm (bursts out on
   proximity), mimic (rock or fake pickup), drop spider on thread, surface eel (water/lava), area stalker
   that follows between rooms, chasm sniper. Existing enemies may become faster/more aggressive with fair
@@ -281,3 +285,159 @@ existing catalog enemies, and reopens on clear. It implements the D21 ambush doo
   Cinder Warden already reversed at its bounds; no other patrol relied on walls alone.
 - Softlock rules are binding for every placement: only spawns the current kit can defeat are created,
   an encounter with none never seals, and death or leaving the arena aborts and re-arms it.
+
+## Action round 2026-09-24: save format for the new features
+
+The nine features below were set as goals by the user on 2026-09-24 and accepted as contract
+amendments on the same day. Save schema stays **2**. Four optional snapshot keys were added inside
+v2, each written only when non-empty, so a save without them is the format that existed before:
+`map_pins`, `activated_stations`, `tide_modules` and `trial_bests`. Validation accepts a v2 snapshot
+with or without each key and rejects the whole snapshot when a present key is malformed; every other
+unknown key is still rejected. v1 saves never carry them and migrate with none
+(`scripts/autoload/game_state.gd`). The legal constraints below come from a licence and patent check
+dated 2026-09-24; it is not legal advice, and a patent attorney should run a proper freedom-to-operate
+search before a commercial release.
+
+## Accepted assist options amendment (D22)
+
+Accepted by the user on 2026-09-24. Three options in the Settings screen's "Assist" section: game
+speed (100 to 50 % in 10 % steps), damage taken (100, 50, 25, 0 %) and skip ambushes. Design:
+[features/assist-options.md](features/assist-options.md).
+
+- Save format: none. The options are player settings in `user://settings.cfg` section `assist`,
+  shared by every slot.
+- Gameplay reads them only through `scripts/progression/assist.gd`; test runs always read the
+  defaults (100 %, 100 %, off).
+- Damage order is binding: Pressure Seal divisor, then the assist multiplier (rounded up, so any
+  setting above 0 still hurts at least 1), then the Tide Glyph multiplier, then the Flux Shield.
+  Heat ticks are scaled by the assist multiplier only.
+- Hit-stop scales and releases relative to the assist speed, never back to full speed.
+- Skip ambushes keeps arenas armed and open; it sets no clear flag and gives no reward. No
+  progression may depend on an ambush clear flag. An arena that is the point of its room (the Trials
+  Gauntlet) opts out with `assist_skippable = false`.
+
+## Accepted map pins amendment
+
+Accepted by the user on 2026-09-24. The player can place up to 12 pins of three kinds (come back,
+danger, item mark) on cells of rooms already entered, on the campaign map screen; the minimap shows
+them too. Design: [features/map-pins.md](features/map-pins.md).
+
+- Save format: optional v2 key `map_pins` (room, local cell, kind; at most 12, rooms must be in
+  `discovered_rooms`). Pins follow the active save domain and are cleared by reset, not by death.
+- No new input actions: the map pauses the game, so `fire_beam` places or cycles and `fire_missile`
+  removes.
+- Pins carry no labels, and the game never places a pin or any hint itself; the map must never
+  reveal a solution.
+
+## Accepted revisit remix amendment
+
+Accepted by the user on 2026-09-24. After each boss victory, common enemies in rooms the player
+revisits may return as elites. Design: [features/revisit-remix.md](features/revisit-remix.md).
+
+- Tier = defeated bosses (0 to 3); elite chance per common spawn 0, 0.25, 0.40, 0.55. First visits,
+  surprise enemies, ambush waves, bosses, the dev track and evidence runs are never remixed.
+- An elite is the same species at catalog x1.6 health (rounded up), x1.15 speed for integrated
+  movers, and attack cooldowns x0.8. Telegraphs and damage are unchanged. It drops two refills
+  instead of the random roll.
+- The choice is a fixed MD5 roll of room and spawn node, so a save always meets the same elites.
+- Save format: none; the tier is derived from existing `boss:<id>` flags.
+- Binding: an enemy the current kit cannot beat is never made elite (the ambush kill filter plus the
+  harpoon-quiver rule).
+
+## Accepted boss rework amendment
+
+Accepted by the user on 2026-09-24. Each boss fight runs four stages by health (above 75 %, above
+50 %, above 25 %, 25 % and below). Stages 1 and 2 use the B1 row of the phase-protection matrix and
+stages 3 and 4 the B2 row; B1 still turns into B2 at half health. In B2 the Stone Guardian's armor
+and the Cinder Warden's cooling window open during the punish window after each attack chain
+instead of on a fixed cycle. Design: [features/boss-rework.md](features/boss-rework.md).
+
+- Unchanged: arenas, HP, contact damage, the damage matrix, weapon requirements, IDs, signals and
+  save flags. Save format: none.
+- Binding fairness rules: every attack telegraphs for at least 0.45 s with pose, glow and marker;
+  aim is locked when the telegraph starts; every chain ends in a punish window (at least 1.4 s in
+  B2, 1.2 s in desperation); a stage change drops the current wind-up and gives a 1.0 s breather.
+- All timing lives in `scripts/enemies/boss_patterns.gd`; the balance is not play-tested yet.
+
+## Accepted dash deflect amendment
+
+Accepted by the user on 2026-09-24. An enemy shot touched in the first 0.10 s of an Undertow Dash
+turns back along its line as a player-owned 30-damage `beam` hit. Design:
+[features/dash-deflect.md](features/dash-deflect.md).
+
+- No new input, no cost, no reward drop. Save format: none.
+- The returned shot follows the Seed Bolt column of the reaction matrix, so every boss phase blocks
+  it; it never bypasses boss protection.
+- **Binding legal constraint (pending patent US20250090953A1, Koei Tecmo, US 18/613,164, JP priority
+  2023-150586):** the deflect stays a single-input, single-outcome window. No second input inside
+  the window may start a different action, then or later: presses are dropped, not buffered. Never
+  add a "press again to turn it into a dodge or other move" layer. Any change to this rule needs a new
+  check against that application, and its status must be checked again before release.
+- No player-visible name "parry", "melee counter", "deflect" or "mikiri"; if a name is ever shown it
+  is **Tide Turn**. Feedback comes from Hollowtide's own water and undertow language, not another
+  game's glow, flash, clang or sparks; timing comes from `docs/game-feel.md`.
+
+## Accepted fast travel and boss shortcut amendment
+
+Accepted by the user on 2026-09-24. Every save shrine the player has touched becomes a station; from
+an activated shrine the map opens in travel mode and the trip is a fade. Design:
+[features/fast-travel.md](features/fast-travel.md).
+
+- Save format: optional v2 key `activated_stations` (at most 64 unique station ids,
+  `<room_id>.save.<cell_x>_<cell_y>`). An id the room index no longer knows is kept and never
+  offered, so a layout edit never rejects a save. An old slot activates the shrine it resumes at.
+- Binding: travel only from an activated save shrine, and never while an ambush is sealed, a living
+  boss holds the player in its arena, a flood is rising, or a transition, death or the ending is
+  under way. Arrival refills, moves the checkpoint and saves, and grants nothing a shrine does not.
+- `move_up` on a save shrine opens one shared shrine menu (Travel, Tide Sockets); the only world cue
+  is an up chevron without text.
+- Each branch boss room keeps a flag gate on its boss flag into the hub; the campaign graph check
+  (`tools/campaign_shortcuts.py`) fails if a boss shortcut is missing or passable too early.
+
+## Accepted intended sequence breaks amendment
+
+Accepted by the user on 2026-09-24. Three hidden movement routes (four solver edges) in `fringe_01`,
+`vaults_02` and `depths_01` let a skilled player reach a Bolt Quiver, two Heart Pearls, the Harpoon
+early and the Updraft Cloak before the Bubble Snare. Design:
+[features/sequence-breaks.md](features/sequence-breaks.md).
+
+- Save format: none; rewards are ordinary pickups with stable instance IDs.
+- Binding: a break uses owned moves only (no glitch, damage boost or frame-perfect input), is visible
+  from the normal route, holds a reward no intended move reaches, and ends where the player can return
+  to a save shrine in every branch order. It never makes an ability gate pass with a plain jump, and
+  no break needs the glide.
+- Breaks are registered in `tools/campaign_breaks.py`; the graph solver's `no-breaks` run must finish
+  the campaign, and no Tide pickup may depend on a break.
+- The campaign now holds six Heart Pearls, the `MAX_ENERGY_TANKS` cap; more Heart Pearls need a
+  budget decision.
+
+## Accepted Tide Sockets amendment
+
+Accepted by the user on 2026-09-24. Tide Glyphs are passive trade-off modules found in the world
+and socketed at save shrines; capacity starts at 2 and three Tide Sockets raise it to 5. Seven
+glyphs, each with a gain and a downside; ten optional pickups in the campaign. Design:
+[features/tide-modules.md](features/tide-modules.md).
+
+- Save format: optional v2 key `tide_modules` with exactly `sockets_found` (0 to 3), `owned` and
+  `equipped` (a subset of `owned` that fits the capacity); written only after the first find.
+- The loadout changes only in an open shrine session; glyph numbers live only in
+  `scripts/progression/tide_catalog.gd`.
+- **Binding legal constraints (licence check; Konami JP5437320B2 is active in Japan and China):**
+  never use the names charm, notch, overcharmed, badge, BP, shard or chip, nor ring slots; capacity
+  is a hard limit with no over-capacity rule of any kind; no automatic loadout or auto-equip that
+  ranks or picks glyphs (any future convenience stays manual, such as presets the player builds).
+  No circular notch pips, no charm-screen layout, no shard list, and no one-to-one port of another
+  game's effect set.
+
+## Accepted Trials amendment
+
+Accepted by the user on 2026-09-24. A finished campaign save (saved `boss:tidal_heart` flag) unlocks
+a `Trials` start-menu item with two replayable runs: the Gauntlet (one sealed arena, six waves) and
+the Boss Rush (the three bosses in order). Design: [features/trials.md](features/trials.md).
+
+- Save format: optional v2 key `trial_bests` (`gauntlet` and `boss_rush`, each `time_ms` and `hits`).
+  A clear replaces the best only with a strictly shorter time; a failed run records nothing.
+- Binding: every trial uses a fixed full kit held only in memory; the campaign snapshot is restored
+  before anything is written, so the only possible change to the save is a better best.
+- Vision fit: Trials never replace the world. They are reached only from the title after the ending,
+  and the results panel is a menu outside the game world; the world itself still carries no text.

@@ -1,6 +1,7 @@
 extends Node
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const TideModules = preload("res://scripts/progression/tide_modules.gd")
 const BEAM_SHOT_SCENE: PackedScene = preload("res://scenes/combat/beam_shot.tscn")
 const CrossbowSnapFx = preload("res://scripts/combat/crossbow_snap_fx.gd")
 const HARPOON_SHOT_SCENE: PackedScene = preload("res://scenes/combat/harpoon_shot.tscn")
@@ -82,12 +83,17 @@ func _fire_beam(origin: Vector2, direction: Vector2) -> void:
 	var shot := _spawn_projectile(BEAM_SHOT_SCENE, origin, direction, projectile_kind)
 	if shot == null:
 		return
-	shot.damage_amount = int(Catalog.WEAPON_DATA[beam_kind]["damage"])
+	# Tide Glyph multipliers (GameState.tide) are all 1.0 while nothing is socketed.
+	var tide: TideModules = GameState.tide
+	var base_damage := int(Catalog.WEAPON_DATA[beam_kind]["damage"])
+	shot.damage_amount = tide.scale_int(&"crossbow_damage", base_damage)
+	shot.speed *= tide.multiplier(&"crossbow_speed")
 	var has_long_beam := GameState.has_ability(&"long_beam")
 	var range_multiplier := Catalog.LONG_RANGE_MULTIPLIER if has_long_beam else 1.0
+	range_multiplier *= tide.multiplier(&"crossbow_range")
 	shot.lifetime = Catalog.BEAM_RANGE * range_multiplier / shot.speed
 	shot.set_long_beam_enabled(has_long_beam)
-	_cooldown_remaining[&"beam"] = BEAM_COOLDOWN
+	_cooldown_remaining[&"beam"] = BEAM_COOLDOWN * tide.multiplier(&"crossbow_reload")
 	# Every bolt leaves the Seed Crossbow: string snap, plus leaves for the base seed-bolt.
 	_spawn_crossbow_snap(origin, direction, false, beam_kind == &"base")
 	match beam_kind:
@@ -104,13 +110,18 @@ func _fire_beam(origin: Vector2, direction: Vector2) -> void:
 func _fire_missile(origin: Vector2, direction: Vector2) -> void:
 	if direction.is_zero_approx() or not _ready_to_fire(&"missile"):
 		return
-	if not GameState.has_missiles or GameState.missile_count <= 0:
+	var tide: TideModules = GameState.tide
+	var bolts := 1 + tide.add(&"harpoon_bolt_add")
+	if not GameState.has_missiles or GameState.missile_count < bolts:
 		return
 	var shot := _spawn_projectile(HARPOON_SHOT_SCENE, origin, direction)
 	if shot == null or not GameState.spend_missile():
 		if shot != null:
 			shot.queue_free()
 		return
+	for _extra in bolts - 1:
+		GameState.spend_missile()
+	shot.damage_amount = tide.scale_int(&"harpoon_damage", shot.damage_amount)
 	_cooldown_remaining[&"missile"] = MISSILE_COOLDOWN
 	_spawn_crossbow_snap(origin, direction, true, true)
 	GameJuice.play_sfx(&"harpoon_fire", &"missile_fire")
@@ -121,9 +132,12 @@ func _fire_bomb(origin: Vector2) -> void:
 		return
 	if get_tree().get_nodes_in_group(&"bombs").size() >= Catalog.MAX_ACTIVE_BOMBS:
 		return
-	var bomb := BOMB_SCENE.instantiate() as Area2D
+	var bomb := BOMB_SCENE.instantiate() as Bomb
 	if bomb == null:
 		return
+	var tide: TideModules = GameState.tide
+	bomb.damage_amount = tide.scale_int(&"pulse_damage", Catalog.BOMB_DAMAGE)
+	bomb.fuse_seconds = Catalog.BOMB_FUSE_SECONDS * tide.multiplier(&"pulse_fuse")
 	var parent := get_tree().current_scene if get_tree().current_scene != null else get_tree().root
 	parent.add_child(bomb)
 	bomb.global_position = origin

@@ -74,6 +74,11 @@ gate_kind = &"missile"
 flag_id = "fringe_03.gate.missile_1"
 gate_size = Vector2(64, 192)
 
+[node name="Pickup_quickstring" parent="Entities" instance=ExtResource("4_pickup")]
+position = Vector2(1440, 480)
+instance_id = "fringe_03.quickstring"
+kind = &"glyph_quickstring"
+
 [node name="Gate_undertow_1" type="StaticBody2D" parent="Entities"]
 position = Vector2(3296, 352)
 script = ExtResource("7_gate")
