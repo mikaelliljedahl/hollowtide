@@ -5,20 +5,19 @@ extends RefCounted
 ## report who hit the player), so "unknown" can appear.
 
 const BossPatterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Hazards = preload("res://tools/playtest_hazards.gd")
 const TILE := 64.0
 const SAMPLE_SECONDS := 0.5
 const STUCK_WINDOW := 3.0
 const STUCK_SPREAD := 48.0
 const SHOT_RADIUS := 170.0
 const CONTACT_RADIUS := 280.0
+## Pixels between the player's hitbox and a hazard's body (not its origin) that still credit it.
 const HAZARD_RADIUS := 320.0
 const BOSS_ATTACK_MEMORY := 3.0
 const KILLER_MEMORY := 1.5
 const BREAK_RADIUS := 1.5
 const BREAK_KINDS := ["jump", "jump_over", "wall_jump", "dash_through"]
-const HAZARD_GROUPS := [
-	&"worldfx_crusher", &"worldfx_stalactite", &"worldfx_rising_shaft", &"campaign_heat"
-]
 
 var now := 0.0
 var room := ""
@@ -441,12 +440,16 @@ func _reflected_count() -> int:
 	return int(dash.deflect.reflected_count)
 
 
-## Best guess at what just hurt the player: a nearby enemy shot (credited to a boss attack when a
-## boss released one recently), then a charging boss (its attack) or a touching one (contact), a
-## boss attack released recently, a nearby enemy, a hazard, else "unknown".
+## Best guess at what just hurt the player: a hazard whose body overlaps hers (lava, a falling
+## spike, the flood), a nearby enemy shot (credited to a boss attack when a boss released one
+## recently), then a charging boss (its attack) or a touching one (contact), a boss attack released
+## recently, a nearby enemy, a hazard within HAZARD_RADIUS, else "unknown".
 func _source() -> String:
 	var tree := _player.get_tree()
 	var center := _player.global_position + Vector2(0, -90)
+	var hazards := Hazards.near(tree, Hazards.body_rect(_player), HAZARD_RADIUS, true)
+	if not hazards.is_empty() and float(hazards[0]["gap"]) <= 0.0:
+		return "hazard:%s" % hazards[0]["kind"]
 	var attack_label := _boss_attack_source()
 	var shot := _nearest(tree.get_nodes_in_group(&"enemy_shot"), center, SHOT_RADIUS)
 	if shot != null:
@@ -459,9 +462,8 @@ func _source() -> String:
 	var enemy := _nearest(tree.get_nodes_in_group(&"enemies"), center, CONTACT_RADIUS)
 	if enemy != null:
 		return String(enemy.get("enemy_id"))
-	for group in HAZARD_GROUPS:
-		if _nearest(tree.get_nodes_in_group(group), center, HAZARD_RADIUS) != null:
-			return "hazard:%s" % String(group).trim_prefix("worldfx_")
+	if not hazards.is_empty():
+		return "hazard:%s" % hazards[0]["kind"]
 	return "unknown"
 
 

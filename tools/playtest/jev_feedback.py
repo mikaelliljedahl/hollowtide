@@ -22,6 +22,10 @@ TOP = 3
 GROUPS = {
     "shoot": "attack",
     "harpoon": "attack",
+    "jump_shoot": "attack",
+    "open_boss": "attack",
+    "select_beam": "attack",
+    "pulse": "attack",
     "approach": "close in",
     "retreat": "evade",
     "jump_over": "evade",
@@ -30,6 +34,7 @@ GROUPS = {
     "go_to_exit": "travel",
     "go_to_ambush": "travel",
     "pick_up": "travel",
+    "go_to_refill": "travel",
     "idle": "wait",
     "jump": "jump",
 }

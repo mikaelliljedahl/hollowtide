@@ -43,6 +43,7 @@ def aggregate(reports: list[dict[str, Any]]) -> dict[str, Any]:
     free_boss_damage: Counter[str] = Counter()
     for report in reports:
         data = report["telemetry"]
+        stuck_here: set[str] = set()
         ends[report["meta"]["end_reason"]] += 1
         killers.update(death["killer"] for death in data["deaths"])
         damage.update(data["damage_by_source"])
@@ -50,8 +51,10 @@ def aggregate(reports: list[dict[str, Any]]) -> dict[str, Any]:
         for episode in data["stuck"]:
             if episode["seconds"] >= STUCK_SECONDS:
                 spot = f"{episode['room']} ({episode['cell'][0]}, {episode['cell'][1]})"
-                stuck[spot] += 1
+                stuck_here.add(spot)
                 stuck_seconds[spot] += episode["seconds"]
+        # A run counts once per spot, however many episodes it had there.
+        stuck.update(stuck_here)
         for policy in data["decisions"].values():
             fallbacks.update(policy["fallbacks"])
         for attempt in data["bosses"]:

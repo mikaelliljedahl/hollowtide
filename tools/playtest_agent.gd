@@ -12,6 +12,7 @@ const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Loop = preload("res://tools/playtest_loop.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Report = preload("res://tools/playtest_report.gd")
+const TrialsAdapter = preload("res://tools/playtest_trials.gd")
 const CAMPAIGN := preload("res://scenes/campaign/campaign.tscn")
 const TILE := 64.0
 const PREFIX := "--playtest-"
@@ -32,6 +33,7 @@ const DEFAULTS := {
 	"max-deaths": "3",
 	"breaks": "",
 	"shots": "0",
+	"trial": "",
 }
 
 var options: Dictionary = DEFAULTS.duplicate()
@@ -70,7 +72,11 @@ func parse_options(arguments: PackedStringArray) -> String:
 		if not DEFAULTS.has(pair[0]) or pair.size() != 2:
 			return "unknown option %s" % argument
 		options[pair[0]] = pair[1]
-	if not Rooms.ROOMS.has(options["room"]):
+	if not options["trial"].is_empty():
+		if not TrialCatalog.is_mode(StringName(options["trial"])):
+			return "unknown trial %s" % options["trial"]
+		options["room"] = "trials_%s" % options["trial"]
+	elif not Rooms.ROOMS.has(options["room"]):
 		return "unknown room %s" % options["room"]
 	if not options["policy"] in Policy.NAMES:
 		return "unknown policy %s (use %s)" % [options["policy"], ", ".join(Policy.NAMES)]
@@ -86,13 +92,17 @@ func parse_options(arguments: PackedStringArray) -> String:
 func _start() -> void:
 	seed(int(options["seed"]))
 	var room_id: String = options["room"]
-	var spawn := _spawn(room_id)
-	GameState.reset_progress()
-	_grant(kit())
-	GameState.reset_health()
-	# The campaign loads the checkpoint room, and deaths return here too.
-	GameState.set_checkpoint(room_id, spawn)
-	_root = CAMPAIGN.instantiate()
+	if options["trial"].is_empty():
+		var spawn := _spawn(room_id)
+		GameState.reset_progress()
+		_grant(kit())
+		GameState.reset_health()
+		# The campaign loads the checkpoint room, and deaths return here too.
+		GameState.set_checkpoint(room_id, spawn)
+		_root = CAMPAIGN.instantiate()
+	else:
+		# A trial equips its own fixed kit; --playtest-kit and --playtest-spawn do not apply.
+		_root = TrialsAdapter.new(StringName(options["trial"]))
 	add_child(_root)
 	for _frame in SETTLE_FRAMES:
 		await get_tree().physics_frame
@@ -119,6 +129,8 @@ func _physics_process(delta: float) -> void:
 		reason = "time"
 	elif telemetry.deaths.size() >= int(options["max-deaths"]):
 		reason = "max_deaths"
+	elif _trial_result().has("cleared"):
+		reason = "goal_trial" if _trial_result()["cleared"] else "trial_failed"
 	elif _goal_reached(telemetry):
 		if _goal_at < 0.0:
 			_goal_at = telemetry.now
@@ -179,6 +191,8 @@ static func _break_specs(text: String) -> Array:
 
 
 func _pick_goal() -> String:
+	if not options["trial"].is_empty():
+		return "trial"
 	if options["goal"] != "auto":
 		return options["goal"]
 	for node in get_tree().get_nodes_in_group(&"worldfx_ambush"):
@@ -222,6 +236,12 @@ func _capture(telemetry: Telemetry) -> void:
 		_shots += 1
 
 
+## The Trials result once the trial ended ({mode, cleared, time_ms, hits}); empty otherwise.
+func _trial_result() -> Dictionary:
+	var result: Variant = _root.get("result") if _root is TrialsAdapter else null
+	return result if result is Dictionary else {}
+
+
 func _finish(reason: String) -> void:
 	_running = false
 	var telemetry := _loop.telemetry
@@ -240,6 +260,7 @@ func _finish(reason: String) -> void:
 			"decisions": _loop.tick,
 			"screenshots": _shots,
 			"godot": Engine.get_version_info()["string"],
+			"trial": _trial_result(),
 		},
 		"telemetry": telemetry.to_dict(),
 	}

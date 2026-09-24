@@ -5,12 +5,15 @@ extends Node
 ## external bridge round-trips one decision with a stub server, and a silent or missing server
 ## falls back to the heuristic. Round 2 fixes: no shot at a target far below a grounded player, no
 ## exit while a boss lives, a surprise enemy's wind-up reads as a telegraph, kit pickups stack.
+## Round 3 (tools/check_playtest_round3.gd): beam switching and boss openers, the Resonance Pulse,
+## ammo truth and refills, hazards in the state and the damage record, the jump shot, boss rooms.
 ## godot --headless --path . res://tools/check_playtest_agent.tscn -- --test-mode
 
 const Loop = preload("res://tools/playtest_loop.gd")
 const Actions = preload("res://tools/playtest_actions.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Agent = preload("res://tools/playtest_agent.gd")
+const Round3 = preload("res://tools/check_playtest_round3.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const STATE_KEYS := [
 	"tick",
@@ -23,7 +26,8 @@ const STATE_KEYS := [
 	"ambush",
 	"exits",
 	"pickups",
-	"hazards"
+	"hazards",
+	"refills"
 ]
 const PLAYER_KEYS := [
 	"pos",
@@ -47,6 +51,7 @@ const ENEMY_KEYS := [
 	"is_boss",
 	"telegraph",
 	"hurt_by",
+	"switch_to",
 	"visible"
 ]
 const GRID := [
@@ -146,6 +151,7 @@ func _run() -> void:
 	await _test_round_two_candidates()
 	await _test_surprise_wind_up_is_telegraph()
 	_test_kit_pickups_stack()
+	await Round3.new(self).run()
 	await _test_bridge_round_trip()
 	await _test_timeout_falls_back()
 	await _test_missing_server_falls_back()
@@ -230,7 +236,7 @@ func _test_state_and_candidates() -> void:
 	var round_trip = JSON.parse_string(JSON.stringify(state))
 	_check(round_trip is Dictionary and round_trip.size() == state.size(), "state is JSON-safe")
 	var options := Actions.candidates(state, _player)
-	_check(options.size() >= 6 and options.size() <= 12, "6-12 candidates (%d)" % options.size())
+	_check(options.size() >= 6 and options.size() <= 14, "6-14 candidates (%d)" % options.size())
 	_check(options[0]["key"] == "idle", "idle comes first")
 	var keys := {}
 	var valid := true

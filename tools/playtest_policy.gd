@@ -45,6 +45,7 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 	var keys := {}
 	for entry in candidates:
 		keys[entry["kind"]] = entry["key"]
+		keys[entry["key"]] = entry["key"]
 	if keys.has("dash_through"):
 		return keys["dash_through"]
 	if stuck:
@@ -55,6 +56,13 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 	if state.get("room") == null:
 		return "idle"
 	var target := Actions.primary_target(state["enemies"])
+	var winding_up := (
+		not target.is_empty()
+		and bool(target["telegraph"])
+		and float(target["dist"]) < TELEGRAPH_DISTANCE
+	)
+	if keys.has("go_to_refill") and not winding_up:
+		return keys["go_to_refill"]
 	var objective := ""
 	for kind in OBJECTIVES:
 		if keys.has(kind):
@@ -81,15 +89,13 @@ func _fight(state: Dictionary, target: Dictionary, keys: Dictionary) -> String:
 	_track_progress(target, now)
 	var distance := float(target["dist"])
 	var hurt_by: Array = target["hurt_by"]
+	var away: String = keys.get("retreat", keys["approach"])
 	if target["is_boss"]:
-		if bool(target["telegraph"]) and distance < TELEGRAPH_DISTANCE:
-			return keys.get("jump_over", keys.get("retreat", "idle"))
-		if keys.has("harpoon"):
-			return keys["harpoon"]
-		if hurt_by.is_empty():
-			return keys["retreat"] if distance < BOSS_SPACING else keys["approach"]
+		var move := _boss_move(target, keys)
+		if not move.is_empty():
+			return move
 	elif distance < RUSHER_DISTANCE and bool(state["player"]["grounded"]):
-		return keys.get("jump_over", keys["retreat"])
+		return keys.get("jump_over", away)
 	if now < _close_in_until:
 		return keys["approach"]
 	if now - _progress_at > FUTILE_SECONDS:
@@ -104,8 +110,43 @@ func _fight(state: Dictionary, target: Dictionary, keys: Dictionary) -> String:
 		return keys["approach"]
 	if keys.has("harpoon"):
 		return keys["harpoon"]
-	if keys.has("shoot") and hurt_by.any(func(kind: String) -> bool: return kind in BEAM_KINDS):
-		return keys["shoot"]
+	if keys.has("pulse"):
+		return keys["pulse"]
+	var switch := "select_beam:%s" % target.get("switch_to", "")
+	if keys.has(switch):
+		return switch
+	if hurt_by.any(func(kind: String) -> bool: return kind in BEAM_KINDS):
+		for kind in ["shoot", "jump_shoot"]:
+			if keys.has(kind):
+				return keys[kind]
+	return keys["approach"]
+
+
+## A boss's own rules, before the generic shooting: dodge a close wind-up, open the shell (switch
+## to the opener's beam, walk to where it lines up, fire it), harpoon it while open, and keep
+## BOSS_SPACING while nothing hurts it. "" hands over to the generic fight.
+func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
+	var distance := float(boss["dist"])
+	if bool(boss["telegraph"]) and distance < TELEGRAPH_DISTANCE:
+		return keys.get("jump_over", keys.get("retreat", "idle"))
+	for kind in ["open_boss", "harpoon"]:
+		if keys.has(kind):
+			return keys[kind]
+	var opener = boss.get("opener")
+	if not bool(boss.get("open", true)) and opener is Dictionary and opener["owned"]:
+		var beam := "select_beam:%s" % opener["beam"]
+		if keys.has(beam):
+			return beam
+		if opener["via"] != "punish":
+			# Walk to where the opener lines up (Actions.boss_goal), keeping out of its body.
+			return keys["approach"]
+	if not (boss["hurt_by"] as Array).is_empty():
+		return ""
+	var switch := "select_beam:%s" % boss.get("switch_to", "")
+	if keys.has(switch):
+		return switch
+	if distance < BOSS_SPACING:
+		return keys.get("retreat", keys["approach"])
 	return keys["approach"]
 
 

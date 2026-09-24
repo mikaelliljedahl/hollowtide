@@ -6,6 +6,7 @@ extends RefCounted
 
 const State = preload("res://tools/playtest_state.gd")
 const Actions = preload("res://tools/playtest_actions.gd")
+const Programs = preload("res://tools/playtest_programs.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Bridge = preload("res://tools/playtest_bridge.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
@@ -15,7 +16,7 @@ var policy_name := Policy.HEURISTIC
 var timeout_ms := 1000
 var telemetry: Telemetry = Telemetry.new()
 var exporter: State = State.new()
-var driver := Actions.Driver.new()
+var driver := Programs.Driver.new()
 var bridge: Bridge
 var tick := 0
 ## The candidate being played ({key, kind, label, program}).
