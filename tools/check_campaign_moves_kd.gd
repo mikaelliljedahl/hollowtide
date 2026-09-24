@@ -222,6 +222,15 @@ func _case_kiln_03_platforms() -> void:
 func _case_kiln_03_moat() -> void:
 	if not _wanted("kiln_03_moat"):
 		return
+	# Walking straight in through either door stops at the lip before the lava (kiln_03 sweep).
+	for walk_in in [[Vector2i(58, 14), &"move_left"], [Vector2i(1, 14), &"move_right"]]:
+		await _setup("kiln_03", walk_in[0], [], BOSSES_DOWN)
+		var health := GameState.health
+		await _hold([walk_in[1]], 90)
+		_expect_true(
+			"kiln_03 walk-in from %s stops at the lip unhurt" % walk_in[0],
+			GameState.health == health and _cell().y == 14
+		)
 	await _setup("kiln_03", Vector2i(57, 14), [], BOSSES_DOWN)
 	await _jump(-1)
 	var landed := _cell()

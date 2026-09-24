@@ -64,6 +64,7 @@ func _run() -> void:
 	await _test_bat_swarm()
 	await _test_mimic(&"mimic")
 	await _test_mimic(&"mimic_lure")
+	await _test_mimic_contact_windows()
 	await _test_drop_spider()
 	await _test_surface_eel()
 	await _test_stalker()
@@ -161,6 +162,56 @@ func _test_mimic(id: StringName) -> void:
 	_check(mimic.receive_hit(35, &"missile") == HitResult.Reaction.DAMAGE, "%s takes damage" % id)
 	mimic.receive_hit(20, &"bomb")
 	_check(mimic._dying, "%s dies" % id)
+	await _frames(2)
+
+
+## Only the lunge and its landing bite. The rattle is the warning, and the scuttle that follows
+## must not keep hurting a player it runs into (fringe_05: five 16-point hits in one visit).
+func _test_mimic_contact_windows() -> void:
+	_player.global_position = Vector2(1600, FLOOR_Y)
+	var mimic := _spawn(&"mimic", Vector2(900, FLOOR_Y - 40)) as CombatEnemy
+	await _frames(30)
+	mimic.receive_hit(10, &"beam")
+	_player.hits = 0
+	_player.global_position = Vector2(920, FLOOR_Y)
+	await _frames(12)
+	_check(
+		mimic.presentation_state() == &"reveal" and _player.hits == 0,
+		"mimic rattle does not bite a player beside it (hits %d)" % _player.hits
+	)
+	for _i in 30:
+		if mimic.presentation_state() == &"lunge":
+			break
+		await get_tree().physics_frame
+	await _frames(2)
+	_check(_player.hits > 0, "mimic lunge bites a player who stayed beside it")
+	for _i in 90:
+		if mimic.presentation_state() == &"scuttle":
+			break
+		await get_tree().physics_frame
+	var scuttle_frames := 0
+	for _i in 20:
+		await get_tree().physics_frame
+		scuttle_frames += 1
+	_player.hits = 0
+	for _i in 4:
+		_player.global_position = Vector2(1800, FLOOR_Y)
+		await _frames(3)
+		_player.global_position = Vector2(mimic.global_position.x, FLOOR_Y)
+		await _frames(3)
+		scuttle_frames += 6
+	_check(
+		mimic.presentation_state() == &"scuttle" and _player.hits == 0,
+		"mimic scuttle after the landing is harmless (hits %d)" % _player.hits
+	)
+	_player.global_position = Vector2(1800, FLOOR_Y)
+	while mimic.presentation_state() == &"scuttle" and scuttle_frames < 240:
+		await get_tree().physics_frame
+		scuttle_frames += 1
+	_check(
+		scuttle_frames <= 120, "mimic scuttle ends within 2 s (%.2f s)" % (scuttle_frames / 60.0)
+	)
+	mimic.queue_free()
 	await _frames(2)
 
 
