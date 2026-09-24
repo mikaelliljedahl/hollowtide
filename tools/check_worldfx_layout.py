@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_campaign_rooms as builder  # noqa: E402
-from campaign_layout import ROOT, LayoutError, parse_layout  # noqa: E402
+from campaign_layout import ROOT, LayoutError, load_rooms, parse_layout  # noqa: E402
 from check_campaign_graph import Solver, World, open_timed_doors  # noqa: E402
 
 # 30 x 17 demo room. Row 16 is the bottom boundary; the start stands at the far left.
@@ -70,9 +70,9 @@ def layout_room(text: str, name: str = "worldfx_demo"):
     return parse_layout(path)
 
 
-def expect_error(text: str, fragment: str, label: str) -> None:
+def expect_error(text: str, fragment: str, label: str, name: str = "worldfx_demo") -> None:
     try:
-        layout_room(text)
+        layout_room(text, name)
     except LayoutError as error:
         check(fragment in str(error), f"{label} ({error})")
         return
@@ -110,6 +110,24 @@ def main() -> int:
         "switch door checked",
     )
     expect_error(DEMO.replace("safe=3", "safe=1"), "headroom", "flood needs headroom")
+    # The stop line sits above the ceiling of the lower hall: a caught player has no air to reach.
+    expect_error(
+        DEMO.replace("rising: 14 1 9 9 kind=lava safe=3", "rising: 1 9 28 8 kind=water safe=3"),
+        "leaves no air",
+        "flood that closes in a hall rejected",
+    )
+    depths = (ROOT / "scenes" / "campaign" / "layouts" / "depths_03.txt").read_text()
+    expect_error(
+        depths.replace(" safe=13 ", " safe=3 "),
+        "caught at 1,18",
+        "depths_03 flood at its old stop line rejected",
+        "depths_03",
+    )
+    try:
+        floods = [room for room in load_rooms().values() if room.risings]
+        check(bool(floods), "every campaign flood leaves air above its stop line")
+    except LayoutError as error:
+        check(False, f"every campaign flood leaves air above its stop line ({error})")
     expect_error(
         DEMO.replace("##...........#", "#............#"),
         "cells wide",

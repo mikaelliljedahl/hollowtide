@@ -11,7 +11,8 @@ Layouts live in scenes/campaign/layouts/<room_id>.txt. Format:
     ambush: 1 1 58 14 wave=hopper,hopper wave2=hopper,ceiling_diver [wave3=...] [trigger=x,y,w,h]
             [spawns=x,y,w,h]   # waves in order; trigger/spawns are sub-rectangles in room tiles
     current: 6 10 12 3 dir=right strength=260 [kind=water|wind|steam]
-    rising: 10 1 7 15 [kind=lava|water] [speed=110] [safe=3] [rest=1]   # flood shaft
+    rising: 10 1 7 15 [kind=lava|water] [speed=110] [safe=3] [rest=1]   # flood shaft; its stop
+            line must leave air in reach of every flooded spot (tools/campaign_flood.py)
     legend:
       @ start
       S save
@@ -417,8 +418,9 @@ def _validate_world_fx(room: Room) -> None:
         elif entry.kind == "crumble":
             if entry.args and entry.args != ["permanent"]:
                 raise LayoutError(f"{where} legend {char!r}: crumble takes only 'permanent'")
-    # Imported here: campaign_ambush builds on this module.
+    # Imported here: campaign_ambush and campaign_flood build on this module.
     from campaign_ambush import validate_ambush
+    from campaign_flood import validate_flood
 
     for zone in room.ambushes:
         validate_ambush(room, zone)
@@ -440,6 +442,7 @@ def _validate_world_fx(room: Room) -> None:
             raise LayoutError(f"{where}: rising shaft needs h >= 8 and safe >= 3 tiles of headroom")
         if float(options.get("speed", 110)) > 180:
             raise LayoutError(f"{where}: rising speed above 180 px/s is not readable")
+        validate_flood(room, zone)
 
 
 def load_rooms() -> dict[str, Room]:

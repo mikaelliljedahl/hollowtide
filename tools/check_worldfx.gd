@@ -41,6 +41,7 @@ func _run() -> void:
 	await _crusher()
 	await _currents()
 	await _rising_shaft()
+	await _flood_ceiling()
 	await _timed_door()
 	await _ambush()
 	await _teardown()
@@ -397,6 +398,51 @@ func _rising_shaft() -> void:
 	GameState.reset_health()
 	_player.reset_for_spawn(Testbed.feet(_room, Vector2i(5, 12)))
 	await _frames(4)
+
+
+func _flood_ceiling() -> void:
+	print("flood under a ceiling")
+	# A hall closed by a ceiling with a gap at 14-16 up to a dry ledge room, and a stub at 6 that
+	# makes a pocket on the left. The flood stops above the ceiling, so the whole hall is flooded.
+	var grid := FLAT.duplicate()
+	for row in range(1, 8):
+		grid[row] = (
+			"##########...........#########" if row < 5 else "##############...#############"
+		)
+	grid[8] = "#.....#......................#"
+	grid[9] = grid[8]
+	await _setup(&"depths", grid, Vector2i(3, 14))
+	GameState.max_health = 1000
+	GameState.reset_health()
+	var shaft := RisingShaft.new()
+	shaft.kind = &"water"
+	shaft.shaft_size = Vector2(28 * TILE, 14 * TILE)
+	shaft.safe_line = 4 * TILE
+	_add(shaft, Vector2(TILE, TILE))
+	await _frames(4)
+	shaft.state = RisingShaft.State.STOPPED
+	shaft.surface_y = shaft.stop_y()
+	var pinned := 0
+	for _frame in 180:
+		await get_tree().physics_frame
+		if _player.is_on_ceiling():
+			pinned += 1
+	_check(GameState.health < 1000, "the flooded hall still hurts")
+	_check(pinned == 0, "the throw never pins her under the ceiling (%d frames)" % pinned)
+	# Walking out from under the ceiling, the throw carries her up the gap onto dry rock.
+	var surface := shaft.surface_global_y()
+	var dry := false
+	Input.action_press(&"move_right")
+	for _frame in 360:
+		await get_tree().physics_frame
+		if _player.is_on_floor() and _player.global_position.y <= surface:
+			dry = true
+			break
+	Input.action_release(&"move_right")
+	_check(dry, "the gap in the ceiling lifts her out onto the dry ledge")
+	var health := GameState.health
+	await _seconds(1.5)
+	_check(GameState.health == health, "the ledge above the stop line is dry")
 
 
 func _timed_door() -> void:

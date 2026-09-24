@@ -1,9 +1,9 @@
 class_name RisingShaft
 extends Node2D
 ## Entering this vertical shaft starts a lava or water flood that rises at a steady, readable pace
-## (slower than climbing). Touching it hurts and throws the player upward - never an instant kill.
-## It stops at a safe line below the top, and drains back and re-arms when the player leaves the
-## shaft or dies. Position is the top-left of the shaft's air column.
+## (slower than climbing). Touching it hurts and throws the player up toward open air - never an
+## instant kill. It stops at a safe line below the top, and drains back and re-arms when the player
+## leaves the shaft or dies. Position is the top-left of the shaft's air column.
 
 signal started
 signal reset_done
@@ -173,9 +173,32 @@ func _touch(player: Node2D) -> void:
 		return  # A calm resting pool of water is harmless; only the surge hurts.
 	if player.has_method("take_damage"):
 		player.call("take_damage", damage, Vector2(feet.x, feet.y + 200.0))
+	var depth := feet.y - surface_global_y()
+	var gravity := PlayerConfig.GRAVITY_RISING
+	var headroom := _headroom(player, depth + BOOST_SPEED * BOOST_SPEED / (2.0 * gravity))
+	# Rock between her and the surface would pin her against it until she dies: no throw until
+	# she moves out from under it. Otherwise the throw carries her no higher than the rock above.
+	if headroom < depth:
+		return
 	var velocity: Vector2 = player.get("velocity")
-	velocity.y = minf(velocity.y, -BOOST_SPEED)
+	velocity.y = -minf(BOOST_SPEED, sqrt(2.0 * gravity * headroom))
 	player.set("velocity", velocity)
+
+
+## How far the player's body can rise before terrain stops it, at most `reach`.
+func _headroom(player: Node2D, reach: float) -> float:
+	# Inset so walls beside her and the floor under her feet do not count as contact.
+	var body := WorldFx.player_rect(player).grow_individual(-4.0, 0.0, -4.0, -8.0)
+	var shape := RectangleShape2D.new()
+	shape.size = body.size
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = shape
+	query.transform = Transform2D(0.0, body.get_center())
+	query.motion = Vector2(0.0, -reach)
+	query.collision_mask = player.get("collision_mask")
+	query.exclude = [(player as CollisionObject2D).get_rid()]
+	var fractions := get_world_2d().direct_space_state.cast_motion(query)
+	return reach * fractions[0]
 
 
 func _drain() -> void:
