@@ -54,7 +54,8 @@ func _run() -> void:
 	await _transition_cancels_telegraph()
 	await _engages_on_floor_line()
 	await _volley_fans_below_aim()
-	await _charge_leaves_wall_pocket()
+	await _charges_leave_wall_pocket()
+	await _hits_need_engagement()
 	for boss_id in BOSS_IDS:
 		for stage in range(1, Patterns.DESPERATION_STAGE + 1):
 			await _attack_cycle(boss_id, stage)
@@ -238,44 +239,87 @@ func _volley_fans_below_aim() -> void:
 	await _frames(2)
 
 
-## A Shoulder Charge stops a pocket short of the first wall, a low roof included, so a player
-## backed against it is out of reach; without the pocket a cornered player had no answer.
-func _charge_leaves_wall_pocket() -> void:
-	var roof := StaticBody2D.new()
-	roof.collision_layer = 1
-	var shape := CollisionShape2D.new()
-	var box := RectangleShape2D.new()
-	box.size = Vector2(300.0, 150.0)
-	shape.shape = box
-	roof.add_child(shape)
-	add_child(roof)
-	# Roof face at x 1700, underside at y 850: above the body's centre, below its top.
-	roof.global_position = Vector2(1850.0, 775.0)
-	var boss := _spawn_in_arena(&"stone_guardian")
-	_probe.global_position = Vector2(1760.0, FLOOR_Y)
+## Every charge of every boss stops a pocket short of the first wall, a low roof or an arena step
+## included, so a player backed against it is out of reach. Without the pocket a cornered player
+## had no answer (Shoulder Charge at the vaults_03 tunnel, Scuttle Rush at the kiln_03 steps).
+func _charges_leave_wall_pocket() -> void:
+	# Faces at x 1700: a roof whose underside (y 850) is above the body's centre and below its
+	# top, and a two-tile step (top y 872) like the kiln_03 arena steps.
+	var obstacles := {
+		"low roof": [Vector2(1850.0, 775.0), Vector2(300.0, 150.0)],
+		"step": [Vector2(1850.0, FLOOR_Y - 64.0), Vector2(300.0, 128.0)],
+	}
+	for boss_id in BOSS_IDS:
+		for attack in Patterns.CHARGES:
+			if not _uses_attack(boss_id, attack):
+				continue
+			for obstacle: String in obstacles:
+				var piece: Array = obstacles[obstacle]
+				var wall := _static_box(piece[0], piece[1])
+				await _charge_stops_short(boss_id, attack, obstacle)
+				wall.queue_free()
+				await _frames(2)
+
+
+func _charge_stops_short(boss_id: StringName, attack: StringName, obstacle: String) -> void:
+	var label := "%s %s at a %s" % [boss_id, attack, obstacle]
+	var boss := _spawn_in_arena(boss_id)
+	boss.global_position.x = 900.0
+	# Backed against the face, standing on the floor.
+	_probe.global_position = Vector2(1700.0 - 30.0, FLOOR_Y - 88.0)
 	await _frames(2)
+	_probe.hits.clear()
 	boss.set_test_stage(Patterns.ARMORED_STAGE)
-	var chain: Array[StringName] = [&"shoulder_charge"]
+	var chain: Array[StringName] = [attack]
 	boss.set("_attack_chain", chain)
 	boss.call("_start_telegraph")
 	var end_x := float((boss.get("_attack_plan") as Dictionary)["charge_end_x"])
-	var pocket := float(Attacks.CHARGE_WALL_POCKETS[&"shoulder_charge"])
 	_check(
-		end_x <= 1700.0 - Attacks.BODY_RADIUS - pocket + 0.5,
-		"shoulder charge plans its stop a pocket short of the low roof (end %.0f)" % end_x
+		end_x <= 1700.0 - Attacks.BODY_RADIUS - Attacks.CHARGE_WALL_POCKET + 0.5,
+		"%s plans its stop a pocket short of the face (end %.0f)" % [label, end_x]
 	)
 	for _frame in int(3.0 * PHYSICS_HZ):
 		await _frames(1)
 		if boss.get("_attack_state") == &"recover":
 			break
 	_check(
-		boss.global_position.x <= end_x + 4.0 and boss.global_position.x > 1000.0,
-		"shoulder charge runs to its planned stop (x %.0f)" % boss.global_position.x
+		boss.global_position.x <= end_x + 4.0 and boss.global_position.x > 1200.0,
+		"%s runs to its planned stop (x %.0f)" % [label, boss.global_position.x]
 	)
+	_check(_probe.hits.is_empty(), "%s leaves a player backed against the face unhurt" % label)
 	_despawn(boss)
-	roof.queue_free()
 	_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
 	await _frames(2)
+
+
+## A boss only takes hits while the player is inside its arena, the same test that wakes it:
+## from outside, a frozen boss could be worn down with no reply (kiln_03 sweep, 360 to 150 HP).
+func _hits_need_engagement() -> void:
+	for boss_id in BOSS_IDS:
+		var boss := _spawn_in_arena(boss_id)
+		_probe.global_position = Vector2(ARENA.end.x + 200.0, FLOOR_Y - 88.0)
+		await _frames(2)
+		_check(not bool(boss.get("_player_engaged")), "%s idles with the player outside" % boss_id)
+		var reactions: Array = []
+		for _hit in 3:
+			_open_for_harpoon(boss)
+			reactions.append(boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {}))
+		_check(
+			boss.health == boss.max_health and not reactions.has(HitResult.Reaction.DAMAGE),
+			(
+				"%s takes no damage from outside its arena (%d/%d)"
+				% [boss_id, boss.health, boss.max_health]
+			)
+		)
+		_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
+		await _frames(2)
+		_open_for_harpoon(boss)
+		_check(
+			boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {}) == HitResult.Reaction.DAMAGE,
+			"%s takes damage once the player is inside" % boss_id
+		)
+		_despawn(boss)
+		await _frames(2)
 
 
 # --- attack cycles ---------------------------------------------------------------------------
@@ -390,15 +434,7 @@ func _build_arena() -> void:
 		[Vector2(2032.0, 650.0), Vector2(64.0, 800.0)],
 	]
 	for piece in pieces:
-		var body := StaticBody2D.new()
-		body.collision_layer = 1
-		var shape := CollisionShape2D.new()
-		var box := RectangleShape2D.new()
-		box.size = piece[1]
-		shape.shape = box
-		body.add_child(shape)
-		add_child(body)
-		body.global_position = piece[0]
+		_static_box(piece[0], piece[1])
 	_probe = Probe.new()
 	add_child(_probe)
 	_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
@@ -418,6 +454,26 @@ func _despawn(boss: CombatBoss) -> void:
 	_boss = null
 	for node in get_tree().get_nodes_in_group(&"transient"):
 		node.queue_free()
+
+
+func _static_box(center: Vector2, size: Vector2) -> StaticBody2D:
+	var body := StaticBody2D.new()
+	body.collision_layer = 1
+	var shape := CollisionShape2D.new()
+	var box := RectangleShape2D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+	body.global_position = center
+	return body
+
+
+func _uses_attack(boss_id: StringName, attack: StringName) -> bool:
+	for stage in range(1, Patterns.DESPERATION_STAGE + 1):
+		if Patterns.attacks_in_stage(boss_id, stage).has(attack):
+			return true
+	return false
 
 
 func _live_projectiles() -> int:

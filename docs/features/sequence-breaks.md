@@ -66,7 +66,7 @@ Out of scope: new movement mechanics, new pickup kinds, boss alternatives, text 
   upper band. The Updraft Cloak lies in the west hall; the intended route there needs frozen Bubble
   Floaters. With the Cloak she can also take the High Jump crack to the Stone Guardian before the
   Snare; the solver's boss rule for it asks only for the Harpoon
-  (`tools/check_campaign_graph.py:53`).
+  (`tools/check_campaign_graph.py:55`).
 - Safe: from the west hall without the Snare, she drops back through the chasm into the lower hall
   and climbs the existing chimney to the band save. The solver proves this in every order.
 
@@ -90,9 +90,9 @@ The solver in `tools/check_campaign_graph.py` is deliberately conservative: it c
 and has no dash, so it cannot find any break by itself. Breaks are registered in
 `tools/campaign_breaks.py:26` as edges from a standing feet cell to a standing feet cell in the same
 room, each with the abilities it needs. The solver adds them to its movement graph
-(`tools/check_campaign_graph.py:277`), so every run (any order, vaults first, kiln first, no optional
+(`tools/check_campaign_graph.py:279`), so every run (any order, vaults first, kiln first, no optional
 pickups, permanent crumbles) explores them, collects their rewards and runs its softlock pass over
-them. A `no-breaks` run (`tools/check_campaign_graph.py:606`) proves the campaign finishes without
+them. A `no-breaks` run (`tools/check_campaign_graph.py:609`) proves the campaign finishes without
 any break.
 
 `break_errors` (`tools/campaign_breaks.py:50`) adds three static rules: each start and end is a real

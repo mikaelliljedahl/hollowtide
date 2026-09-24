@@ -76,7 +76,14 @@ Stages only advance; `set_test_phase` keeps working (phase 1 is stage 1, phase 2
 | `recover` | Punish window: still, B2 weak point open | `idle` |
 
 Leaving the arena, a stage transition, death and `reset_runtime` cancel to `idle` without firing
-(`scripts/enemies/boss.gd:363`). The loop lives in `scripts/enemies/boss.gd:292`.
+(`scripts/enemies/boss.gd:364`). The loop lives in `scripts/enemies/boss.gd:293`.
+
+The boss only fights while the player is inside its arena (the floor line counts). Outside it the
+boss stands frozen and cannot answer, so it cannot be hurt either: every hit glances off with the
+blocked-hit ripple, and Tidal Heart's Snare does not open its pulse point
+(`scripts/enemies/boss.gd:435`). Engaging on the first hit was rejected: attacks aim only at a player
+inside the arena and its shots stay inside it, so the boss still could not reply. Playtest sweep
+2026-09-24: the Cinder Warden was shot from 360 to 150 HP from the kiln_03 entry with no reply.
 
 ## 5. Stone Guardian
 
@@ -87,7 +94,7 @@ Rock projectiles. Floor lanes are jumped; rock drops are side-stepped.
 | Boulder Volley | 1 | 0.6 s: pulse, aim lines | 0.9 / 1.4 / 1.2 s | 1 aimed rock; 3 in stage 3, 5 in stage 4, the first on the aim line and the rest fanning below it toward the floor (0.22 rad apart, 0.2 in stage 4), so one jump over the aim line clears them all |
 | Fault Slam | 1 | 0.7 s: rises tall, floor lanes to both walls | 1.2 / 1.4 / 1.2 s | A floor shockwave runs to each wall; desperation sends a second pair 0.85 s later |
 | Rockfall | 2 | 0.8 s: rises tall, floor circles | 1.0 / 1.4 / 1.2 s | Rocks drop on the player's spot and 220 px either side (5 columns in desperation) |
-| Shoulder Charge | 3 | 0.65 s: crouches back, floor arrow along the lane | 1.8 / 1.8 / 1.53 s | Charges toward the player and stops 128 px of floor short of the first wall (a low roof or step counts) or the lane end, where the arrow ends; a player backed against that wall is out of reach. Then stands stunned with the armor cracked open |
+| Shoulder Charge | 3 | 0.65 s: crouches back, floor arrow along the lane | 1.8 / 1.8 / 1.53 s | Charges toward the player and stops exactly where the arrow ends: 128 px of floor short of the first wall (a low roof or step counts) or the lane end, so a player backed against that wall is out of reach. Then stands stunned with the armor cracked open |
 
 Rotation: stage 1 Volley, Slam; stage 2 Slam, Rockfall, Volley; stage 3 Volley, Charge,
 Rockfall, Slam; stage 4 Slam then Rockfall, Charge then Volley, Rockfall then Charge.
@@ -98,8 +105,18 @@ case) found no escaping response to a centred stage 3-4 volley at 600 px and to 
 at the arena's west end, where a 118 px tunnel stops the bodies and a platform at y 640 caps jumps
 at 134 px. Fault Slam (single or double jump, 0.33-0.67 s windows) and Rockfall (side-step) were
 fair and are unchanged. The volley's shape and the charge's stop point live in
-`scripts/enemies/boss_attacks.gd` (`_fan_below`, `CHARGE_WALL_POCKETS`, `_first_wall_x`); no
-telegraph or punish time changed. Scuttle Rush keeps the old stop point and has not been probed.
+`scripts/enemies/boss_attacks.gd` (`_fan_below`, `CHARGE_WALL_POCKET`, `_first_wall_x`); no
+telegraph or punish time changed.
+
+Playtest sweep 2026-09-24: Scuttle Rush still stopped with its body flush against the kiln_03 arena
+steps (boss centre x 3044, the east step face minus the body radius). The same probe in the real
+`kiln_03` room (136 responses per step) found no response that stayed in the arena unhurt at either
+step; the only escapes left the arena over the step. Every charge now uses the same pocket, and the
+charge lands on its planned stop instead of overshooting it by up to a frame. After the change 68
+of 136 responses at each step stay in the arena unhurt (standing, jumping in place, climbing the
+step, slipping toward the wall); the Shoulder Charge probe gives 85 at the vaults_03 west end and
+55 at the east end (30 more leave the arena). The probe disables lava so only the charge decides a
+case.
 
 ## 6. Cinder Warden
 
@@ -109,7 +126,7 @@ Fire projectiles. Vents are read on the floor; the heat ring is escaped through 
 |---|---|---|---|---|
 | Ember Fan | 1 | 0.55 s: pulse, aim lines | 0.8 / 1.4 / 1.2 s | 3-way fan; 5-way from stage 3; desperation fires it twice 0.3 s apart |
 | Vent Burst | 1 | 0.75 s: rises, floor circles | 1.0 / 1.4 / 1.2 s | Fire pillars erupt from the circles: under the player and 300 px either side (5 circles 210 px apart in desperation) |
-| Scuttle Rush | 2 | 0.6 s: crouches back, floor arrow | 1.3 / 1.4 / 1.2 s | Rushes the lane toward the player's side at 580 px/s |
+| Scuttle Rush | 2 | 0.6 s: crouches back, floor arrow | 1.3 / 1.4 / 1.2 s | Rushes the lane toward the player's side at 580 px/s and stops where the arrow ends, 128 px of floor short of the first wall (a low roof or step counts) or the lane end, like Shoulder Charge |
 | Heat Ring | 3 | 0.8 s: swells, ring of dots with a bright gap toward the player | 1.6 / 1.6 / 1.36 s | 12 embers in a ring with a 77 degree gap; desperation adds a second, offset ring 0.4 s later |
 
 Rotation: stage 1 Fan, Vent; stage 2 Rush, Fan, Vent; stage 3 Fan, Ring, Rush, Vent; stage 4
@@ -138,7 +155,7 @@ Snare still opens the B1 pulse point and Echo through the grate still opens the 
   `scripts/enemies/boss_patterns.gd:24`; balance changes happen there.
 - Shots are plain `EnemyProjectile` instances (`scripts/combat/enemy_projectile.gd`) with the
   boss's contact damage; speed, lifetime and size come from the emission table in
-  `scripts/enemies/boss_attacks.gd:127`.
+  `scripts/enemies/boss_attacks.gd:126`.
 - Without arena bounds (test benches) bosses do not move and charges stay in place, matching the
   previous movement rule.
 - New signals `stage_changed`, `attack_telegraphed` and `attack_released` are additive; `defeated`
@@ -163,7 +180,8 @@ Suite `tools/check_boss_rework.tscn` (registered as `boss rework` in `tools/run_
 | Rules | Stage thresholds at 75/50/25 %; stages 1-2 are B1 and 3-4 B2; each of stages 1-3 adds a new attack; every telegraph is at least 0.4 s and every punish window at least 0.8 s in every stage; every boss has at least four attacks and desperation chains. |
 | Thresholds | Real harpoon hits (with the Snare, Echo or punish opening each stage needs) take every boss through stages 2, 3 and 4 once each with one phase burst per transition; stage and phase match health after every hit; desperation starts at or below 25 %; the boss dies. |
 | Transition | A hit across 75 % during a wind-up drops it unfired and nothing fires during the breather. |
-| Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); a Shoulder Charge plans and runs to a stop 128 px short of a low roof. Both fail on the pre-round-2 code. |
+| Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); every charge of every boss plans and runs to a stop 128 px short of a low roof and of a two-tile step, and a player backed against either is not hit. The volley and Shoulder Charge cases fail on the pre-round-2 code, the Scuttle Rush cases on the pre-sweep code. |
+| Engagement | With the player outside the arena every boss takes no damage from opened Harpoon hits, and takes damage again once she is inside. Fails on the pre-sweep code. |
 | Cycles | In a walled test arena, for every boss and stage: every attack of the stage is released; every release follows its own telegraph by at least 0.4 s; every projectile appears only while an attack is active; every punish window lasts its table time; B2 armor is open in each punish window and closed during every wind-up; charges carry the body along the lane; desperation chains a telegraph straight after an attack. |
 
 Existing suites `combat devmode`, `combat integration`, `combat presentation`, `campaign flow`,

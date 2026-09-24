@@ -61,9 +61,11 @@ static func _charge(boss: CharacterBody2D, delta: float) -> void:
 	var plan: Dictionary = boss._attack_plan
 	var direction := float(plan["charge_direction"])
 	var end_x := float(plan["charge_end_x"])
-	boss.velocity.x = direction * Attacks.charge_speed(boss._attack_id)
+	# The last step lands on the planned stop instead of overshooting it by up to a frame.
+	var remaining := maxf((end_x - boss.global_position.x) * direction, 0.0)
+	boss.velocity.x = direction * minf(Attacks.charge_speed(boss._attack_id), remaining / delta)
 	_fall_and_slide(boss, delta)
-	if boss.is_on_wall() or (boss.global_position.x - end_x) * direction >= 0.0:
+	if boss.is_on_wall() or (boss.global_position.x - end_x) * direction >= -0.5:
 		boss._charge_done = true
 		boss.velocity.x = 0.0
 		BossVisuals.charge_impact(boss)
