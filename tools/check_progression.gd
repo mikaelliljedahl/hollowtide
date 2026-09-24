@@ -256,6 +256,27 @@ func _run_save_tests() -> void:
 	_expect(store.load_game() == ERR_INVALID_DATA, "domain mismatch rejected")
 	_expect(state.has_slipstream == false, "domain mismatch leaves state unchanged")
 
+	# A well-formed save from before an id rename fails validation; it must not block new saves.
+	state.reset_progress()
+	var stale_snapshot := state.snapshot()
+	stale_snapshot["abilities"] = ["retired_ability"]
+	var stale_file := FileAccess.open(target, FileAccess.WRITE)
+	stale_file.store_string(
+		JSON.stringify(
+			{"schema_version": Catalog.SCHEMA_VERSION, "domain": "dev", "snapshot": stale_snapshot}
+		)
+	)
+	stale_file.close()
+	state.collect_pickup("dev-after-rename", &"slipstream")
+	_expect(store.save_game() == OK, "stale save does not block new progress")
+	_expect(store.load_game() == OK and state.has_slipstream, "new save replaces the stale slot")
+	var archived_stale := false
+	for file_name in DirAccess.get_files_at(root.path_join("dev")):
+		if file_name.begins_with("slot_01.stale."):
+			archived_stale = true
+			DirAccess.remove_absolute(root.path_join("dev").path_join(file_name))
+	_expect(archived_stale, "stale save is archived, not destroyed")
+
 	DirAccess.remove_absolute(root.path_join("dev/slot_01.json"))
 	DirAccess.remove_absolute(root.path_join("dev/slot_01.json.bak"))
 	DirAccess.remove_absolute(root.path_join("dev/slot_01.json.tmp"))

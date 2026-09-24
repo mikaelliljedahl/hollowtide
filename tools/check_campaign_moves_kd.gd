@@ -55,6 +55,7 @@ func _run() -> void:
 	await _case_kiln_02_wave_door()
 	await _case_kiln_03_platforms()
 	await _case_kiln_03_moat()
+	await _case_kiln_03_west_exit()
 	await _case_depths_01_chute()
 	await _case_depths_01_shelf()
 	await _case_depths_01_west_shaft()
@@ -202,6 +203,16 @@ func _case_kiln_02_wave_door() -> void:
 	await _shoot()
 	await _hold([&"move_left"], 60)
 	_expect_room("kiln_02 Wave opens the door -> kiln_03", "kiln_03")
+
+
+func _case_kiln_03_west_exit() -> void:
+	if not _wanted("kiln_03_west_exit"):
+		return
+	# After the Cinder Warden falls, the west flag gate opens and the door leads back to the hub.
+	await _setup("kiln_03", Vector2i(4, 14), [], BOSSES_DOWN)
+	await _hold([&"move_left"], 150)
+	await _frames(20)
+	_expect_room("kiln_03 west door after the boss -> nexus_01", "nexus_01")
 
 
 func _case_kiln_03_platforms() -> void:

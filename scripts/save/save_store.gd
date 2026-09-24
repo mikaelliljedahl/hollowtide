@@ -37,9 +37,15 @@ func save_game() -> Error:
 
 	if FileAccess.file_exists(target):
 		var existing := _read_save(target)
-		if existing["status"] != OK:
+		if bool(existing.get("stale", false)):
+			# A well-formed save whose contents no longer validate (e.g. written before an id
+			# rename) must not block new progress forever: archive it and write in its place.
+			var archive_error := _archive_stale(target)
+			if archive_error != OK:
+				return archive_error
+		elif existing["status"] != OK:
 			return existing["status"]
-		if existing["domain"] != domain:
+		elif existing["domain"] != domain:
 			return ERR_INVALID_DATA
 
 	var wrapper := {
@@ -96,6 +102,11 @@ func load_game() -> Error:
 			return _restore(backup["snapshot"]) if recovery == OK else recovery
 		return ERR_FILE_CORRUPT
 	return primary["status"]
+
+
+func _archive_stale(target: String) -> Error:
+	var archived := _path("slot_01.stale.%d.%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
+	return DirAccess.rename_absolute(target, archived)
 
 
 func _recover_primary() -> Error:
@@ -245,9 +256,10 @@ func _read_save(path: String) -> Dictionary:
 	if (
 		(not snapshot_version is int and not snapshot_version is float)
 		or int(snapshot_version) != schema
-		or not _state_validate(snapshot)
 	):
 		return {"status": ERR_FILE_CORRUPT}
+	if not _state_validate(snapshot):
+		return {"status": ERR_FILE_CORRUPT, "stale": true}
 	return {"status": OK, "domain": domain, "snapshot": snapshot}
 
 
