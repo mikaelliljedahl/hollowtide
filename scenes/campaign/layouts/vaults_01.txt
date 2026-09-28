@@ -3,7 +3,8 @@ area: vaults
 name: Cold Threshold
 origin: 90 51
 # threshold: the pit floor west of the timed-door cache seals both doors of the first vault room.
-ambush: 1 3 28 12 wave=hopper,hopper wave2=shard_turret,armored_guard,hopper trigger=4,9,7,6 spawns=9,3,13,12 id=threshold
+# Spawns stay on the pit floor, so the wave-2 turret never perches on the cache shelf above it.
+ambush: 1 3 28 12 wave=hopper,hopper wave2=shard_turret,armored_guard,hopper trigger=4,9,7,6 spawns=3,3,14,12 id=threshold
 legend:
   1 pickup missile_tank missile_01
   c enemy ceiling_diver w=10 h=8

@@ -2,6 +2,9 @@ class_name CombatBoss extends CharacterBody2D
 ## Regional boss. Health drives four fight stages (docs/features/boss-rework.md); stages 1-2
 ## use damage-matrix phase B1 and stages 3-4 use B2. Every attack runs idle -> telegraph ->
 ## active -> recover, and the recover step is the punish window (B2 armor opens during it).
+## Damage is paced by openings: each punish window (and the start of the fight) accepts at most
+## Patterns.opening_damage, a stage change spends it and shuts any open window, and no hit
+## carries past a stage's floor, so every stage has to be fought.
 
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const DefeatRewardsScript = preload("res://scripts/enemies/defeat_rewards.gd")
@@ -42,6 +45,8 @@ var _age := 0.0
 var _branch_open := false
 var _branch_timer := 0.0
 var _window_length := OPEN_WINDOW_SECONDS
+## Damage the current opening still accepts; refilled by each punish window.
+var _opening_damage := 0
 var _attack_timer := 1.0
 var _attack_state: StringName = &"idle"
 var _attack_id: StringName = &""
@@ -94,6 +99,7 @@ func _ready() -> void:
 	enemy_id = runtime_id
 	max_health = int(_boss_data()["max_health"])
 	health = max_health
+	_opening_damage = Patterns.opening_damage(max_health)
 	_health_trail = float(max_health)
 	add_to_group(&"enemies")
 	add_to_group(&"damageable")
@@ -153,6 +159,7 @@ func set_test_stage(requested_stage: int) -> void:
 	phase = Patterns.protection_phase(stage)
 	_branch_open = false
 	_branch_timer = 0.0
+	_opening_damage = Patterns.opening_damage(max_health)
 	_cancel_attack(0.2)
 	_rotation_index = 0
 	if changed:
@@ -186,7 +193,10 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 	if outside or not is_vulnerable_to(kind):
 		BossVisuals.spawn_blocked_hit(self, impact, direction)
 		return HitResult.Reaction.BLOCKED
-	health = maxi(health - amount, 0)
+	var stage_left := health - Patterns.stage_floor(stage, max_health)
+	var dealt := mini(mini(amount, _opening_damage), stage_left)
+	_opening_damage -= dealt
+	health -= dealt
 	_health_trail_delay = HEALTH_TRAIL_DELAY
 	if health > 0:
 		var reached := Patterns.stage_for(health, max_health)
@@ -214,6 +224,8 @@ func take_damage(amount: int, kind: StringName) -> void:
 
 
 func is_vulnerable_to(kind: StringName) -> bool:
+	if _opening_damage <= 0:
+		return false
 	match enemy_id:
 		&"stone_guardian":
 			if phase == 1:
@@ -253,6 +265,7 @@ func reset_runtime() -> void:
 	_branch_open = false
 	_branch_timer = 0.0
 	_window_length = OPEN_WINDOW_SECONDS
+	_opening_damage = Patterns.opening_damage(max_health)
 	_cancel_attack(1.0)
 	_rotation_index = 0
 	_hit_flash_remaining = 0.0
@@ -277,11 +290,12 @@ func reset_runtime() -> void:
 
 func _enter_stage(new_stage: int) -> void:
 	stage = new_stage
-	var new_phase := Patterns.protection_phase(stage)
-	if new_phase != phase:
-		phase = new_phase
-		_branch_open = false
-		_branch_timer = 0.0
+	phase = Patterns.protection_phase(stage)
+	# A window never carries into the next stage: the boss is shut until its next punish window,
+	# which comes only after the breather and a full telegraphed attack.
+	_branch_open = false
+	_branch_timer = 0.0
+	_opening_damage = 0
 	# The stagger is a free breather: whatever was winding up is dropped unfired.
 	_cancel_attack(Patterns.STAGE_BREATHER)
 	_rotation_index = 0
@@ -372,8 +386,10 @@ func _cancel_attack(idle_delay: float) -> void:
 	_telegraph_marks = []
 
 
-## B2 armor/overheat opens for the whole punish window; B1 bodies are already open.
+## Every punish window is a new opening; B2 armor/overheat also opens for the whole window (B1
+## bodies are already open, Tidal Heart opens through Snare or Echo).
 func _open_punish_window(seconds: float) -> void:
+	_opening_damage = Patterns.opening_damage(max_health)
 	if phase != 2 or enemy_id == &"tidal_heart":
 		return
 	_branch_open = true
@@ -492,13 +508,16 @@ func presentation_state() -> StringName:
 		return &"dying"
 	if _telegraph_remaining > 0.0:
 		return &"attack"
-	if _branch_open:
+	if _branch_open and _opening_damage > 0:
 		return &"open"
 	return &"protected"
 
 
-## True when the weak point is currently showing (drives glow/ring visuals).
+## True when the weak point is currently showing (drives glow/ring visuals); a spent opening shuts
+## it until the next punish window.
 func weak_point_exposed() -> bool:
+	if _opening_damage <= 0:
+		return false
 	match enemy_id:
 		&"stone_guardian", &"furnace_mother":
 			return phase == 1 or _branch_open

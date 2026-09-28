@@ -44,7 +44,12 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	if _visual != null:
-		_visual.modulate = Color("405b5c") if _cooldown > 0.0 else Color.WHITE
+		_visual.modulate = Color("405b5c") if _cooldown > 0.0 or _locked() else Color.WHITE
+
+
+## A health pad lies dormant during a fight (CombatLock); ammo- and Flux-only pads never do.
+func _locked() -> bool:
+	return refill_health and CombatLock.active(get_tree())
 
 
 func visual_bounds():
@@ -74,7 +79,7 @@ func _anchor_visible_base_to_floor(sprite: Sprite2D) -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if _cooldown > 0.0 or not body.is_in_group("player"):
+	if _cooldown > 0.0 or not body.is_in_group("player") or _locked():
 		return
 	var state := get_node_or_null("/root/GameState")
 	if state == null:

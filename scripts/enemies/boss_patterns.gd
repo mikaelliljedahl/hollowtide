@@ -20,6 +20,10 @@ const DESPERATION_MIN_PUNISH := 1.2
 const IDLE_SECONDS: Array[float] = [1.1, 0.9, 0.8, 0.5]
 ## Breather after a stage transition before the first telegraph of the new stage.
 const STAGE_BREATHER := 1.0
+## Openings each stage takes to clear. An opening (the fight's start, then every punish window)
+## accepts at most a quarter-stage share of health, and no hit carries past the stage's floor, so
+## a full Harpoon supply cannot skip stages (playtest sweep 2026-09-24: 5-13 s fights).
+const OPENINGS_PER_STAGE := 4
 
 const TIMING := {
 	&"boulder_volley": {"telegraph": 0.6, "active": 0.1, "punish": 0.9},
@@ -103,6 +107,18 @@ static func stage_for(health: int, max_health: int) -> int:
 		if ratio <= threshold:
 			stage += 1
 	return stage
+
+
+## Health at which `stage` ends and the next one starts; 0 for the desperation stage.
+static func stage_floor(stage: int, max_health: int) -> int:
+	if stage < 1 or stage >= DESPERATION_STAGE:
+		return 0
+	return floori(float(max_health) * STAGE_THRESHOLDS[stage - 1])
+
+
+## Most damage one opening accepts.
+static func opening_damage(max_health: int) -> int:
+	return ceili(float(max_health) * 0.25 / float(OPENINGS_PER_STAGE))
 
 
 static func protection_phase(stage: int) -> int:

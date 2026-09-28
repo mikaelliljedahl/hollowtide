@@ -1,14 +1,17 @@
 extends Node
 
 ## Boss rework (docs/features/boss-rework.md): stage thresholds and the B1/B2 mapping, stage
-## transitions under real hits, the desperation stage, and for every boss and stage that each
-## attack telegraphs for at least 0.4 s before any projectile exists, that a punish window follows
-## every chain, that B2 armor opens only in it, and that charges move the body along their lane.
+## transitions under real hits, the desperation stage, damage pacing (a window never carries into
+## the next stage, and a player landing every Harpoon still fights all four stages for 40 s), and
+## for every boss and stage that each attack telegraphs for at least 0.4 s before any projectile
+## exists, that a punish window follows every chain, that B2 armor opens only in it, and that
+## charges move the body along their lane.
 ## godot --headless --path . res://tools/check_boss_rework.tscn -- --test-mode
 
 const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
 const Attacks = preload("res://scripts/enemies/boss_attacks.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const StationScript = preload("res://scripts/campaign/station.gd")
 const BOSS_IDS: Array[StringName] = [&"stone_guardian", &"furnace_mother", &"tidal_heart"]
 const MIN_TELEGRAPH := 0.4
 const MIN_PUNISH := 0.8
@@ -16,6 +19,10 @@ const ARENA := Rect2(0.0, 300.0, 2000.0, 700.0)
 const FLOOR_Y := 1000.0
 const PHYSICS_HZ := 60.0
 const STAGE_TIMEOUT_FRAMES := 60 * 40
+## A strong player with a full Harpoon supply needs at least this long (the design target is
+## 40-60 s); the sweep before the pacing rules measured 5-13 s.
+const MIN_FIGHT_SECONDS := 40.0
+const HARPOON_EVERY_FRAMES := 21
 
 var _failures: Array[String] = []
 var _events: Array[Dictionary] = []
@@ -52,10 +59,15 @@ func _run() -> void:
 	for boss_id in BOSS_IDS:
 		await _stage_thresholds(boss_id)
 	await _transition_cancels_telegraph()
+	await _transition_shuts_window()
+	for boss_id in BOSS_IDS:
+		await _fight_takes_every_stage(boss_id)
 	await _engages_on_floor_line()
 	await _volley_fans_below_aim()
 	await _charges_leave_wall_pocket()
+	await _pursuit_leaves_wall_pocket()
 	await _hits_need_engagement()
+	await _refills_dormant_in_fight()
 	for boss_id in BOSS_IDS:
 		for stage in range(1, Patterns.DESPERATION_STAGE + 1):
 			await _attack_cycle(boss_id, stage)
@@ -159,16 +171,15 @@ func _stage_thresholds(boss_id: StringName) -> void:
 	await _frames(2)
 
 
-## Opens the weak point the way the fight does: Snare or Echo for Tidal Heart, a punish
-## window for armored stages.
+## Opens the weak point the way the fight does: a punish window (a new opening; armored stages
+## also open their armor in it), plus Snare or Echo for Tidal Heart.
 func _open_for_harpoon(boss: CombatBoss) -> void:
+	boss.call("_open_punish_window", 1.5)
 	if boss.enemy_id == &"tidal_heart":
 		if boss.phase == 1:
 			boss.receive_hit(0, &"ice", {})
 		else:
 			boss.open_wave_window()
-	elif boss.phase == 2:
-		boss.call("_open_punish_window", 1.5)
 
 
 func _transition_cancels_telegraph() -> void:
@@ -182,7 +193,8 @@ func _transition_cancels_telegraph() -> void:
 	var released := [false]
 	boss.attack_released.connect(func(_attack: StringName) -> void: released[0] = true)
 	var projectiles_before := _live_projectiles()
-	boss.receive_hit(boss.health - int(boss.max_health * 0.75), &"missile", {})
+	boss.health = _stage_floor(1, boss.max_health) + 1
+	boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {})
 	_check(boss.stage == 2, "a hit across 75% enters stage 2")
 	_check(
 		boss.get("_attack_state") == &"idle" and float(boss.get("_telegraph_remaining")) == 0.0,
@@ -191,6 +203,74 @@ func _transition_cancels_telegraph() -> void:
 	await _frames(int(Patterns.STAGE_BREATHER * PHYSICS_HZ) - 2)
 	_check(not released[0], "the dropped attack never fires")
 	_check(_live_projectiles() == projectiles_before, "the stage breather fires nothing")
+	_despawn(boss)
+	await _frames(2)
+
+
+## Sweep 2026-09-24: one stage 3 punish window stayed open through the change to stage 4 and took
+## the Stone Guardian from 125 to 20 HP. A hit stops at the stage floor, and the change shuts the
+## window until the next punish window.
+func _transition_shuts_window() -> void:
+	var boss := _spawn_in_arena(&"stone_guardian")
+	await _frames(1)
+	boss.set_test_stage(Patterns.ARMORED_STAGE)
+	var floor_health := _stage_floor(Patterns.ARMORED_STAGE, boss.max_health)
+	boss.health = floor_health + 1
+	boss.call("_open_punish_window", 1.5)
+	boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {})
+	_check(
+		boss.stage == Patterns.DESPERATION_STAGE and boss.health == floor_health,
+		"a hit stops at the stage floor (health %d, floor %d)" % [boss.health, floor_health]
+	)
+	var reaction := boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {})
+	_check(
+		reaction == HitResult.Reaction.BLOCKED and boss.health == floor_health,
+		"the stage change shuts the open punish window"
+	)
+	boss.call("_open_punish_window", 1.5)
+	_check(
+		boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {}) == HitResult.Reaction.DAMAGE,
+		"the next punish window opens the boss again"
+	)
+	_despawn(boss)
+	await _frames(2)
+
+
+## Sweep 2026-09-24: bosses died in 5-13 s to a full Harpoon supply and skipped most stages. A
+## player who fires a Harpoon every 0.35 s whenever one would land (and snares or echoes the
+## Tidal Heart whenever it is shut) must see attacks in all four stages and need 40 s.
+func _fight_takes_every_stage(boss_id: StringName) -> void:
+	var boss := _spawn_in_arena(boss_id)
+	await _frames(1)
+	var released := {1: 0, 2: 0, 3: 0, 4: 0}
+	boss.attack_released.connect(func(_attack: StringName) -> void: released[boss.stage] += 1)
+	var frames := 0
+	var cooldown := 0
+	while boss.health > 0 and frames < 60 * 150:
+		await _frames(1)
+		frames += 1
+		cooldown -= 1
+		if cooldown > 0:
+			continue
+		if boss_id == &"tidal_heart" and not boss.is_vulnerable_to(&"missile"):
+			if boss.phase == 1:
+				boss.receive_hit(0, &"ice", {})
+			else:
+				boss.open_wave_window()
+			cooldown = HARPOON_EVERY_FRAMES
+		if boss.is_vulnerable_to(&"missile"):
+			boss.receive_hit(Catalog.MISSILE_DAMAGE, &"missile", {})
+			cooldown = HARPOON_EVERY_FRAMES
+	var seconds := frames / PHYSICS_HZ
+	_check(boss.health == 0, "%s falls to perfect Harpoon play (%.1f s)" % [boss_id, seconds])
+	_check(
+		released.values().all(func(count: int) -> bool: return count > 0),
+		"%s attacks in every stage before it falls (releases %s)" % [boss_id, released]
+	)
+	_check(
+		seconds >= MIN_FIGHT_SECONDS,
+		"%s takes at least %.0f s (%.1f s)" % [boss_id, MIN_FIGHT_SECONDS, seconds]
+	)
 	_despawn(boss)
 	await _frames(2)
 
@@ -261,6 +341,46 @@ func _charges_leave_wall_pocket() -> void:
 				await _frames(2)
 
 
+## Sweep 2026-09-28: both playtest agents died in all 12 stage 4 attempts at the vaults_03 west
+## end, walked into by the pursuing Stone Guardian under a roof too low to jump its body. Pursuit
+## stops the same pocket short of a wall, low roof or step as a charge, so a player backed against
+## it is never touched.
+func _pursuit_leaves_wall_pocket() -> void:
+	var obstacles := {
+		"low roof": [Vector2(1850.0, 775.0), Vector2(300.0, 150.0)],
+		"step": [Vector2(1850.0, FLOOR_Y - 64.0), Vector2(300.0, 128.0)],
+	}
+	for obstacle: String in obstacles:
+		var piece: Array = obstacles[obstacle]
+		var wall := _static_box(piece[0], piece[1])
+		var boss := _spawn_in_arena(&"stone_guardian")
+		boss.global_position.x = 1100.0
+		_probe.global_position = Vector2(1700.0 - 30.0, FLOOR_Y - 88.0)
+		await _frames(2)
+		boss.set_test_stage(Patterns.DESPERATION_STAGE)
+		_probe.hits.clear()
+		for _frame in int(4.0 * PHYSICS_HZ):
+			# Keep it walking: no attack starts, so only the pursuit decides the case.
+			boss.set("_attack_timer", 10.0)
+			await _frames(1)
+		var stop := 1700.0 - Attacks.BODY_RADIUS - Attacks.CHARGE_WALL_POCKET
+		_check(
+			boss.global_position.x > 1300.0 and boss.global_position.x <= stop + 4.0,
+			(
+				"stone guardian pursues to the pocket at a %s (x %.0f)"
+				% [obstacle, boss.global_position.x]
+			)
+		)
+		_check(
+			_probe.hits.is_empty(),
+			"stone guardian pursuit leaves a player backed against a %s unhurt" % obstacle
+		)
+		_despawn(boss)
+		wall.queue_free()
+		_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
+		await _frames(2)
+
+
 func _charge_stops_short(boss_id: StringName, attack: StringName, obstacle: String) -> void:
 	var label := "%s %s at a %s" % [boss_id, attack, obstacle]
 	var boss := _spawn_in_arena(boss_id)
@@ -320,6 +440,51 @@ func _hits_need_engagement() -> void:
 		)
 		_despawn(boss)
 		await _frames(2)
+
+
+## Sweep 2026-09-24 (depths_01 shrine, same class): no health refill while a boss holds the
+## player; the Quiver Cache keeps refilling Harpoons, as the content catalog guarantees for
+## missile boss arenas. Once the boss is gone the health sources work again.
+func _refills_dormant_in_fight() -> void:
+	GameState.reset_progress()
+	GameState.acquire_missiles(1)
+	var feet := Vector2(1500.0, FLOOR_Y)
+	var sources: Array[Area2D] = []
+	for kind: StringName in [&"refill", &"missilerefill"]:
+		var station := StationScript.new()
+		station.station_kind = kind
+		sources.append(station)
+	var pad := DevRefillPad.new()
+	sources.append(pad)
+	for source in sources:
+		add_child(source)
+		source.global_position = feet - Vector2(0.0, 38.0)
+	_probe.global_position = Vector2(300.0, FLOOR_Y - 88.0)
+	var boss := _spawn_in_arena(&"stone_guardian")
+	await _frames(int(1.0 * PHYSICS_HZ))
+	GameState.health = 10
+	GameState.missile_count = 0
+	_probe.global_position = Vector2(feet.x, FLOOR_Y - 88.0)
+	await _frames(int(1.0 * PHYSICS_HZ))
+	_check(
+		GameState.health == 10,
+		"no health refill while the boss holds the player (health %d)" % GameState.health
+	)
+	_check(
+		GameState.missile_count == GameState.max_missiles,
+		"the Quiver Cache still refills Harpoons mid-fight (%d)" % GameState.missile_count
+	)
+	_despawn(boss)
+	_probe.global_position = Vector2(300.0, FLOOR_Y - 88.0)
+	await _frames(int(1.0 * PHYSICS_HZ))
+	_probe.global_position = Vector2(feet.x, FLOOR_Y - 88.0)
+	await _frames(int(0.5 * PHYSICS_HZ))
+	_check(GameState.health == GameState.max_health, "health refills once the boss is gone")
+	for source in sources:
+		source.queue_free()
+	_probe.global_position = Vector2(1500.0, FLOOR_Y - 88.0)
+	GameState.reset_progress()
+	await _frames(2)
 
 
 # --- attack cycles ---------------------------------------------------------------------------
@@ -467,6 +632,11 @@ func _static_box(center: Vector2, size: Vector2) -> StaticBody2D:
 	add_child(body)
 	body.global_position = center
 	return body
+
+
+## Health at which `stage` hands over to the next one (the thresholds' own arithmetic).
+func _stage_floor(stage: int, max_health: int) -> int:
+	return floori(float(max_health) * Patterns.STAGE_THRESHOLDS[stage - 1])
 
 
 func _uses_attack(boss_id: StringName, attack: StringName) -> bool:

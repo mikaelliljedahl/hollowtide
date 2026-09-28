@@ -28,7 +28,7 @@ static func move(boss: CharacterBody2D, delta: float, player: Node2D) -> void:
 	else:
 		match id:
 			&"stone_guardian":
-				boss.velocity.x = signf(player.global_position.x - boss.global_position.x) * speed
+				boss.velocity.x = _pursuit_velocity(boss, player, speed, delta)
 				_fall_and_slide(boss, delta)
 			&"furnace_mother":
 				boss._movement_timer -= delta
@@ -69,6 +69,23 @@ static func _charge(boss: CharacterBody2D, delta: float) -> void:
 		boss._charge_done = true
 		boss.velocity.x = 0.0
 		BossVisuals.charge_impact(boss)
+
+
+## Pursuit stops where a charge would: a pocket short of the first wall, a low roof or step
+## included, so a player backed against it is never pinned by the body. Sweep 2026-09-28: at the
+## vaults_03 west end, under a roof too low to jump the body, both playtest agents were walked into
+## and killed there in all 12 stage 4 attempts.
+static func _pursuit_velocity(
+	boss: CharacterBody2D, player: Node2D, speed: float, delta: float
+) -> float:
+	var direction := signf(player.global_position.x - boss.global_position.x)
+	if is_zero_approx(direction):
+		return 0.0
+	var lane := Attacks._lane(boss)
+	var wall := Attacks._first_wall_x(boss, direction, lane.y if direction > 0.0 else lane.x)
+	var stop := wall - direction * (Attacks.BODY_RADIUS + Attacks.CHARGE_WALL_POCKET)
+	var room := (stop - boss.global_position.x) * direction
+	return direction * clampf(room / delta, 0.0, speed)
 
 
 ## Telegraph and punish poses hold still; Tidal Heart sinks toward its home height instead.

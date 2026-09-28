@@ -41,8 +41,11 @@ Sources gathered with Firecrawl on 2026-09-23.
 - **R6 Always winnable.** A spawn is only created when the player's current kit can defeat it
   (section 5). An encounter with no winnable spawns never seals.
 - **R7 Never trapped.** Death, or leaving the arena by any means (dev teleport, respawn), aborts the
-  encounter: seals open, ambush enemies are removed, and the arena re-arms. As a backstop, a wave in
-  which no ambush enemy loses health for `stall_seconds` (40 s) is aborted the same way.
+  encounter: seals open, ambush enemies are removed, and the arena re-arms. As a backstop, a campaign
+  wave in which no ambush enemy loses health for `stall_seconds` (40 s) is aborted the same way. The
+  Trials gauntlet sets `stall_seconds` to 0, which turns the backstop off: there a slow wave is the
+  player's to finish, and only death or leaving ends it (design call 2026-09-28; the abort ended
+  sweep runs while the player was still fighting).
 - **R8 Fair spawns.** Every spawn point shows a telegraph before the enemy appears. A spawn point
   closer to the player than the safe distance moves to the nearest other authored spawn point of the
   same ambush that is far enough away (or else the farthest one). Spawns never move to invented
@@ -51,6 +54,15 @@ Sources gathered with Firecrawl on 2026-09-23.
 - **R9 Reward aggression.** Clearing drops one guaranteed refill (missiles if they are owned and not
   full, otherwise energy) at the authored spawn point nearest the player.
 - **R10 No text.** The seals, telegraphs, sound and reward teach the rule. No tutorial text.
+- **R11 No free refills mid-fight.** While any arena is `SEALING`, `FIGHTING` or in `INTERMISSION`,
+  and while a living boss holds the player in its arena, every source that restores health or saves
+  lies dormant (dimmed) and gives nothing: the save shrine (no refill, no checkpoint, no save), the
+  refill shrine and the dev health pads. Ammo-only sources (the Quiver Cache `missilerefill`, ammo- or
+  Flux-only dev pads) keep working, because the content catalog guarantees a recurring Harpoon source
+  in every missile boss arena. After the clear the shrine works again on the next step onto it. The
+  rule is `CombatLock` (`scripts/world/dynamic/combat_lock.gd`), which fast travel's T5 refusal also
+  uses. Sweep 2026-09-24: the depths_01 save shrine inside the arena refilled health and Harpoons
+  every 1.2 s during the fight.
 
 ## 4. State machine
 
@@ -103,7 +115,7 @@ centre; every rectangle and point is relative to it.
 | `door_rects` | Openings to seal; each becomes a `SealSlab` (`scripts/world/dynamic/seal_slab.gd`). |
 | `trigger_rect` | Commit zone (R4); empty means the arena minus one tile at each side. |
 | `local_id`, `flag_id` | The clear flag is `<room_id>.ambush.<local_id>` inside a campaign room, or `flag_id` when set. |
-| `max_seconds`, `stall_seconds` | Failsafe clear (120 s) and stall abort (40 s). |
+| `max_seconds`, `stall_seconds` | Failsafe clear (120 s) and stall abort (40 s; 0 turns it off). |
 
 Campaign rooms author ambushes as `ambush:` lines in their layouts (`scenes/campaign/layouts/*.txt`,
 built by `tools/build_campaign_rooms.py`); the syntax is documented in the `tools/campaign_layout.py`
@@ -138,7 +150,7 @@ Placements in the other areas (two waves each, kit on arrival in brackets):
 | Arena | Where | Waves |
 |---|---|---|
 | `nexus_02.loft` | Whisper Loft, just out of the High Jump crack; seals the crack (fringe kit plus High Jump) | Grasshoppers; then Spitter, Vent Flyer, Grasshopper |
-| `vaults_01.threshold` | Cold Threshold pit floor; seals the west door and the east ledge door (fringe kit) | Hoppers; then Shard Turret, Armored Guard, Hopper |
+| `vaults_01.threshold` | Cold Threshold pit floor; seals the west door and the east ledge door (fringe kit). Every spawn point is on the pit floor (`spawns=3,3,14,12`): with points on the cache shelf the relocation rule lifted the Shard Turret there, from where its fan covered the whole sealed pit (sweep 2026-09-24: 1 clear in 7 wave-2 attempts, deaths in the west dead end) | Hoppers; then Shard Turret, Armored Guard, Hopper |
 | `kiln_02.antechamber` | Furnace Shaft landing below the heat zone; seals the west entry and the lower west door (vaults kit plus Pressure Seal) | Vent Flyers; then Shooting Gargoyle and two Vent Flyers |
 | `depths_01.undertow_hall` | Pressure Descent lower hall; seals the entry shaft mouth and the east door behind the undertow gate (kiln kit) | Leech Wisps; then Shard Turret and two Leech Wisps |
 
@@ -183,8 +195,8 @@ Suite `tools/check_ambush_rules.tscn` (registered as `ambush rules` in `tools/ru
 | Kit filter | No weapon never seals; with the beam only, a wave of Armored Guard, Crawler and Hopper spawns just the Hopper and a Crawler-only wave is skipped; owned, non-full missiles give a missile refill; a Guard-plus-Crawler ambush never seals. |
 | Death abort | Death opens the seals and removes the enemies; standing in the trigger does not re-seal until the player has left and returned. |
 | Leave abort | Moving the player out of the arena aborts without setting the clear flag. |
-| Stall abort | With `stall_seconds` shortened, damage resets the timer and an untouched wave is aborted. |
-| Campaign arenas (`tools/check_ambush_campaign.tscn`) | Each of the four area arenas: no seal with the move-test kit, seals with the arrival kit and blocks physics, both waves clear on authored points, the flag persists across a reload. |
+| Stall abort | With `stall_seconds` shortened, damage resets the timer and an untouched wave is aborted. The gauntlet case lives in the trials suite. |
+| Campaign arenas (`tools/check_ambush_campaign.tscn`) | Each of the four area arenas: no seal with the move-test kit, seals with the arrival kit and blocks physics, both waves clear on authored points, the flag persists across a reload. A save shrine inside the arena (vaults_01, kiln_02, depths_01) neither refills nor saves mid-fight and does both after the clear (R11); every vaults_01 spawn point is on the pit floor and the wave-2 turret stands there with the player mid-pit. Both fail on the code before the 2026-09-28 design calls. |
 | Dev S3 (suite `ambush rules dev`) | Exactly one S3 arena; no seal without a weapon; seals both doorways with the beam; all three waves run and clear; the flag is saved. |
 | Campaign `fringe_03` | No seal without the beam; with it both openings block physics queries; both waves clear with all five spawns on authored points; the flag persists across a room reload that leaves the arena open. |
 

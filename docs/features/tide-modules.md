@@ -105,7 +105,7 @@ pickup is reached only through a break edge, and none sits on a break route or r
 
 `CampaignRoot` adds one `TideHook` node (`scripts/campaign/tide_hook.gd`) and the shared shrine
 menu. A save shrine offers Tide Sockets while at least one glyph is owned and no room transition,
-death or the ending is under way (`shrine_options`, `scripts/campaign/campaign_root.gd:218`);
+death or the ending is under way (`shrine_options`, `scripts/campaign/campaign_root.gd:208`);
 ambushes and bosses do not remove the option. While the player stands on a save shrine (on the
 floor, not in Slipstream form) and the shrine offers anything, the shrine's up chevron shows; it is
 the only cue, shared with fast travel. Pressing Up (`move_up`) opens the shrine menu

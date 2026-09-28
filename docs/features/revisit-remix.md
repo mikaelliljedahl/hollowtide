@@ -91,7 +91,7 @@ A spawn is elite when all of these hold (`is_elite_spawn`, `scripts/campaign/rev
    (`scripts/campaign/revisit_remix.gd:26`). The dev track has no campaign root.
 2. The tier is above 0 and the room was already discovered when it loaded. The spawn reads this in
    `_ready`, before the campaign root records the visit (`scripts/campaign/enemy_spawn.gd:18`,
-   `scripts/campaign/campaign_root.gd:414`).
+   `scripts/campaign/campaign_root.gd:404`).
 3. The enemy ID is one of the thirteen common enemies.
 4. The spawn's fixed roll is below the tier's chance. The roll is the first 32 bits of the MD5 of
    `<room_id>|<spawn node name>` scaled to [0, 1) (`scripts/campaign/revisit_remix.gd:40`). MD5 is used
