@@ -37,10 +37,11 @@ func save_game() -> Error:
 
 	if FileAccess.file_exists(target):
 		var existing := _read_save(target)
-		if bool(existing.get("stale", false)):
-			# A well-formed save whose contents no longer validate (e.g. written before an id
-			# rename) must not block new progress forever: archive it and write in its place.
-			var archive_error := _archive_stale(target)
+		var unreadable := _unreadable_kind(existing)
+		if not unreadable.is_empty():
+			# A slot that can never load (damaged, unknown schema, written before an id rename,
+			# another domain) must not block new progress forever: keep it aside, write anew.
+			var archive_error := _archive(target, unreadable)
 			if archive_error != OK:
 				return archive_error
 		elif existing["status"] != OK:
@@ -104,8 +105,32 @@ func load_game() -> Error:
 	return primary["status"]
 
 
-func _archive_stale(target: String) -> Error:
-	var archived := _path("slot_01.stale.%d.%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
+## Why the slot on disk cannot be continued: "" when it loads, a valid backup will, or there is no
+## slot; otherwise "corrupt", "unknown" (unrecognised schema), "stale" or "foreign" (other domain).
+## The next save keeps that file aside as slot_01.<kind>.<pid>.<usec>.json.
+func unreadable_slot() -> String:
+	if has_save():
+		return ""
+	return _unreadable_kind(_read_save(_path(SAVE_FILE)))
+
+
+func _unreadable_kind(existing: Dictionary) -> String:
+	if bool(existing.get("stale", false)):
+		return "stale"
+	match existing["status"]:
+		ERR_FILE_CORRUPT:
+			return "corrupt"
+		ERR_FILE_UNRECOGNIZED:
+			return "unknown"
+		ERR_INVALID_DATA:
+			return "foreign"
+	return ""
+
+
+func _archive(target: String, kind: String) -> Error:
+	var archived := _path(
+		"slot_01.%s.%d.%d.json" % [kind, OS.get_process_id(), Time.get_ticks_usec()]
+	)
 	return DirAccess.rename_absolute(target, archived)
 
 
@@ -135,11 +160,15 @@ func _recover_primary() -> Error:
 	return recovery_error
 
 
+## True when load_game would succeed: the slot is valid, or it is missing or damaged and the
+## backup is valid (load_game tries the backup only in those two cases).
 func has_save() -> bool:
 	_initialize_domain()
 	var target := _read_save(_path(SAVE_FILE))
 	if target["status"] == OK:
 		return true
+	if target["status"] != ERR_FILE_NOT_FOUND and target["status"] != ERR_FILE_CORRUPT:
+		return false
 	var backup := _read_save(_path(BACKUP_FILE))
 	return backup["status"] == OK
 

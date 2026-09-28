@@ -7,8 +7,9 @@
         --backend jev          # hosted Jev; needs TYPESAFE_API_KEY in the environment
     python3 tools/playtest/run.py --campaign --seeds 1 --out <dir>   # new game to the ending
 
-Each run launches Godot with res://tools/playtest_agent.tscn in --test-mode with its own save root,
-so the player's real save is never touched. Reports go to --out (default: a new directory under
+Each run launches Godot with res://tools/playtest_agent.tscn in --test-mode with its own save root
+and its own user:// directory under the run's output folder, so the player's real save and
+settings.cfg are never touched. Reports go to --out (default: a new directory under
 the system temp dir, never the repo). See docs/features/playtest-agent.md.
 """
 
@@ -30,10 +31,11 @@ import jev_backend
 import jev_feedback
 from policy_server import BACKENDS, Backend, PolicyServer
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+
 from godot_env import isolated_env  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[2]
 SCENE = "res://tools/playtest_agent.tscn"
 LOG_LIMIT = 4 * 1024 * 1024  # Godot output kept per run; the rest is dropped.
 CAMPAIGN_SECONDS = 2700.0  # campaign mode's default game-time cap (45 minutes)
@@ -55,7 +57,6 @@ def _heartbeat(out: Path, started: float) -> float:
 
 def break_specs() -> str:
     """Sequence-break start cells from tools/campaign_breaks.py, as the agent's --playtest-breaks."""
-    sys.path.insert(0, str(ROOT / "tools"))
     from campaign_breaks import BREAKS
 
     return ";".join(f"{b.break_id}:{b.room}:{b.start[0]}:{b.start[1]}" for b in BREAKS)

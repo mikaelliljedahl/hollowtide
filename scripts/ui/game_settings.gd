@@ -32,16 +32,25 @@ const REBINDABLE_ACTIONS := [
 	[&"run", "Run (hold)"],
 	[&"dash", "Undertow Dash"],
 	[&"slipstream", "Slipstream"],
-	[&"fire_beam", "Beam / pulse"],
+	[&"fire_beam", "Fire bolt / pulse"],
 	[&"fire_missile", "Harpoon"],
-	[&"cycle_beam", "Cycle beam"],
+	[&"cycle_beam", "Cycle bolt"],
 	[&"cycle_flux", "Cycle Flux module"],
 	[&"activate_flux", "Activate Flux"],
 ]
 const RESERVED_KEYS := [KEY_ESCAPE, KEY_F1]
 const PAUSE_MUSIC_DUCK_DB := -9.0
+## macOS animates fullscreen changes and ignores a mode request made mid-animation, so a quick
+## On/Off could leave the window in the old mode. The stored choice is checked on this beat for
+## DISPLAY_SETTLE_TRIES beats after each change and re-applied whenever the window disagrees.
+const DISPLAY_SETTLE_SECONDS := 0.25
+const DISPLAY_SETTLE_TRIES := 12
 
+## Test seam: an object with window_get_mode() and window_set_mode(mode) standing in for
+## DisplayServer; null means the real window.
+static var display_window: Object = null
 static var _config: ConfigFile
+static var _display_generation := 0
 static var _applied := false
 static var _music_ducked := false
 
@@ -125,17 +134,36 @@ static func fullscreen() -> bool:
 
 
 static func apply_display() -> void:
-	if DisplayServer.get_name() == "headless" or is_test_run():
+	if display_window == null and (DisplayServer.get_name() == "headless" or is_test_run()):
 		return
-	var mode := DisplayServer.window_get_mode()
-	var is_full := (
-		mode == DisplayServer.WINDOW_MODE_FULLSCREEN
-		or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
-	)
-	if fullscreen() and not is_full:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-	elif not fullscreen() and is_full:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	_display_generation += 1
+	_settle_display(_display_generation)
+
+
+## Keeps the window on the stored fullscreen choice while it settles; a newer toggle takes over.
+static func _settle_display(generation: int) -> void:
+	var window: Object = display_window if display_window != null else DisplayServer
+	var tree := Engine.get_main_loop() as SceneTree
+	for attempt in DISPLAY_SETTLE_TRIES:
+		if generation != _display_generation:
+			return
+		var mode: int = window.call("window_get_mode")
+		var is_full := (
+			mode == DisplayServer.WINDOW_MODE_FULLSCREEN
+			or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+		)
+		if is_full != fullscreen():
+			window.call(
+				"window_set_mode",
+				(
+					DisplayServer.WINDOW_MODE_FULLSCREEN
+					if fullscreen()
+					else DisplayServer.WINDOW_MODE_WINDOWED
+				)
+			)
+		if tree == null:
+			return
+		await tree.create_timer(DISPLAY_SETTLE_SECONDS, true, false, true).timeout
 
 
 static func screen_shake() -> float:
@@ -313,13 +341,14 @@ static func controls_help_text(dev_mode: bool) -> String:
 	rows.append([keys_text(&"run"), "Run (hold)"])
 	rows.append(["", ""])
 	rows.append([keys_text(&"jump"), "Jump"])
-	rows.append([keys_text(&"fire_beam"), "Beam / pulse / low shot"])
+	rows.append([keys_text(&"fire_beam"), "Fire bolt / pulse / low shot"])
 	rows.append([keys_text(&"fire_missile"), "Harpoon"])
 	rows.append([keys_text(&"dash"), "Undertow Dash"])
-	rows.append([keys_text(&"cycle_beam"), "Cycle beam"])
+	rows.append([keys_text(&"cycle_beam"), "Cycle bolt"])
 	rows.append([keys_text(&"cycle_flux"), "Cycle Flux module"])
 	rows.append([keys_text(&"activate_flux"), "Activate / toggle Flux"])
 	rows.append(["", ""])
+	rows.append(["M / TAB", "Map"])
 	rows.append(["ESC", "Pause"])
 	if dev_mode:
 		rows.append(["F1", "Dev panel"])

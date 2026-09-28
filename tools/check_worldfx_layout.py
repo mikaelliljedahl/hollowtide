@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_campaign_rooms as builder  # noqa: E402
 from campaign_layout import ROOT, LayoutError, load_rooms, parse_layout  # noqa: E402
 from check_campaign_graph import Solver, World, open_timed_doors  # noqa: E402
+from godot_env import isolated_env  # noqa: E402
 
 # 30 x 17 demo room. Row 16 is the bottom boundary; the start stands at the far left.
 DEMO = """id: worldfx_demo
@@ -235,6 +236,7 @@ def main() -> int:
                 "--test-mode",
                 f"--test-save-root={folder}",
             ],
+            env=isolated_env(Path(folder) / "home"),
             capture_output=True,
             text=True,
             timeout=120,

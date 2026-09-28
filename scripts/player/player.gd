@@ -11,6 +11,10 @@ const WALL_SLIDE_CONTACT_OFFSET_X := 21.0
 const RUN_ACTION := &"run"
 const SLIP_ACTION := &"slipstream"
 const DASH_ACTION := &"dash"
+## Physics frames after a room load in which contact damage is ignored. A kinematic body's new
+## position reaches the physics server only on its next step, so an area that entered the tree
+## meanwhile (a reloaded room's lava) still sees her old spot once and reports a false contact.
+const TELEPORT_SETTLE_FRAMES := 2
 enum PlayerForm { STANDING, CROUCHING, BALL }
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _standing_collision: CollisionShape2D = $StandingCollisionShape2D
@@ -47,6 +51,7 @@ var _wall_jump_pose_timer: float = 0.0
 var _hurt_input_lock_timer: float = 0.0
 var _invulnerability_timer: float = 0.0
 var _invulnerability_elapsed: float = 0.0
+var _teleport_settle_frames := 0
 var _aim_direction: Vector2 = Vector2.RIGHT
 var _aim_pose: StringName = &""
 var _shot_pose: StringName = &""
@@ -161,6 +166,7 @@ func _update_damage_timers(delta: float) -> void:
 	if _shot_pose_timer == 0.0:
 		_shot_pose = &""
 	_wall_jump_pose_timer = maxf(_wall_jump_pose_timer - delta, 0.0)
+	_teleport_settle_frames = maxi(_teleport_settle_frames - 1, 0)
 	if _invulnerability_timer > 0.0:
 		_invulnerability_timer = maxf(_invulnerability_timer - delta, 0.0)
 		_invulnerability_elapsed += delta
@@ -170,6 +176,8 @@ func _update_damage_timers(delta: float) -> void:
 
 func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	if amount <= 0 or _dead or GameState.health <= 0 or _invulnerability_timer > 0.0:
+		return
+	if _teleport_settle_frames > 0:
 		return
 	if dev_invulnerable:  # Dev cheat: no damage, knockback or flash.
 		return
@@ -896,6 +904,11 @@ func _end_dash(keep_speed := true) -> void:
 ## Called by an enemy shot whose ray reached the body; true when the dash turned it instead.
 func try_deflect(shot: EnemyProjectile) -> bool:
 	return _dash.deflect.try_reflect(shot)
+
+
+## Called after she is moved into a freshly loaded room; see TELEPORT_SETTLE_FRAMES.
+func settle_after_teleport() -> void:
+	_teleport_settle_frames = TELEPORT_SETTLE_FRAMES
 
 
 func reset_for_spawn(position: Vector2) -> void:

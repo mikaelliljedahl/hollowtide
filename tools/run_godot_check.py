@@ -7,7 +7,8 @@ Usage:
     python3 tools/run_godot_check.py --list
 
 Register a suite by adding one line to SUITES. Godot suites get an isolated save root and
-user:// directory, so they can run side by side. A suite fails on a non-zero exit, a timeout,
+user:// directory (tools/godot_env.py), so they can run side by side and never touch the player's
+saves or settings.cfg. A suite fails on a non-zero exit, a timeout,
 a Godot `SCRIPT ERROR`, or leaked objects/resources at shutdown.
 """
 
@@ -24,6 +25,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+
+from godot_env import isolated_env
 
 ROOT = Path(__file__).resolve().parents[1]
 FAILURE = re.compile(r"SCRIPT ERROR|ObjectDB instances leaked|resources? still in use", re.I)
@@ -75,9 +78,11 @@ SUITES = [
     Suite("tide modules", "tools/check_tide_modules.tscn"),
     Suite("playability", "tools/check_playability_repair.tscn", dev=True),
     # Save and respawn
+    Suite("godot isolation", "tools/check_godot_isolation.py"),
     Suite("world persistence", "tools/check_world_persistence.tscn", dev=True),
     Suite("respawn", "tools/check_respawn.tscn"),
     Suite("respawn dev", "tools/check_respawn.tscn", dev=True),
+    Suite("hazard respawn", "tools/check_hazard_respawn.tscn"),
     # Combat
     Suite("combat devmode", "tools/check_combat_devmode.tscn", dev=True),
     Suite("combat integration", "tools/check_combat_integration.tscn"),
@@ -105,6 +110,7 @@ SUITES = [
     Suite("upgrade feedback", "tools/check_upgrade_feedback.tscn"),
     # UI
     Suite("start/help", "tools/check_start_help.gd"),
+    Suite("close request", "tools/check_close_request.gd"),
     # Assets and audio
     Suite("spin matte", "tools/check_spin_matte.py", pillow=True),
     Suite("audio feedback", "tools/check_audio_feedback.py"),
@@ -130,10 +136,13 @@ def command_for(suite: Suite, godot: list[str], save_root: Path) -> list[str]:
 def run(suite: Suite, godot: list[str], scratch: Path) -> tuple[Suite, bool, float, str]:
     base = scratch / re.sub(r"[^a-z0-9]+", "-", suite.name.lower()).strip("-")
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONUNBUFFERED="1")
-    for key, sub in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config")):
-        (base / sub).mkdir(parents=True, exist_ok=True)
-        env[key] = str(base / sub)
-    (base / "saves").mkdir(exist_ok=True)
+    if suite.target.endswith(".py"):
+        # Python suites keep the real HOME (uv's cache lives there); any Godot they launch
+        # isolates itself through tools/godot_env.py and finds the binary through GODOT.
+        env["GODOT"] = godot[0]
+    else:
+        env = isolated_env(base / "home", env)
+    (base / "saves").mkdir(parents=True, exist_ok=True)
     command = command_for(suite, godot, base / "saves")
     started = time.monotonic()
     try:
@@ -189,7 +198,7 @@ def main() -> int:
         with ThreadPoolExecutor(max_workers=args.jobs) as pool:
             # Start the slowest suites first; report in list order.
             jobs = {
-                suite: pool.submit(run, suite, godot, Path(scratch))
+                suite: pool.submit(run, suite, godot, Path(scratch).resolve())
                 for suite in sorted(runnable, key=lambda suite: -suite.timeout)
             }
             for job in (jobs[suite] for suite in runnable):

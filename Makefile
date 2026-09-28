@@ -1,7 +1,7 @@
 GODOT ?= godot
 GDTOOLKIT = uv tool run --from gdtoolkit==4.5.0
 RUFF = uv tool run --from ruff==0.16.8 ruff
-PY_SOURCES = $(sort $(wildcard tools/check_*.py) tools/build_devmode_art.py tools/build_area_art.py tools/build_industrial_hazards.py tools/build_new_enemy_art.py tools/gen_audio.py tools/run_godot_check.py)
+PY_SOURCES = $(sort $(wildcard tools/check_*.py) tools/build_devmode_art.py tools/build_area_art.py tools/build_industrial_hazards.py tools/build_new_enemy_art.py tools/gen_audio.py tools/run_godot_check.py tools/godot_env.py)
 
 .PHONY: run dev perf-overlay benchmark-cave import format format-check lint docs test f1-check check
 run:
@@ -14,7 +14,7 @@ perf-overlay:
 	$(GODOT) --path . -- --dev-mode --perf-overlay
 
 benchmark-cave:
-	tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; $(GODOT) --path . --windowed --resolution 1920x1080 --audio-driver Dummy --disable-vsync --max-fps 0 res://tools/benchmark_cave_runtime.tscn -- --dev-mode --test-mode --test-save-root=$$tmp --benchmark-cave
+	tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; HOME="$$tmp" $(GODOT) --path . --windowed --resolution 1920x1080 --audio-driver Dummy --disable-vsync --max-fps 0 res://tools/benchmark_cave_runtime.tscn -- --dev-mode --test-mode --test-save-root="$$tmp/saves" --benchmark-cave
 
 import:
 	$(GODOT) --headless --path . --editor --import --quit

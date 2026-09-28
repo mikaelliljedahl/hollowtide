@@ -13,6 +13,13 @@ const LEVEL_PATH := "res://scenes/levels/level_01.tscn"
 const SPLASH_PATH := "res://assets/ui/splash.png"
 const CAMPAIGN_ENTRY_PATH := "res://scripts/campaign/campaign_entry.gd"
 const TITLE_META := &"hollowtide_returned_to_title"
+## Title status line for a campaign slot that exists but cannot be continued.
+const UNREADABLE_SAVE_TEXT := {
+	"unknown": "Your save is from a newer version of Hollowtide and cannot be loaded.",
+	"stale": "Your save is from an older build and cannot be loaded.",
+}
+const DAMAGED_SAVE_TEXT := "Your save file is damaged and cannot be loaded."
+const SAVE_KEPT_TEXT := " New progress goes to a fresh save; the old file is kept."
 
 var _menu_panel: Control
 var _settings: Control
@@ -172,6 +179,9 @@ func _build_menu() -> void:
 	_status.name = "Status"
 	_status.custom_minimum_size = Vector2(560, 34)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var unreadable := _unreadable_save()
+	if not unreadable.is_empty():
+		_status.text = UNREADABLE_SAVE_TEXT.get(unreadable, DAMAGED_SAVE_TEXT) + SAVE_KEPT_TEXT
 
 	var footer := Style.label(
 		_menu_panel,
@@ -292,7 +302,7 @@ func _load_campaign_entry() -> Script:
 	var names: Array[String] = []
 	for method in script.get_script_method_list():
 		names.append(String(method.get("name", "")))
-	for required in ["has_save", "new_game", "continue_game"]:
+	for required in ["has_save", "unreadable_save", "new_game", "continue_game"]:
 		if not names.has(required):
 			return null
 	return script
@@ -300,6 +310,10 @@ func _load_campaign_entry() -> Script:
 
 func _campaign_has_save() -> bool:
 	return _entry != null and bool(_entry.call("has_save"))
+
+
+func _unreadable_save() -> String:
+	return String(_entry.call("unreadable_save")) if _entry != null else ""
 
 
 func _new_game() -> void:

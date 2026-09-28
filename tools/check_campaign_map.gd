@@ -8,6 +8,7 @@ extends Node
 const CAMPAIGN := preload("res://scenes/campaign/campaign.tscn")
 const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const Model = preload("res://scripts/campaign/campaign_map_model.gd")
+const Style = preload("res://scripts/ui/ui_style.gd")
 
 var _failures: Array[String] = []
 
@@ -175,10 +176,28 @@ func _check_screens() -> void:
 		var rect := plate.get_global_rect()
 		_check(rect.position.x > 960.0 and rect.position.y < 100.0, "minimap sits top-right")
 		_check(rect.end.x <= 1920.0 and rect.size.x <= 280.0, "minimap stays small and on screen")
+	# A wider explored map whose middle is not where she stands: the map still opens on her.
+	for room_id in ["fringe_02", "fringe_03", "nexus_01", "vaults_01", "kiln_01"]:
+		GameState.discover_room(room_id)
 	map.call("open")
 	for frame in 5:
 		await get_tree().process_frame
 	_check(map.visible and get_tree().paused, "map opens and pauses")
+	_check(
+		map.call("cursor_target").get("room", "") == String(root.get("current_room_id")),
+		"map opens with the cursor on the player's room"
+	)
+	# The 1920x1080 layout scales down to 1280x720; small map text must stay readable there.
+	var small_labels: Array[Label] = [map.get("_hint") as Label]
+	for label in (map.get("_progress") as Node).find_children("*", "Label", true, false):
+		small_labels.append(label as Label)
+	for label in small_labels:
+		var at_720 := label.get_theme_font_size(&"font_size") * 720.0 / 1080.0
+		_check(at_720 >= 13.0, "map text '%s' is %.1f px at 720p" % [label.text, at_720])
+		_check(
+			label.get_theme_color(&"font_color") != Style.TEXT_FAINT,
+			"map text '%s' is not the faint grey" % label.text
+		)
 	_check(plate == null or not plate.visible, "minimap hides behind the map")
 	_check(float(map.call("map_scale")) > 1.0, "map has a usable scale")
 	map.call("close")

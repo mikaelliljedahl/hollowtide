@@ -16,6 +16,12 @@ static func has_save() -> bool:
 	return store != null and bool(store.call("has_save"))
 
 
+## "" or why the campaign slot on disk cannot be continued (SaveStore.unreadable_slot).
+static func unreadable_save() -> String:
+	var store := _node("SaveStore")
+	return String(store.call("unreadable_slot")) if store != null else ""
+
+
 static func new_game() -> void:
 	prepare_new_game()
 	_change_scene()

@@ -4,15 +4,21 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import wave
 from array import array
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+
+from godot_env import isolated_env  # noqa: E402
+
 AUDIO = ROOT / "assets/audio"
 AUDIO_GD = ROOT / "scripts/autoload/audio.gd"
 SR = 44100
@@ -274,7 +280,7 @@ func _ready() -> void:
 
 
 def verify_runtime() -> None:
-    godot = shutil.which("godot")
+    godot = os.environ.get("GODOT") or shutil.which("godot")
     if godot is None:
         fail("godot executable missing")
     with tempfile.TemporaryDirectory(prefix="hollowtide-audio-") as temp_name:
@@ -296,11 +302,13 @@ def verify_runtime() -> None:
             '[audio]\ndefault_bus_layout="res://assets/audio/default_bus_layout.tres"\n'
         )
         base = [godot, "--headless", "--path", str(temp)]
+        env = isolated_env(temp / "home")
         # Headless editor import of many streams occasionally segfaults on exit in Godot 4.7;
         # the import cache it leaves is complete, so retry a few times before failing.
         for _ in range(4):
             imported = subprocess.run(
                 [*base, "--single-threaded-scene", "--editor", "--import", "--quit"],
+                env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -312,7 +320,7 @@ def verify_runtime() -> None:
             print(imported.stdout)
             fail("isolated Godot import failed")
         result = subprocess.run(
-            base, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
+            base, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
         )
         lines = [line for line in result.stdout.splitlines() if "AUDIO_RUNTIME" in line]
         print("\n".join(lines))
