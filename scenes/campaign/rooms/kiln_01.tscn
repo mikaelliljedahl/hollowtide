@@ -87,17 +87,17 @@ bounds = Rect2(2976, 544, 384, 480)
 travel_direction = 1
 
 [node name="Enemy05" type="Marker2D" parent="Entities"]
-position = Vector2(1056, 480)
+position = Vector2(1376, 416)
 script = ExtResource("7_enemy")
 enemy_id = &"vent_flyer"
-bounds = Rect2(736, 320, 640, 320)
+bounds = Rect2(1184, 288, 384, 256)
 travel_direction = 1
 
 [node name="Enemy06" type="Marker2D" parent="Entities"]
-position = Vector2(2272, 544)
+position = Vector2(2912, 608)
 script = ExtResource("7_enemy")
 enemy_id = &"vent_flyer"
-bounds = Rect2(1952, 384, 640, 320)
+bounds = Rect2(2720, 480, 384, 256)
 travel_direction = 1
 
 [node name="Lava01" type="Marker2D" parent="Entities"]
