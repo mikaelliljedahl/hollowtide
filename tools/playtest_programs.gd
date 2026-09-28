@@ -4,6 +4,7 @@ extends RefCounted
 ## Input.parse_input_event, exactly like a pad, so the agent never moves the player or sets any
 ## state directly.
 
+const Hazards = preload("res://tools/playtest_hazards.gd")
 const STEP_FRAMES := 12
 const JUMP_HOLD_FRAMES := 20
 const JUMP_TAIL_FRAMES := 8
@@ -13,10 +14,14 @@ const NEAR_TARGET := 24.0
 const CEILING_PROBE := 96.0
 const CEILING_SCAN := 512
 const TILE_PX := 64
+## How far ahead (px) the steer looks for floor lava or fire to jump.
+const HAZARD_LOOK := 48.0
 ## Ball form rolls at most 580 px/s (PlayerConfig.ROLL_MAX), a little under 10 px per frame.
 const ROLL_PX_PER_FRAME := 9.0
 ## Frames to wait for the 0.12 s Slipstream curl (PlayerConfig.SLIP_DURATION) to finish.
 const SLIP_FRAMES := 9
+## Frames a duck stays curled: a 380 px/s ember 300 px away has passed by then.
+const DUCK_FRAMES := 45
 ## Presses the Driver sends after the player's physics step instead of before it. A press sent
 ## before the player counts twice for her: once as just pressed in that frame, and once more from
 ## her queued `_input` press in the next frame (measured in tools/check_playtest_round3.gd). Only
@@ -35,13 +40,28 @@ static func steer(player: Player, rel: Vector2, running: bool) -> Array:
 		var out := _ceiling_exit(player, rel.x)
 		if out != 0:
 			return run(out, STEP_FRAMES)
-	if player.is_on_floor() and (blocked or above):
+	if player.is_on_floor() and (blocked or above or _floor_hazard_ahead(player, direction)):
 		return jump(direction, JUMP_HOLD_FRAMES)
 	if not player.is_on_floor() and player.is_on_wall() and rel.y < -64.0:
 		return wall_jump(player.facing)
 	if direction == 0:
 		return idle()
 	return run(direction, STEP_FRAMES) if running else walk(direction, STEP_FRAMES)
+
+
+## True when the next step toward `direction` would put the body into lava or fire on the floor
+## that it does not touch yet: the steer jumps it. Jev walked the kiln_03 refill trip through the
+## two-tile lava pit each time (up to 27 damage per attempt).
+static func _floor_hazard_ahead(player: Player, direction: int) -> bool:
+	if direction == 0:
+		return false
+	var body := Hazards.body_rect(player)
+	var ahead := Rect2(body.position + Vector2(direction * HAZARD_LOOK, 0), body.size)
+	var tree := player.get_tree()
+	for hazard in Hazards.near(tree, ahead, 0.0, true):
+		if hazard["kind"] in ["lava", "fire"] and Hazards.gap(body, hazard["rect"]) > 0.0:
+			return true
+	return false
 
 
 ## Under a low ceiling a jump only bumps it: the side (-1 or 1) of the nearest open sky within
@@ -114,6 +134,15 @@ static func pulse(dx: float, in_ball: bool) -> Array:
 	frames.append_array(hold([move_action(toward)], roll))
 	frames.append_array(hold([&"fire_beam"], 3))
 	frames.append_array(hold([move_action(-toward)], 24))
+	frames.append_array(hold([&"slipstream"], 2))
+	frames.append_array(hold([], SLIP_FRAMES))
+	return frames
+
+
+## Curl into ball form where she stands, stay curled while a shot passes over, stand up again.
+static func duck() -> Array:
+	var frames := hold([&"slipstream"], 2)
+	frames.append_array(hold([], SLIP_FRAMES + DUCK_FRAMES))
 	frames.append_array(hold([&"slipstream"], 2))
 	frames.append_array(hold([], SLIP_FRAMES))
 	return frames

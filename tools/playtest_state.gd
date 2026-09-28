@@ -27,6 +27,10 @@ const RESTORES := {
 ## Crossbow height above the feet, used for line-of-sight checks.
 const EYE := Vector2(0, -100)
 const ARENA_STATES := ["armed", "sealing", "fighting", "cleared", "intermission"]
+## Presentation states that are a wind-up. The surface eel's `bubble` (the liquid boils for
+## 0.65 s before it rears out) has no wind-up glow, since the eel is still under the surface; Jev
+## round 1 took 14 of 44 eel hits while it rated the danger low.
+const WIND_UP_STATES: Array[StringName] = [&"attack_telegraph", &"attack", &"bubble"]
 
 var _ids: Dictionary = {}
 var _next_id := 1
@@ -164,9 +168,7 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		var shown := StringName(enemy.call(&"presentation_state"))
 		# Surprise enemies name their own states (a spider's twitch); their wind-up glow counts too.
 		var wind_up = enemy.get("_telegraph_remaining")
-		entry["telegraph"] = (
-			shown in [&"attack_telegraph", &"attack"] or (wind_up is float and wind_up > 0.0)
-		)
+		entry["telegraph"] = (shown in WIND_UP_STATES or (wind_up is float and wind_up > 0.0))
 	if is_boss:
 		entry["stage"] = int(enemy.get("stage"))
 		entry["attack"] = String(enemy.get("_attack_id"))

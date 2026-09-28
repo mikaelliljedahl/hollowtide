@@ -537,3 +537,19 @@ func _test_boss_room_bounds() -> void:
 	_check(not _keys(state).has("dash_through"), "no dash into a shot out of a live boss's arena")
 	boss["arena_rel"] = [-600, -600, 1500, 100]
 	_check(_keys(state).has("dash_through"), "with room behind, the dash returns")
+	# Outside the arena (kiln_03, east of the step) nothing hurts the boss: walk in, do not shoot.
+	boss["rel"] = [-331, -92]
+	boss["hurt_by"] = ["wave", "missile"]
+	boss["engaged"] = false
+	state["kit"].merge({"missiles": 5, "harpoons_flying": 0}, true)
+	state["projectiles"] = []
+	var outside := Actions.candidates(state, _player)
+	var shots := outside.filter(
+		func(e: Dictionary) -> bool: return e["kind"] in ["shoot", "harpoon", "open_boss"]
+	)
+	_check(shots.is_empty(), "no shot at a boss from outside its arena (%s)" % [shots])
+	var walk_in: Array = Actions.find(outside, "approach:e9").get("program", [])
+	_check(
+		not walk_in.is_empty() and (walk_in[0] as Array).has(&"move_left"),
+		"the approach walks into the arena (%s)" % [walk_in.slice(0, 1)]
+	)

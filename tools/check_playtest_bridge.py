@@ -456,7 +456,7 @@ class JevRoundThreeStateTest(unittest.TestCase):
         )
 
     def test_new_kinds_have_rubric_groups_and_legality(self):
-        for kind in ("jump_shoot", "open_boss", "select_beam", "pulse", "go_to_refill"):
+        for kind in ("jump_shoot", "open_boss", "select_beam", "pulse", "go_to_refill", "duck"):
             self.assertIn(kind, jev_backend.RUBRIC)
             self.assertIn(kind, jev_feedback.GROUPS)
         candidates = [

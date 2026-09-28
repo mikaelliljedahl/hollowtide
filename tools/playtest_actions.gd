@@ -33,6 +33,11 @@ const RETREAT_REACH := 160.0
 ## into a shot is not offered when it would leave a live boss's arena (a probe dashed out of the
 ## depths_02 door at the arena edge and lost the fight).
 const DASH_REACH := 384.0
+## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
+## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
+const DUCK_RANGE := 300.0
+const DUCK_CLEAR := 80.0
+const DUCK_REACH := 200.0
 ## A boss whose centre is this far above the feet floats: jumping toward it lands in its body.
 const FLOATING_ABOVE := 160.0
 ## A Resonance Pulse is offered at an enemy this close and this level with the player.
@@ -71,6 +76,16 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 				"dash_through",
 				"dash into the incoming %s shot" % shot["style"],
 				Programs.dash(_sign(float(shot["rel"][0])))
+			)
+		)
+	var low := duck_shot(state)
+	if not low.is_empty():
+		result.append(
+			_entry(
+				"duck",
+				"duck",
+				"curl into a ball so the %s shot flies over" % low["style"],
+				Programs.duck()
 			)
 		)
 	if bool(me["on_wall"]):
@@ -145,12 +160,18 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	var rel := _vec(target["rel"])
 	var toward := _sign(rel.x)
 	var reach := shot_reach(abilities)
+	# A boss fights, and can be hurt, only while the player is inside its arena (boss-rework,
+	# section 4): from outside, the only fight move is to walk in. A kiln_03 probe stood east of
+	# the arena step shooting into it for 280 s.
+	var engaged := not is_boss or bool(target.get("engaged", true))
 	var result: Array = []
 	if is_boss:
 		var goal := boss_goal(target)
 		var step := Vector2(Aim.firing_step(goal[0], goal[1]), 0)
 		var spot := _opener_spot(target)
-		if not spot.is_empty():
+		if not engaged:
+			step = rel
+		elif not spot.is_empty():
 			# Out of sight of the opener: climb to a spot it lines up from.
 			step = _vec(spot)
 		result.append(
@@ -179,10 +200,10 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 				Programs.run(-toward, Programs.STEP_FRAMES)
 			)
 		)
-	if is_boss and not ball:
+	if is_boss and not ball and engaged:
 		result.append_array(_opener(target, kit, grounded, reach, int(me["facing"])))
 	var aim := target_aim(target, grounded, reach)
-	if abilities.has("beam") and not ball and rel.length() <= SHOT_RANGE:
+	if abilities.has("beam") and not ball and engaged and rel.length() <= SHOT_RANGE:
 		if not aim.is_empty():
 			result.append(
 				_entry(
@@ -425,6 +446,27 @@ static func find(candidates_list: Array, key: String) -> Dictionary:
 	return {}
 
 
+## The nearest shot about to cross the player's column at body height but above a curled ball,
+## while Slipstream can curl a standing, grounded player; {} otherwise. Probe 2026-09-28
+## (kiln_03, stage 3 Ember Fan from 10 tiles): curling in place cleared 17 of 17 start times,
+## every jump or run 0 to 2 of 17, because the five-way fan leaves no gap a standing body fits.
+static func duck_shot(state: Dictionary) -> Dictionary:
+	var me: Dictionary = state["player"]
+	if not (state["kit"]["abilities"] as Array).has("slipstream"):
+		return {}
+	if not bool(me["grounded"]) or me["form"] != "standing":
+		return {}
+	for shot in state.get("projectiles", []):
+		var rel := _vec(shot["rel"])
+		var velocity := _vec(shot["vel"])
+		if rel.length() > DUCK_RANGE or absf(velocity.x) < 1.0 or rel.x * velocity.x >= 0.0:
+			continue
+		var height := -(rel.y + velocity.y * (-rel.x / velocity.x))
+		if height >= DUCK_CLEAR and height <= DUCK_REACH:
+			return shot
+	return {}
+
+
 ## Nearest enemy shot flying at the player, or {}.
 static func incoming_projectile(state: Dictionary) -> Dictionary:
 	for shot in state.get("projectiles", []):
@@ -463,6 +505,8 @@ static func _harpoon_target(enemies: Array, kit: Dictionary) -> Dictionary:
 		if not kinds.has("missile") or not bool(enemy["visible"]):
 			continue
 		if enemy["is_boss"] and int(kit.get("harpoons_flying", 0)) > 0:
+			continue
+		if enemy["is_boss"] and not bool(enemy.get("engaged", true)):
 			continue
 		if enemy["is_boss"] or not _beam_hurts(kinds):
 			return enemy
