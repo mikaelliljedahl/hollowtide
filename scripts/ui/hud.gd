@@ -18,7 +18,6 @@ const SMALL_WIDTH := 156.0
 const LOW_ENERGY := 30
 
 const ENERGY_COLOR := Color("8fe6d8")
-const BEAM_NAMES := {&"base": "POWER", &"ice": "BUBBLE", &"wave": "ECHO"}
 const BEAM_ICONS := {&"base": "beam", &"ice": "ice_beam", &"wave": "wave_beam"}
 const BEAM_COLORS := {&"base": Color("f2c46d"), &"ice": Color("8fd8ff"), &"wave": Color("b59bff")}
 
@@ -203,7 +202,7 @@ func _build() -> void:
 	_beam_plate = _plate("BeamPanel", Vector2(SMALL_WIDTH, PLATE_HEIGHT))
 	_beam_icon = _icon(_beam_plate, "beam", Vector2(6, 14), 56)
 	_text(_beam_plate, "BOLT", 13, Style.TEXT_MUTED, Vector2(68, 18), 3)
-	_beam_label = _text(_beam_plate, "POWER", 20, Style.TEXT, Vector2(68, 38), 2)
+	_beam_label = _text(_beam_plate, _bolt_name(&"base"), 20, Style.TEXT, Vector2(68, 38), 2)
 	_beam_label.name = "BeamLabel"
 
 	_feedback_label = _text(self, "", 20, Style.ACCENT, Vector2.ZERO, 1)
@@ -366,9 +365,15 @@ func _refresh_missiles() -> void:
 func _refresh_beam() -> void:
 	_beam_plate.visible = GameState.has_beam
 	var beam: StringName = GameState.active_beam
-	_beam_label.text = BEAM_NAMES.get(beam, "POWER")
+	_beam_label.text = _bolt_name(beam)
 	_beam_label.add_theme_color_override("font_color", BEAM_COLORS.get(beam, Style.TEXT))
 	_beam_icon.texture = _icon_texture(BEAM_ICONS.get(beam, "beam"))
+
+
+## Plate value for the selected bolt: the first word of its D19 name (Seed Bolt -> SEED).
+func _bolt_name(beam: StringName) -> String:
+	var display: String = Catalog.BEAM_DISPLAY_NAMES.get(beam, Catalog.BEAM_DISPLAY_NAMES[&"base"])
+	return display.get_slice(" ", 0).to_upper()
 
 
 func _layout() -> void:

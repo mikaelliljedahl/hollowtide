@@ -6,8 +6,9 @@
     python3 tools/playtest/run.py --room fringe_03 --kit beam --seeds 1 --policy external \\
         --backend jev          # hosted Jev; needs TYPESAFE_API_KEY in the environment
 
-Each run launches Godot with res://tools/playtest_agent.tscn in --test-mode with its own save root,
-so the player's real save is never touched. Reports go to --out (default: a new directory under
+Each run launches Godot with res://tools/playtest_agent.tscn in --test-mode with its own save root
+and its own user:// directory under the run's output folder, so the player's real save and
+settings.cfg are never touched. Reports go to --out (default: a new directory under
 the system temp dir, never the repo). See docs/features/playtest-agent.md.
 """
 
@@ -29,13 +30,16 @@ import jev_feedback
 from policy_server import BACKENDS, Backend, PolicyServer
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+
+from godot_env import isolated_env  # noqa: E402
+
 SCENE = "res://tools/playtest_agent.tscn"
 LOG_LIMIT = 4 * 1024 * 1024  # Godot output kept per run; the rest is dropped.
 
 
 def break_specs() -> str:
     """Sequence-break start cells from tools/campaign_breaks.py, as the agent's --playtest-breaks."""
-    sys.path.insert(0, str(ROOT / "tools"))
     from campaign_breaks import BREAKS
 
     return ";".join(f"{b.break_id}:{b.room}:{b.start[0]}:{b.start[1]}" for b in BREAKS)
@@ -74,6 +78,11 @@ def build_command(args: argparse.Namespace, seed: int, out: Path, port: int) -> 
     return command
 
 
+def child_env(out: Path) -> dict[str, str]:
+    """Environment for the run's Godot: user:// (settings.cfg, playtest output) under `out`."""
+    return isolated_env(out / "home")
+
+
 def make_backend(args: argparse.Namespace) -> Backend:
     if args.backend != jev_backend.JevBackend.name:
         return BACKENDS[args.backend]()
@@ -99,7 +108,7 @@ def run_one(args: argparse.Namespace, seed: int, base: Path) -> tuple[Path, Back
     command = build_command(args, seed, out, server.port if server else 0)
     with (out / "godot.log").open("wb") as log:
         process = subprocess.Popen(
-            command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            command, cwd=ROOT, env=child_env(out), stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         # A game that stops ending (paused tree, hung scene) must not outlive its run.
         watchdog = threading.Timer(args.seconds * 4 + 120, process.kill)

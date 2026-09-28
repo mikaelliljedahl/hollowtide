@@ -64,6 +64,17 @@ func _run() -> void:
 	await _frames(40)
 	_check(_root.get("current_room") != null and GameState.health > 0, "player alive after respawn")
 
+	# A damaged slot with no backup must not undo the boss victory: the autosave keeps the damaged
+	# file aside and writes the win.
+	var slot: String = SaveStore.call("_path", SaveStore.SAVE_FILE)
+	DirAccess.remove_absolute(SaveStore.call("_path", SaveStore.BACKUP_FILE))
+	var damaged := FileAccess.get_file_as_string(slot).left(60)
+	var damaged_file := FileAccess.open(slot, FileAccess.WRITE)
+	damaged_file.store_string(damaged)
+	damaged_file.close()
+	_check(not SaveStore.has_save(), "damaged slot without backup cannot be continued")
+	_check(CampaignEntry.unreadable_save() == "corrupt", "title is told the slot is damaged")
+
 	# Boss victory in the Guardian's Vault: flags, checkpoint, autosave, shortcut opens.
 	GameState.collect_pickup("flow.missile", &"missile_tank")
 	_root.call("teleport", "vaults_03", Vector2(6.5 * TILE, 15 * TILE))
@@ -93,6 +104,12 @@ func _run() -> void:
 	_check(GameState.has_world_flag("boss:stone_guardian"), "boss flag persisted to disk")
 	_check(String(GameState.checkpoint["room"]) == "vaults_03", "checkpoint persisted to disk")
 	_check(GameState.has_beam and GameState.has_slipstream, "abilities persisted to disk")
+	var kept := false
+	for file_name in DirAccess.get_files_at(slot.get_base_dir()):
+		if file_name.begins_with("slot_01.corrupt."):
+			var archived := slot.get_base_dir().path_join(file_name)
+			kept = kept or FileAccess.get_file_as_string(archived) == damaged
+	_check(kept, "the damaged slot was kept aside, not overwritten")
 
 	# Ending: after the Tidal Heart falls, the light leads to the credits.
 	GameState.set_world_flag("boss:tidal_heart")

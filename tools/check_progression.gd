@@ -211,7 +211,8 @@ func _run_save_tests() -> void:
 	var corrupt_file := FileAccess.open(target, FileAccess.WRITE)
 	corrupt_file.store_string("not json")
 	corrupt_file.close()
-	_expect(store.save_game() == ERR_FILE_CORRUPT, "save refuses corrupt primary")
+	_expect(store.has_save(), "a corrupt primary with a valid backup can be continued")
+	_expect(store.unreadable_slot() == "", "a recoverable slot shows no title warning")
 	state.reset_progress()
 	_expect(store.load_game() == OK, "corrupt primary loads valid same-domain backup")
 	_expect(
@@ -241,20 +242,25 @@ func _run_save_tests() -> void:
 	unknown_file.close()
 	var unknown_target := FileAccess.get_file_as_string(target)
 	state.reset_progress()
-	_expect(store.save_game() == ERR_FILE_UNRECOGNIZED, "save refuses unknown schema")
-	_expect(
-		FileAccess.get_file_as_string(target) == unknown_target, "unknown schema remains untouched"
-	)
 	_expect(store.load_game() == ERR_FILE_UNRECOGNIZED, "unknown schema rejected")
 	_expect(state.has_slipstream == false, "unknown schema leaves state unchanged")
+	_expect(not store.has_save(), "an unknown schema is not offered as Continue")
+	_expect(store.unreadable_slot() == "unknown", "an unknown schema is reported to the title")
+	# A save from a newer build must not block new progress: it is kept aside, never overwritten.
+	_expect(store.save_game() == OK, "unknown schema does not block new progress")
+	_expect(_take_archive(root, "slot_01.unknown.", unknown_target), "unknown schema kept aside")
 
 	var mismatch_file := FileAccess.open(target, FileAccess.WRITE)
 	mismatch_file.store_string(
 		JSON.stringify({"schema_version": 1, "domain": "campaign", "snapshot": {}})
 	)
 	mismatch_file.close()
+	var mismatch_target := FileAccess.get_file_as_string(target)
 	_expect(store.load_game() == ERR_INVALID_DATA, "domain mismatch rejected")
 	_expect(state.has_slipstream == false, "domain mismatch leaves state unchanged")
+	_expect(store.unreadable_slot() == "foreign", "a domain mismatch is reported to the title")
+	_expect(store.save_game() == OK, "domain mismatch does not block new progress")
+	_expect(_take_archive(root, "slot_01.foreign.", mismatch_target), "mismatch kept aside")
 
 	# A well-formed save from before an id rename fails validation; it must not block new saves.
 	state.reset_progress()
@@ -277,6 +283,21 @@ func _run_save_tests() -> void:
 			DirAccess.remove_absolute(root.path_join("dev").path_join(file_name))
 	_expect(archived_stale, "stale save is archived, not destroyed")
 
+	# A damaged slot with no valid backup (disk damage, external edit) must not block every save.
+	DirAccess.remove_absolute(root.path_join("dev/slot_01.json.bak"))
+	var damaged := FileAccess.get_file_as_string(target).left(40)
+	var damaged_file := FileAccess.open(target, FileAccess.WRITE)
+	damaged_file.store_string(damaged)
+	damaged_file.close()
+	state.reset_progress()
+	_expect(store.load_game() == ERR_FILE_CORRUPT, "damaged slot without backup is rejected")
+	_expect(not store.has_save(), "damaged slot without backup is not offered as Continue")
+	_expect(store.unreadable_slot() == "corrupt", "damaged slot is reported to the title")
+	state.collect_pickup("dev-after-damage", &"slipstream")
+	_expect(store.save_game() == OK, "damaged slot without backup does not block new progress")
+	_expect(store.load_game() == OK and state.has_slipstream, "new save replaces the damaged slot")
+	_expect(_take_archive(root, "slot_01.corrupt.", damaged), "damaged slot kept aside")
+
 	DirAccess.remove_absolute(root.path_join("dev/slot_01.json"))
 	DirAccess.remove_absolute(root.path_join("dev/slot_01.json.bak"))
 	DirAccess.remove_absolute(root.path_join("dev/slot_01.json.tmp"))
@@ -290,6 +311,17 @@ func _run_save_tests() -> void:
 	campaign_store.free()
 	state.free()
 	campaign_state.free()
+
+
+## True when exactly one archive with this prefix holds `content`; removes the archives.
+func _take_archive(root: String, prefix: String, content: String) -> bool:
+	var found: Array[String] = []
+	for file_name in DirAccess.get_files_at(root.path_join("dev")):
+		if file_name.begins_with(prefix):
+			var path := root.path_join("dev").path_join(file_name)
+			found.append(FileAccess.get_file_as_string(path))
+			DirAccess.remove_absolute(path)
+	return found.size() == 1 and found[0] == content
 
 
 func _expect(condition: bool, message: String) -> void:
