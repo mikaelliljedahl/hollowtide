@@ -29,6 +29,10 @@ const MOVING_KINDS := [
 ## How far a retreat runs (12 frames at run speed, rounded up); a live boss's arena edge must be
 ## at least this far behind the player for `retreat` to be offered.
 const RETREAT_REACH := 160.0
+## How far a dash program carries the player (0.18 s at 1500 px/s, then 9 walking frames); a dash
+## into a shot is not offered when it would leave a live boss's arena (a probe dashed out of the
+## depths_02 door at the arena edge and lost the fight).
+const DASH_REACH := 384.0
 ## A boss whose centre is this far above the feet floats: jumping toward it lands in its body.
 const FLOATING_ABOVE := 160.0
 ## A Resonance Pulse is offered at an enemy this close and this level with the player.
@@ -55,7 +59,12 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	if not target.is_empty():
 		result.append_array(_fight(state, target, player))
 	var shot := incoming_projectile(state)
-	if not shot.is_empty() and abilities.has("undertow_dash") and bool(me["dash_ready"]):
+	if (
+		not shot.is_empty()
+		and abilities.has("undertow_dash")
+		and bool(me["dash_ready"])
+		and _boss_arenas_keep(enemies, _sign(float(shot["rel"][0])), DASH_REACH)
+	):
 		result.append(
 			_entry(
 				"dash_through",
@@ -139,12 +148,17 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	var result: Array = []
 	if is_boss:
 		var goal := boss_goal(target)
+		var step := Vector2(Aim.firing_step(goal[0], goal[1]), 0)
+		var spot := _opener_spot(target)
+		if not spot.is_empty():
+			# Out of sight of the opener: climb to a spot it lines up from.
+			step = _vec(spot)
 		result.append(
 			_entry(
 				"approach:%s" % target["id"],
 				"approach",
 				"move to firing range of %s" % target["type"],
-				Programs.steer(player, Vector2(Aim.firing_step(goal[0], goal[1]), 0), false)
+				Programs.steer(player, step, false)
 			)
 		)
 	else:
@@ -156,7 +170,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 				Programs.steer(player, rel, false)
 			)
 		)
-	if not is_boss or retreat_stays_in_arena(target, -toward):
+	if not is_boss or stays_in_arena(target, -toward, RETREAT_REACH):
 		result.append(
 			_entry(
 				"retreat",
@@ -192,7 +206,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 						Programs.jump_shoot(toward, frame, int(me["facing"]))
 					)
 				)
-	var harpoon := _harpoon_target(state["enemies"], int(kit["missiles"]))
+	var harpoon := _harpoon_target(state["enemies"], kit)
 	if not harpoon.is_empty() and not ball:
 		var hrel := _vec(harpoon["rel"])
 		var haim := target_aim(harpoon, grounded, reach)
@@ -237,13 +251,18 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	return result
 
 
-## The boss's opener shot, when its shell is closed, the opener's beam is equipped and an aim
-## from here lines up with the opener's point (its body or its Echo grate).
+## The boss's opener shot, when its shell is closed, its current opening is unspent, a Harpoon is
+## left to follow it, the opener's beam is equipped and an aim from here lines up with the
+## opener's point (its body or its Echo grate) in sight.
 static func _opener(
 	boss: Dictionary, kit: Dictionary, grounded: bool, reach: float, facing: int
 ) -> Array:
 	var opener = boss.get("opener")
 	if bool(boss.get("open", true)) or not opener is Dictionary or not bool(opener["owned"]):
+		return []
+	if not bool(boss.get("opening", true)) or int(kit.get("missiles", 0)) <= 0:
+		return []
+	if not bool(opener.get("visible", true)):
 		return []
 	if opener["via"] == "punish" or opener["beam"] != kit["beam"]:
 		return []
@@ -291,6 +310,17 @@ static func _beam_switches(target: Dictionary, kit: Dictionary) -> Array:
 	return result
 
 
+## Where to stand for a closed boss's opener that is out of sight from here ([] when it is in
+## sight, spent, unusable, or no spot was found).
+static func _opener_spot(boss: Dictionary) -> Array:
+	var opener = boss.get("opener")
+	if bool(boss.get("open", true)) or not bool(boss.get("opening", true)):
+		return []
+	if not opener is Dictionary or not bool(opener["owned"]) or bool(opener.get("visible", true)):
+		return []
+	return opener.get("spot_rel", [])
+
+
 ## `go_to_refill:<kind>` toward the nearest refill that restores what is short: Harpoons when
 ## none are left, health below a third.
 static func _refill(state: Dictionary, player: Player) -> Dictionary:
@@ -315,12 +345,13 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	return {}
 
 
-## Where a boss fight aims: the opener's point while the shell is closed and the opener can be
-## used, else the boss body. [point relative to the feet, hit radius].
+## Where a boss fight aims: the opener's point while the shell is closed, the opening unspent and
+## the opener usable, else the boss body. [point relative to the feet, hit radius].
 static func boss_goal(boss: Dictionary) -> Array:
 	var opener = boss.get("opener")
 	if (
 		not bool(boss.get("open", true))
+		and bool(boss.get("opening", true))
 		and opener is Dictionary
 		and bool(opener["owned"])
 		and opener["via"] != "punish"
@@ -330,15 +361,23 @@ static func boss_goal(boss: Dictionary) -> Array:
 	return [_vec(boss["rel"]), Aim.BOSS_RADIUS]
 
 
-## False when a run of RETREAT_REACH px toward `direction` would leave the boss's arena (the
-## boss stops fighting outside it, and past it lies the door).
-static func retreat_stays_in_arena(boss: Dictionary, direction: int) -> bool:
+## False when a move of `reach` px toward `direction` would leave the boss's arena (the boss
+## stops fighting outside it, and past it lies the door).
+static func stays_in_arena(boss: Dictionary, direction: int, reach: float) -> bool:
 	var arena = boss.get("arena_rel")
 	if not arena is Array:
 		return true
 	if direction > 0:
-		return float(arena[2]) >= RETREAT_REACH
-	return float(arena[0]) <= -RETREAT_REACH
+		return float(arena[2]) >= reach
+	return float(arena[0]) <= -reach
+
+
+## True unless a move of `reach` px toward `direction` leaves a live boss's arena.
+static func _boss_arenas_keep(enemies: Array, direction: int, reach: float) -> bool:
+	return enemies.all(
+		func(enemy: Dictionary) -> bool:
+			return not enemy["is_boss"] or stays_in_arena(enemy, direction, reach)
+	)
 
 
 ## Aim at `target`: a boss needs a bolt line within its body radius; other enemies use the
@@ -413,12 +452,19 @@ static func aim_for(rel: Vector2, grounded: bool) -> String:
 	return "forward"
 
 
-static func _harpoon_target(enemies: Array, missiles: int) -> Dictionary:
-	if missiles <= 0:
+## The enemy a Harpoon is offered at: one in sight that it hurts and the bolt cannot. Never
+## through rock, and never a second one at a boss while the first is still flying, since one
+## opening takes one Harpoon (boss-rework R8).
+static func _harpoon_target(enemies: Array, kit: Dictionary) -> Dictionary:
+	if int(kit["missiles"]) <= 0:
 		return {}
 	for enemy in enemies:
 		var kinds: Array = enemy["hurt_by"]
-		if kinds.has("missile") and (enemy["is_boss"] or not _beam_hurts(kinds)):
+		if not kinds.has("missile") or not bool(enemy["visible"]):
+			continue
+		if enemy["is_boss"] and int(kit.get("harpoons_flying", 0)) > 0:
+			continue
+		if enemy["is_boss"] or not _beam_hurts(kinds):
 			return enemy
 	return {}
 

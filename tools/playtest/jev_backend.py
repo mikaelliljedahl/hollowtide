@@ -206,6 +206,8 @@ def shell_text(boss: dict[str, Any]) -> str:
     """The boss's shell in words: open, or closed and what opens it (tools/playtest_boss.gd)."""
     if boss.get("open", True):
         return "open: the Harpoon hurts it now"
+    if not boss.get("opening", True):
+        return "closed; nothing hurts it until it recovers after its next attack"
     opener = boss.get("opener")
     if not opener:
         return "closed"

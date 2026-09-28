@@ -18,7 +18,7 @@ to game code.
 ## 2. Rules
 
 - **R1 Inputs only.** The agent presses and releases the game's input actions with
-  `Input.parse_input_event` and `Input.flush_buffered_events` (`tools/playtest_programs.gd:198`). It
+  `Input.parse_input_event` and `Input.flush_buffered_events` (`tools/playtest_programs.gd:237`). It
   never moves the player, sets health or kills enemies. Setup is the only exception: the launch
   scene resets progress, grants the kit and sets the checkpoint before the campaign loads
   (`tools/playtest_agent.gd:86`).
@@ -39,12 +39,12 @@ to game code.
 | Launch scene | `tools/playtest_agent.gd`, `tools/playtest_agent.tscn` | Parses flags, loads the campaign in one room with a kit, runs the loop, ends the run, writes the report and screenshots. |
 | Loop | `tools/playtest_loop.gd:50` | Once per physics frame, before the player: when the current program is done, export state, build candidates, ask the policy, start the chosen program. |
 | State exporter | `tools/playtest_state.gd:44` | One JSON-safe Dictionary per decision (section 4). |
-| Candidates | `tools/playtest_actions.gd:35` | 6 to 14 labelled macro actions, each a per-frame program of held actions (section 5). |
-| Programs and driver | `tools/playtest_programs.gd:151` | Builds the per-frame programs and plays them as input events. |
+| Candidates | `tools/playtest_actions.gd:48` | 6 to 14 labelled macro actions, each a per-frame program of held actions (section 5). |
+| Programs and driver | `tools/playtest_programs.gd:179` | Builds the per-frame programs and plays them as input events. |
 | Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
-| Boss facts | `tools/playtest_boss.gd:41` | Protection phase, open shell, opener table and arena for the state. |
+| Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
-| Policies | `tools/playtest_policy.gd:44` | `heuristic` and `random`; `external` goes through the bridge. |
+| Policies | `tools/playtest_policy.gd:62` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
 | Telemetry | `tools/playtest_telemetry.gd:61` | Signals and per-frame sampling (section 8). |
 | Report | `tools/playtest_report.gd:10` | Findings, `report.json` and `report.md`. |
@@ -68,8 +68,8 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `tick`, `t` | Decision number and game seconds since the agent started. |
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
-| `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`. |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow). Bosses add `stage`, `attack`, `attack_state`, `engaged`, `phase` (protection phase), `open` (the shell is open to the Harpoon), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). Bosses add `stage`, `attack`, `attack_state`, `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -80,21 +80,21 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 ## 5. Candidates
 
 `idle` is always first and the two plain jumps always last; the rest follow a fixed priority and
-the list is cut at 14 (`tools/playtest_actions.gd:35`). The fight options aim at one primary target:
-the nearest visible enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:342`).
+the list is cut at 14 (`tools/playtest_actions.gd:48`). The fight options aim at one primary target:
+the nearest visible enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:403`).
 
 | Key | Offered when | Program |
 |---|---|---|
-| `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks or it is above; wall-jump when clinging below it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one). |
+| `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks or it is above (under a low ceiling, first walk out to open sky); wall-jump when clinging below it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one); while the opener is out of sight, steer to its `spot_rel` instead, climbing to it. |
 | `retreat` | An enemy exists; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
-| `open_boss:<id>:<aim>` | A closed boss whose opener beam is owned and equipped, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
+| `open_boss:<id>:<aim>` | A closed boss with its opening unspent, a Harpoon left, the opener beam owned and equipped, the opener point in sight, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
 | `shoot:<id>:<aim>` | Beam owned, not in ball form, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
 | `jump_shoot:<id>` | Grounded, no standing aim reaches a non-boss target up to 240 px above the crossbow | Jump straight up and fire level on the frame the crossbow reaches its height (`tools/playtest_aim.gd`, Updraft Cloak speed when owned). |
-| `harpoon:<id>:<aim>` | A shot's worth of Harpoons left, an enemy the Harpoon hurts that is a boss or immune to the beam, and an aim that reaches it | Same with `fire_missile`. |
+| `harpoon:<id>:<aim>` | A shot's worth of Harpoons left, an enemy in sight that the Harpoon hurts and that is a boss or immune to the beam, an aim that reaches it, and for a boss no Harpoon already flying (one opening takes one) | Same with `fire_missile`. |
 | `pulse:<id>` | Resonance Pulse and Slipstream owned, the pulse hurts the target and the beam does not, target within 400 px and 96 px level, grounded or in ball form | Curl into ball form, roll toward it, drop the pulse (`fire_beam` in ball form), roll back 24 frames, stand up. |
 | `select_beam:<beam>` | Per owned, unequipped beam while a target exists; the label says when it hurts or opens the target | Tap `cycle_beam` as often as the owned order needs. |
 | `jump_over:<id>` | Grounded, target within 420 px, not a boss floating more than 160 px above the feet | Jump toward it, 20 frames held. |
-| `dash_through` | Undertow Dash ready and a shot flying at the player within 420 px | Dash into the shot (the deflect window). |
+| `dash_through` | Undertow Dash ready, a shot flying at the player within 420 px, and a live boss's arena reaching at least 384 px that way | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
 | `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it | Steer to it, running. |
 | `go_to_ambush` | Armed arena, player not at its trigger | Steer to the trigger centre. |
@@ -106,24 +106,25 @@ Stuck detection is positional: 3 s in which the player chose movement but stayed
 box (`tools/playtest_telemetry.gd:380`).
 
 The driver sends `cycle_beam` presses when the physics step ends, after the player has moved
-(`LATE_PRESSES`, `tools/playtest_programs.gd:19`). Measured in the check: a press sent before the
+(`LATE_PRESSES`, `tools/playtest_programs.gd:24`). Measured in the check: a press sent before the
 player counts twice for her (just pressed in that frame, then her queued `_input` press in the
 next), so one tap stepped two beams. Every other press still goes out before the player; the second
 count is absorbed by the fire cooldowns and the Slipstream curl.
 
 ## 6. Policies
 
-- **heuristic** (`tools/playtest_policy.gd:44`): dash into incoming shots; when stuck, wall-jump or
-  alternate jumps; go to a refill when one is offered and no close enemy is winding up; fight the
+- **heuristic** (`tools/playtest_policy.gd:62`): dash into incoming shots; when stuck, wall-jump or
+  alternate jumps; go to a refill when one is offered and no close enemy is winding up (in campaign
+  mode only within 512 px, except the Harpoon refill of a live boss's room); fight the
   primary target if it is visible, given up on no longer, or the arena is sealed, else go to the
-  ambush trigger, a pickup or an exit. With a boss (`tools/playtest_policy.gd:128`): jump over or
+  ambush trigger, a pickup or an exit. With a boss (`tools/playtest_policy.gd:227`): jump over or
   back off from a close wind-up, fire the opener, harpoon it while open, switch to the opener's
   beam, walk to where the opener lines up, and keep 360 px from a boss nothing hurts (the retreat
   falls back to the approach when the arena edge is behind). Otherwise: harpoon a beam-immune
   enemy, pulse a pulse-only one, switch to a beam that hurts it, shoot or jump-shoot, jump over
   rushers closer than 130 px, and walk closer after 2.5 s of shots that do not land (three such
   tries ignore that target for 15 s).
-- **random** (`tools/playtest_policy.gd:39`): a seeded uniform pick; the baseline a smarter policy
+- **random** (`tools/playtest_policy.gd:57`): a seeded uniform pick; the baseline a smarter policy
   must beat.
 - **external**: the bridge in section 7. The heuristic's pick travels along as `hint` and is used
   on any failure.

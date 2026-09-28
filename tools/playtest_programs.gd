@@ -8,6 +8,11 @@ const STEP_FRAMES := 12
 const JUMP_HOLD_FRAMES := 20
 const JUMP_TAIL_FRAMES := 8
 const NEAR_TARGET := 24.0
+## A ceiling this close (px) above the head makes a jump toward a target above pointless; the
+## steer looks this far (px) to either side for open sky instead.
+const CEILING_PROBE := 96.0
+const CEILING_SCAN := 512
+const TILE_PX := 64
 ## Ball form rolls at most 580 px/s (PlayerConfig.ROLL_MAX), a little under 10 px per frame.
 const ROLL_PX_PER_FRAME := 9.0
 ## Frames to wait for the 0.12 s Slipstream curl (PlayerConfig.SLIP_DURATION) to finish.
@@ -26,6 +31,10 @@ static func steer(player: Player, rel: Vector2, running: bool) -> Array:
 		direction != 0 and player.test_move(player.global_transform, Vector2(direction * 24, 0))
 	)
 	var above := rel.y < -96.0 and absf(rel.x) < 420.0
+	if player.is_on_floor() and above and not blocked:
+		var out := _ceiling_exit(player, rel.x)
+		if out != 0:
+			return run(out, STEP_FRAMES)
 	if player.is_on_floor() and (blocked or above):
 		return jump(direction, JUMP_HOLD_FRAMES)
 	if not player.is_on_floor() and player.is_on_wall() and rel.y < -64.0:
@@ -33,6 +42,23 @@ static func steer(player: Player, rel: Vector2, running: bool) -> Array:
 	if direction == 0:
 		return idle()
 	return run(direction, STEP_FRAMES) if running else walk(direction, STEP_FRAMES)
+
+
+## Under a low ceiling a jump only bumps it: the side (-1 or 1) of the nearest open sky within
+## CEILING_SCAN px, preferring the target's side on a tie; 0 when the sky is open or none is near.
+static func _ceiling_exit(player: Player, toward: float) -> int:
+	var at := player.global_transform
+	if not player.test_move(at, Vector2(0, -CEILING_PROBE)):
+		return 0
+	var first := _sign(toward) if absf(toward) > NEAR_TARGET else 1
+	for offset in range(TILE_PX, CEILING_SCAN + 1, TILE_PX):
+		for side in [first, -first]:
+			var shift := Vector2(side * offset, 0)
+			if player.test_move(at, shift):
+				continue
+			if not player.test_move(at.translated(shift), Vector2(0, -CEILING_PROBE)):
+				return side
+	return 0
 
 
 ## Face `direction`, hold the aim and tap `fire` once (three frames down, three up).

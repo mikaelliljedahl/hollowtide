@@ -53,7 +53,7 @@ func snapshot(root: Node, player: Player, tick: int, seconds: float) -> Dictiona
 		"t": snappedf(seconds, 0.01),
 		"room": _room(room, room_id),
 		"player": _player(player, room),
-		"kit": kit(),
+		"kit": kit().merged({"harpoons_flying": harpoons_flying(tree)}),
 		"enemies": enemies(tree, feet),
 		"projectiles": _projectiles(tree, feet),
 		"ambush": ambush(tree, feet),
@@ -76,6 +76,16 @@ static func kit() -> Dictionary:
 		"missiles": GameState.missile_count,
 		"max_missiles": GameState.max_missiles,
 	}
+
+
+## Harpoons fired and still in the air: a boss opening takes one (boss-rework R8), so a second
+## one fired before the first lands is wasted.
+static func harpoons_flying(tree: SceneTree) -> int:
+	var count := 0
+	for node in tree.get_nodes_in_group(&"transient"):
+		if node is HarpoonShot and not node.is_queued_for_deletion():
+			count += 1
+	return count
 
 
 static func rel(from: Vector2, to: Vector2) -> Array:
@@ -166,9 +176,15 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 	return entry
 
 
-## True when no world tile lies between `from` and `to`.
+## True when no world tile lies between `from` and `to`. A grate the Harpoon passes right now
+## (the Tidal Heart's, while the Harpoon hurts it) does not block the line.
 static func clear_line(node: Node2D, from: Vector2, to: Vector2) -> bool:
 	var query := PhysicsRayQueryParameters2D.create(from, to, 1)
+	var passable: Array[RID] = []
+	for grate in node.get_tree().get_nodes_in_group(&"projectile_grate"):
+		if grate is CollisionObject2D and grate.call(&"can_pass_projectile", &"missile"):
+			passable.append((grate as CollisionObject2D).get_rid())
+	query.exclude = passable
 	return node.get_world_2d().direct_space_state.intersect_ray(query).is_empty()
 
 
