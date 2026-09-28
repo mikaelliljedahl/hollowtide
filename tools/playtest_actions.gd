@@ -36,6 +36,9 @@ const DASH_REACH := 384.0
 ## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
 ## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
 const DUCK_RANGE := 300.0
+## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
+## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
+const ENEMY_RADIUS := 120.0
 const DUCK_CLEAR := 80.0
 const DUCK_REACH := 200.0
 ## A boss whose centre is this far above the feet floats: jumping toward it lands in its body.
@@ -61,7 +64,10 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var abilities: Array = state["kit"]["abilities"]
 	var enemies: Array = state["enemies"]
 	var target := primary_target(enemies)
-	if not target.is_empty():
+	# A frost floater the route is about to freeze is a platform, not a target: a bolt kills it
+	# (jev-c2 shot the vaults_02 floaters down instead of freezing them, and stalled there).
+	var platform := route.any(func(entry: Dictionary) -> bool: return entry["kind"] == "freeze")
+	if not target.is_empty() and not (platform and target["type"] == "frost_floater"):
 		result.append_array(_fight(state, target, player))
 	var shot := incoming_projectile(state)
 	if (
@@ -402,13 +408,17 @@ static func _boss_arenas_keep(enemies: Array, direction: int, reach: float) -> b
 
 
 ## Aim at `target`: a boss needs a bolt line within its body radius; other enemies use the
-## quantised aim, minus a level shot that would fly under a target well above the crossbow.
+## quantised aim, minus a level shot that would fly under a target well above the crossbow, and
+## minus any aim whose bolt line passes more than ENEMY_RADIUS from it (jev-c2 fired straight up
+## 1,200 times at a vaults_01 ceiling diver 185 px to the side).
 static func target_aim(target: Dictionary, grounded: bool, reach: float) -> String:
 	var rel := _vec(target["rel"])
 	if bool(target["is_boss"]):
 		return Aim.line_up(rel, grounded, Aim.BOSS_RADIUS, reach)
 	var aim := aim_for(rel, grounded)
 	if aim == "forward" and (rel - Aim.EYE).y < -Aim.LEVEL_TOLERANCE:
+		return ""
+	if aim.is_empty() or Aim.miss(rel, aim, SHOT_RANGE) > ENEMY_RADIUS:
 		return ""
 	return aim
 

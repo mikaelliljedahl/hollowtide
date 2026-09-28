@@ -52,6 +52,7 @@ func run() -> void:
 	_test_door_route()
 	_test_progress_timeout()
 	_test_heuristic_prefers_the_route()
+	_test_shots_that_can_land()
 	await _test_in_a_real_room()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
@@ -239,6 +240,27 @@ func _test_heuristic_prefers_the_route() -> void:
 	_check(_pick(state, route + [refill]) == refill["key"], "bolts are refilled for a boss")
 	state["refills"][0]["rel"] = [2000, 0]
 	_check(_pick(state, route + [refill]) == "go_to_objective", "a far refill is left alone")
+
+
+## jev-c2: no shot whose bolt line misses the enemy (straight up at a ceiling diver 185 px to the
+## side, 1,200 times), and no shot at a frost floater the route is freezing as a platform.
+func _test_shots_that_can_land() -> void:
+	var goal := {"kind": "pickup", "gate_ahead": null}
+	var diver := _enemy(Vector2(185, -596))
+	var state := _plain_state(goal, [diver])
+	var shots := func(route: Array) -> Array:
+		return Actions.candidates(state, _player, route).filter(
+			func(e: Dictionary) -> bool: return e["kind"] == "shoot"
+		)
+	_check(shots.call([]).is_empty(), "no straight-up shot past a diver 185 px aside")
+	state["enemies"] = [_enemy(Vector2(192, 0))]
+	_check(not shots.call([]).is_empty(), "a level hopper still gets its shot")
+	var floater := _enemy(Vector2(-243, -69))
+	floater["type"] = "frost_floater"
+	state["enemies"] = [floater]
+	var freeze := {"key": "freeze:28_13", "kind": "freeze", "label": "", "program": []}
+	_check(not shots.call([]).is_empty(), "a stray floater can be shot")
+	_check(shots.call([freeze]).is_empty(), "not the floater the route is freezing")
 
 
 static func _pick(state: Dictionary, offered: Array) -> String:
