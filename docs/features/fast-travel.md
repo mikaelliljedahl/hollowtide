@@ -36,29 +36,31 @@ elevators between areas, new rooms.
   so no new data is written into `campaign_rooms.gd`. Moving a shrine in a layout forgets only that
   one activation; the save still loads (T8).
 - **T3 Where from.** Travel starts only while standing on an activated save shrine, on the floor
-  and not in Slipstream form (`_shrine_ready`, `scripts/campaign/station.gd:99`).
+  and not in Slipstream form (`_shrine_ready`, `scripts/campaign/station.gd:105`).
 - **T4 Where to.** Targets are the other activated stations in discovered rooms, ordered west to
   east so stepping moves across the map (`stations`, `targets`,
   `scripts/campaign/fast_travel.gd:24`, `:68`; `travel_targets`,
-  `scripts/campaign/campaign_root.gd:194`). With no target the shrine offers no Travel option.
+  `scripts/campaign/campaign_root.gd:184`). With no target the shrine offers no Travel option.
 - **T5 Never mid-danger.** Travel is refused while an ambush arena is sealing, fighting or between
   waves, while a living boss has the player inside its arena, while a rising flood is not at rest,
   and during a room transition, death or the ending (`travel_blocker`,
-  `scripts/campaign/campaign_root.gd:167`). The same check runs when the shrine menu is built, when
+  `scripts/campaign/campaign_root.gd:167`). The ambush and boss part is `CombatLock`
+  (`scripts/world/dynamic/combat_lock.gd`), which also keeps the save shrine from refilling or
+  saving mid-fight ([ambush-arenas.md](ambush-arenas.md) R11). The same check runs when the shrine menu is built, when
   the map opens and again when the trip is confirmed (`travel_to`,
-  `scripts/campaign/campaign_root.gd:255`).
+  `scripts/campaign/campaign_root.gd:245`).
 - **T6 Arrival is resting.** The trip fades out (0.4 s), loads the target room, stands the player
   on the shrine, refills, moves the checkpoint there and saves, then fades in (`_travel`,
-  `scripts/campaign/campaign_root.gd:264`). Death after a trip therefore returns to the arrival
+  `scripts/campaign/campaign_root.gd:254`). Death after a trip therefore returns to the arrival
   shrine. Travel grants nothing a player could not get by stepping off and on the shrine.
 - **T7 No text in the world.** The shrine shows a bobbing up chevron, no words
-  (`_draw_prompt`, `scripts/campaign/station.gd:108`). The only words are the shrine menu's, the
+  (`_draw_prompt`, `scripts/campaign/station.gd:114`). The only words are the shrine menu's, the
   map's title and its key hint line, and both are menus.
 - **T8 Save compatibility.** See section 5.
 - **T9 One shrine gesture.** `move_up` on a save shrine opens the shrine menu
-  (`open_shrine`, `scripts/campaign/campaign_root.gd:231`), which lists Travel while T3 to T5 allow
+  (`open_shrine`, `scripts/campaign/campaign_root.gd:221`), which lists Travel while T3 to T5 allow
   a trip and Tide Sockets while at least one Tide Glyph is owned (`shrine_options`,
-  `scripts/campaign/campaign_root.gd:218`). With one option the menu is skipped and that screen
+  `scripts/campaign/campaign_root.gd:208`). With one option the menu is skipped and that screen
   opens directly, so a player without glyphs sees exactly the travel flow described here.
 
 ## 3. Controls
@@ -67,7 +69,7 @@ No input action was added; `REBINDABLE_ACTIONS` is unchanged.
 
 | Where | Input (default keys) | Effect |
 |---|---|---|
-| Standing on an activated shrine | `move_up` (Up / W) | Opens the map in travel mode, or the shrine menu when Tide Sockets are also offered (`_update_prompt`, `scripts/campaign/station.gd:88`). |
+| Standing on an activated shrine | `move_up` (Up / W) | Opens the map in travel mode, or the shrine menu when Tide Sockets are also offered (`_update_prompt`, `scripts/campaign/station.gd:94`). |
 | Shrine menu | Up / Down | Move between Travel and Tide Sockets. |
 | Shrine menu | `jump` or Enter | Open the focused screen; Travel opens the map in travel mode. |
 | Shrine menu | Esc | Leave; the game resumes. |

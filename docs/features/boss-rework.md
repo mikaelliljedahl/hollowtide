@@ -50,9 +50,21 @@ no names, art or attack designs are taken from any game.
   idle gaps shrink to 0.5 s, several attacks add a second burst, movement is faster, and punish
   windows are 0.85 times as long (never under 1.2 s). The body pulses and a ring pulses around it.
 - **R6 Stage transitions.** Crossing a threshold drops the current wind-up unfired, plays the
-  existing phase burst and stagger, and gives a 1.0 s breather before the next telegraph.
+  existing phase burst and stagger, and gives a 1.0 s breather before the next telegraph. The
+  transition shuts any open punish window and spends the current opening (R8), so the boss glances
+  every hit through the stagger, the breather and the new stage's first attack; nothing carries into
+  the next stage.
 - **R7 No text.** Poses, markers, the release flash, the health-bar notches (one per stage still
   ahead) and sound teach the fight.
+- **R8 Openings pace the damage.** The start of the fight and every punish window are openings. One
+  opening accepts at most a quarter of a stage's health (`OPENINGS_PER_STAGE` = 4, `opening_damage`,
+  `scripts/enemies/boss_patterns.gd:26`); after that, hits glance off with the blocked-hit ripple and
+  the weak-point glow goes out until the next punish window. No hit takes health past the current
+  stage's floor. Every stage therefore takes four openings, each bought by one telegraphed attack,
+  and every boss shows all four stages. B1 still lets the matrix weapons hurt at any time within an
+  opening; which weapons hurt is unchanged. Design call 2026-09-28: the sweep of 2026-09-24 saw every
+  boss fall in 5-13 s to a full Harpoon supply (35 damage every 0.3-0.4 s), with stages 2-4 lasting
+  a second or two and one stage 3 window carrying through stage 4.
 
 ## 4. Stages and state machine
 
@@ -63,10 +75,19 @@ no names, art or attack designs are taken from any game.
 | 3 | 50 % to above 25 % | B2 | 0.8 s |
 | 4 (desperation) | 25 % and below | B2 | 0.5 s |
 
+| Boss | Max HP | Stage share | Damage per opening | Openings per stage |
+|---|---|---|---|---|
+| Stone Guardian | 300 | 75 | 19 | 4 (the last stops at the stage floor) |
+| Cinder Warden | 360 | 90 | 23 | 4 |
+| Tidal Heart | 400 | 100 | 25 | 4 |
+
+A Harpoon (35) spends a whole opening; weaker hits (Wave Beam, Undertow Dash) share it. A player who
+lands a Harpoon in every opening needs 44-49 s against the test bench's attack cycle (section 10).
+
 `phase` stays the B1/B2 protection phase of the damage matrix and is derived from the stage
-(`scripts/enemies/boss_patterns.gd:108`), so B1 turns into B2 at half health exactly as before.
+(`scripts/enemies/boss_patterns.gd:124`), so B1 turns into B2 at half health exactly as before.
 Stages only advance; `set_test_phase` keeps working (phase 1 is stage 1, phase 2 is stage 3) and
-`set_test_stage` (`scripts/enemies/boss.gd:148`) reaches any stage for tests and dev tools.
+`set_test_stage` (`scripts/enemies/boss.gd:154`) reaches any stage for tests and dev tools.
 
 | State | Behavior | Leaves to |
 |---|---|---|
@@ -76,12 +97,12 @@ Stages only advance; `set_test_phase` keeps working (phase 1 is stage 1, phase 2
 | `recover` | Punish window: still, B2 weak point open | `idle` |
 
 Leaving the arena, a stage transition, death and `reset_runtime` cancel to `idle` without firing
-(`scripts/enemies/boss.gd:364`). The loop lives in `scripts/enemies/boss.gd:293`.
+(`scripts/enemies/boss.gd:378`). The loop lives in `scripts/enemies/boss.gd:307`.
 
 The boss only fights while the player is inside its arena (the floor line counts). Outside it the
 boss stands frozen and cannot answer, so it cannot be hurt either: every hit glances off with the
 blocked-hit ripple, and Tidal Heart's Snare does not open its pulse point
-(`scripts/enemies/boss.gd:435`). Engaging on the first hit was rejected: attacks aim only at a player
+(`scripts/enemies/boss.gd:451`). Engaging on the first hit was rejected: attacks aim only at a player
 inside the arena and its shots stay inside it, so the boss still could not reply. Playtest sweep
 2026-09-24: the Cinder Warden was shot from 360 to 150 HP from the kiln_03 entry with no reply.
 
@@ -95,6 +116,16 @@ Rock projectiles. Floor lanes are jumped; rock drops are side-stepped.
 | Fault Slam | 1 | 0.7 s: rises tall, floor lanes to both walls | 1.2 / 1.4 / 1.2 s | A floor shockwave runs to each wall; desperation sends a second pair 0.85 s later |
 | Rockfall | 2 | 0.8 s: rises tall, floor circles | 1.0 / 1.4 / 1.2 s | Rocks drop on the player's spot and 220 px either side (5 columns in desperation) |
 | Shoulder Charge | 3 | 0.65 s: crouches back, floor arrow along the lane | 1.8 / 1.8 / 1.53 s | Charges toward the player and stops exactly where the arrow ends: 128 px of floor short of the first wall (a low roof or step counts) or the lane end, so a player backed against that wall is out of reach. Then stands stunned with the armor cracked open |
+
+Idle pursuit stops where a charge would: 128 px of floor short of the first wall, low roof or step
+(`_pursuit_velocity`, `scripts/enemies/boss_motion.gd:78`), so a player backed against it is never
+walked into. Playtest 2026-09-28: after R8 lengthened the fight, both agents died in all 12 stage 4
+attempts at the vaults_03 west end (cell 4,14), where the roof is too low to jump the body; contact
+was 1104 of 1800 damage for Jev and 912 of 1800 for the heuristic. A scripted Fault Slam probe at that
+spot (stage 4 double slam, 17 start times per response) found a fair answer, jumping while pressed
+against the wall (15 of 17 clear), so the slam is unchanged. With the pursuit pocket the heuristic won
+in 48.2 s through all four stages, and Jev won 1 of 4 attempts in 48.2 s, with contact down to 336 of
+1080 damage and Rockfall (a side-step answer) as the killing blow in both deaths.
 
 Rotation: stage 1 Volley, Slam; stage 2 Slam, Rockfall, Volley; stage 3 Volley, Charge,
 Rockfall, Slam; stage 4 Slam then Rockfall, Charge then Volley, Rockfall then Charge.
@@ -152,7 +183,7 @@ Snare still opens the B1 pulse point and Echo through the grate still opens the 
 ## 8. Implementation notes
 
 - All timing lives in `TIMING`, `ROTATIONS` and the stage constants of
-  `scripts/enemies/boss_patterns.gd:24`; balance changes happen there.
+  `scripts/enemies/boss_patterns.gd:28`; balance changes happen there.
 - Shots are plain `EnemyProjectile` instances (`scripts/combat/enemy_projectile.gd`) with the
   boss's contact damage; speed, lifetime and size come from the emission table in
   `scripts/enemies/boss_attacks.gd:126`.
@@ -178,9 +209,11 @@ Suite `tools/check_boss_rework.tscn` (registered as `boss rework` in `tools/run_
 | Case | Expectation |
 |---|---|
 | Rules | Stage thresholds at 75/50/25 %; stages 1-2 are B1 and 3-4 B2; each of stages 1-3 adds a new attack; every telegraph is at least 0.4 s and every punish window at least 0.8 s in every stage; every boss has at least four attacks and desperation chains. |
-| Thresholds | Real harpoon hits (with the Snare, Echo or punish opening each stage needs) take every boss through stages 2, 3 and 4 once each with one phase burst per transition; stage and phase match health after every hit; desperation starts at or below 25 %; the boss dies. |
-| Transition | A hit across 75 % during a wind-up drops it unfired and nothing fires during the breather. |
-| Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); every charge of every boss plans and runs to a stop 128 px short of a low roof and of a two-tile step, and a player backed against either is not hit. The volley and Shoulder Charge cases fail on the pre-round-2 code, the Scuttle Rush cases on the pre-sweep code. |
+| Thresholds | Real harpoon hits (each after a punish window, plus the Snare or Echo the Tidal Heart needs) take every boss through stages 2, 3 and 4 once each with one phase burst per transition; stage and phase match health after every hit; desperation starts at or below 25 %; the boss dies. |
+| Transition | A hit across 75 % during a wind-up drops it unfired and nothing fires during the breather. A hit stops at the stage floor; after the change from stage 3 to 4 the open punish window is shut and a second Harpoon glances off; the next punish window opens the boss again. Fails on the pre-2026-09-28 code (health 41 instead of the floor 75, window still open). |
+| Pacing | For every boss, a player who lands a Harpoon every 0.35 s whenever one would hurt (and snares or echoes the Tidal Heart whenever it is shut) kills it, sees at least one attack released in each of the four stages, and needs at least 40 s: 44.9, 43.6 and 49.4 s. The pre-2026-09-28 code fails with 4.2, 6.8 and 3.9 s and no attack in stages 1-2. |
+| Refills in a fight | With a boss holding the player, a refill shrine and a dev health pad give no health while the Quiver Cache still refills Harpoons; health refills once the boss is gone ([ambush-arenas.md](ambush-arenas.md) R11). Fails on the pre-2026-09-28 code. |
+| Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); every charge of every boss plans and runs to a stop 128 px short of a low roof and of a two-tile step, and a player backed against either is not hit. The Stone Guardian's idle pursuit stops at the same pocket and leaves a player backed against a low roof or a step unhurt (fails on the pre-2026-09-28 code: the body walks on to x 1550 and hits her). The volley and Shoulder Charge cases fail on the pre-round-2 code, the Scuttle Rush cases on the pre-sweep code. |
 | Engagement | With the player outside the arena every boss takes no damage from opened Harpoon hits, and takes damage again once she is inside. Fails on the pre-sweep code. |
 | Cycles | In a walled test arena, for every boss and stage: every attack of the stage is released; every release follows its own telegraph by at least 0.4 s; every projectile appears only while an attack is active; every punish window lasts its table time; B2 armor is open in each punish window and closed during every wind-up; charges carry the body along the lane; desperation chains a telegraph straight after an attack. |
 
@@ -189,5 +222,13 @@ Existing suites `combat devmode`, `combat integration`, `combat presentation`, `
 openings, reset, defeat and save flags. Telegraph screenshots come from
 `tools/capture_combat.gd` with `--shots=telegraphs`.
 
+Heuristic playtest agent after R8 (2026-09-28, full first-arrival kits, runs under
+`/Volumes/Personal/Tools/hollowtide-runs/design/`): kiln_03 Cinder Warden defeated in 50.0 s in both
+seeds with all four stages (9.9 / 12.5 / 11.8 / 15.8 s); depths_02 Tidal Heart defeated in 138.3 s
+with all four stages; vaults_03 Stone Guardian defeated in 48.2 s with all four stages after the pursuit pocket (section
+5); before it, the agent died in stage 4 in all six attempts.
+Before R8 the sweep measured 5.5-13 s fights.
+
 Not verified: a real-input playthrough of the reworked fights, and the hands-on feel of speeds,
-telegraph lengths and punish windows in the campaign arenas.
+telegraph lengths and punish windows in the campaign arenas. Jev still loses 2 of 4 Stone Guardian
+attempts in stage 4 to Rockfall; a human run should confirm stage 4 reads well after a 45 s fight.

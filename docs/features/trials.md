@@ -39,7 +39,7 @@ carries no text: the arena seals, telegraphs and boss fights teach as in the cam
   else; they are settings, not save state. The clock runs on physics time, which the game-speed
   assist scales with the rest of the game, so a slower game does not shorten a clear time. The
   skip-ambushes assist does not apply: the gauntlet arena sets `assist_skippable = false`
-  (`scripts/world/dynamic/ambush_arena.gd:52`), because the arena is the whole trial.
+  (`scripts/world/dynamic/ambush_arena.gd:53`), because the arena is the whole trial.
 - **T3 Campaign untouched.** Entry loads the save and keeps its snapshot in
   `TrialsEntry.campaign_snapshot`. The kit lives only in memory. Before anything is written the
   snapshot is restored (`scripts/trials/trials_entry.gd:79`), so the only possible change to the save
@@ -48,7 +48,7 @@ carries no text: the arena seals, telegraphs and boss fights teach as in the cam
   R1/R2 rules) that together use all twelve common enemies an ambush may spawn; the Lava Monster needs
   a lava basin and is left out (`TrialCatalog.WAVES`, `scripts/trials/trial_catalog.gd:17`). The
   last two waves spawn as elites (`TrialCatalog.ELITE_WAVES`; `EnemyElite.apply` on the arena's
-  `spawned` signal, `scripts/trials/trials_root.gd:122`), with the elite health, pace, look and
+  `spawned` signal, `scripts/trials/trials_root.gd:124`), with the elite health, pace, look and
   defeat refills of the revisit remix.
 - **T5 Boss Rush.** Stone Guardian, Cinder Warden and Tidal Heart in that order, each in a closed
   room with its area's art (vaults, kiln, depths). After each of the first two a 4 s breather
@@ -57,9 +57,10 @@ carries no text: the arena seals, telegraphs and boss fights teach as in the cam
 - **T6 Clock.** Physics time, so pausing stops it. The Gauntlet clock starts when the arena seals,
   the Boss Rush clock when the first boss appears; breathers count. It stops on the last clear.
 - **T7 Hits.** Every drop in health while the clock runs is one hit (`TrialsRoot._on_health_changed`,
-  `scripts/trials/trials_root.gd:228`).
-- **T8 Failure.** Death, or a Gauntlet abort (the ambush stall backstop), ends the run as failed. A
-  failed run records nothing.
+  `scripts/trials/trials_root.gd:230`).
+- **T8 Failure.** Death, or a Gauntlet abort (leaving the arena), ends the run as failed. A failed
+  run records nothing. The ambush stall backstop is off in the Gauntlet: a wave nobody hurts for 40 s
+  keeps running (design call 2026-09-28; the backstop ended sweep runs mid-fight).
 - **T9 Best time.** A clear replaces the stored best only with a strictly shorter time; its hit count
   is stored with it. The save is written only when the best changes.
 
@@ -83,9 +84,10 @@ no exit and no world transition.
 - Gauntlet: 40 x 17 tiles in the nexus kit with three ledges. The `AmbushArena` covers the whole
   interior; its trigger is the middle third (`TrialCatalog.GAUNTLET_TRIGGER`), so the player commits
   by walking in from the start. Spawn point i belongs to spawn i: flyers take the air points, all others
-  the floor points (`TrialsRoot.gauntlet_spawn_offsets`, `scripts/trials/trials_root.gd:104`), which
+  the floor points (`TrialsRoot.gauntlet_spawn_offsets`, `scripts/trials/trials_root.gd:106`), which
   is what the class-aware relocation in `AmbushRules.resolve_spawn` expects. `max_seconds` is raised to
-  one hour so the arena never clears itself; the 40 s stall abort stays.
+  one hour so the arena never clears itself (the failsafe stays), and `stall_seconds` is 0, which
+  turns the campaign's 40 s stall abort off.
 - Boss rooms: 34 x 17 tiles with a flat floor. The boss arena rectangle ends 16 px below the floor line
   because `Rect2.has_point` excludes the bottom edge where the player's feet stand (the same fix as the
   ambush leash). Bosses spawn through `scripts/trials/trial_boss_spawn.gd`, a subclass of the campaign
@@ -141,6 +143,7 @@ Suite `tools/check_trials.tscn` (registered as `trials` in `tools/run_godot_chec
 | Hidden before the ending | No save and an unfinished save: locked, no start-menu item, a trial cannot start. Finished save: unlocked without changing GameState, the item opens the Trials menu with both modes. |
 | Gauntlet | Fixed kit equipped; the arena waits until the player walks in; the seal starts the clock; a hit is counted; all six waves run in order and each spawns exactly its catalog enemies, elites in the last two waves only; the clear records a new best in the save, nothing else in the save changes, the campaign state is restored, and the results panel shows time and hits over a paused game. |
 | Gauntlet death | With the skip-ambushes assist forced on the gauntlet still seals; death ends the run as failed and saves nothing. |
+| Gauntlet stall | 45 s in which no enemy is hurt leave the run and the first wave running. Fails on the code before 2026-09-28 (stall abort at 40 s). |
 | Boss Rush | The three bosses appear in order in their own area art, each of the first two followed by a breather with a full refill; hits are counted across the rush; the clear stores its best next to the Gauntlet's; boss flags and checkpoint in the save are unchanged. |
 | Best kept only when better | A slower clear is reported with the previous best and not saved; a faster one replaces time and hits on disk. |
 | Save round trip and old saves | Bests survive save/load; a v2 save without the key and a v1 save load; empty bests are not written; invalid bests and other unknown keys are rejected. |

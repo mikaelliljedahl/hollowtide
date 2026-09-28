@@ -168,19 +168,9 @@ func travel_blocker() -> StringName:
 	if _busy or _respawning or _ending or current_room == null or GameState.health <= 0:
 		return BLOCK_BUSY
 	var tree := get_tree()
-	for node in tree.get_nodes_in_group(&"worldfx_ambush"):
-		var arena := node as AmbushArena
-		if (
-			arena != null
-			and arena.state not in [AmbushArena.State.ARMED, AmbushArena.State.CLEARED]
-		):
-			return BLOCK_AMBUSH
-	for node in tree.get_nodes_in_group(&"campaign_boss"):
-		var boss := node as CombatBoss
-		if boss == null or boss.health <= 0:
-			continue
-		if boss._in_arena(player.global_position):
-			return BLOCK_BOSS
+	var fight := CombatLock.reason(tree, player)
+	if fight != &"":
+		return BLOCK_AMBUSH if fight == CombatLock.AMBUSH else BLOCK_BOSS
 	for node in tree.get_nodes_in_group(&"worldfx_rising_shaft"):
 		var shaft := node as RisingShaft
 		if shaft != null and shaft.state != RisingShaft.State.ARMED:

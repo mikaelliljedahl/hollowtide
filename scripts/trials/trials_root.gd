@@ -89,8 +89,10 @@ func _build_gauntlet() -> void:
 	arena.spawn_offsets = gauntlet_spawn_offsets()
 	arena.local_id = "gauntlet"
 	arena.flag_id = "trials.gauntlet"
-	# A gauntlet never clears itself: only beating every wave ends it.
+	# A gauntlet never clears itself: only beating every wave ends it. A slow wave is the player's
+	# problem, not a stall: only death or leaving the arena ends the run early.
 	arena.max_seconds = 3600.0
+	arena.stall_seconds = 0.0
 	arena.assist_skippable = false
 	arena.spawned.connect(_on_gauntlet_spawned)
 	arena.sealed.connect(_start_clock)

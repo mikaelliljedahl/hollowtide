@@ -74,8 +74,9 @@ func _run() -> void:
 		for hit in 40:
 			if not is_instance_valid(boss) or int(boss.get("health")) <= 0:
 				break
+			# Each hit lands in its own punish window: one opening per window (boss-rework R8).
+			boss.call("_open_punish_window", 1.5)
 			boss.call("receive_hit", 35, &"missile", {})
-			boss.set("_branch_open", true)
 			await _frames(2)
 	await _frames(30)
 	_check(GameState.has_world_flag("boss:stone_guardian"), "boss flag set")
