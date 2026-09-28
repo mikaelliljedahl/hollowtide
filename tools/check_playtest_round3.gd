@@ -420,6 +420,8 @@ func _test_ammo_truth_and_refill() -> void:
 	state["kit"]["missiles"] = 5
 	state["refills"] = [{"kind": "refill", "restores": ["health", "harpoons"], "rel": [600, 0]}]
 	_check(_keys(state).has("go_to_refill:refill"), "low health offers the health refill")
+	state["refills"][0]["rel"] = [19, -600]
+	_check(not _keys(state).has("go_to_refill:refill"), "not one 600 px straight up, out of reach")
 	station.queue_free()
 	await _frames(2)
 

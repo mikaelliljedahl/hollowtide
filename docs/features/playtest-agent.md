@@ -97,7 +97,7 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | `duck` | Slipstream owned, standing on the ground, and a shot within 300 px that will cross her column 80 to 200 px above the feet | Curl into ball form in place, stay curled 45 frames, stand up. |
 | `dash_through` | Undertow Dash ready, a shot flying at the player within 420 px, and a live boss's arena reaching at least 384 px that way | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
-| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it | Steer to it, running. |
+| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it and is no more than 320 px above the feet | Steer to it, running. |
 | `go_to_ambush` | Armed arena, player not at its trigger | Steer to the trigger centre. |
 | `pick_up:<id>` | Up to two pickups | Steer to it. |
 | `go_to_exit:<edge:target>` | Up to three ungated exits, none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
@@ -503,3 +503,14 @@ player's folder, and it leaves the Jev key out of Godot's environment.
 First full runs (seed 1, `/Volumes/Personal/Tools/hollowtide-runs/full2/`, not in the repo): Jev
 reached 11 of 13 objectives in 1,949 game seconds and stopped at the Tidal Heart (two 300 s
 timeouts; 20 deaths; about $0.19). The heuristic stalled earlier on the same build.
+
+Round 2 (2026-09-28, `/Volumes/Personal/Tools/hollowtide-runs/full3/`, not in the repo). Probes in
+the real rooms found harness gaps, not game faults, at the Tidal Heart (Harpoons fired through
+rock, in volleys within one opening, openers from under the ledge, no refill walk from far away)
+and the Cinder Warden (no way to curl under the Ember Fan, shots from outside the arena), and a
+layout fault in kiln_01 (both vent flyers patrolled above lava; moved, and the graph check now
+refuses it). With the minimum-route kit Jev beat the Tidal Heart in a room probe on its third try
+(113.5 s). Three full campaign runs then stopped at 4, 5 and 6 of 13 objectives, each on a new
+harness defect fixed afterwards: the route's door steered in place above a floor gate, shots
+whose line missed the enemy, and a health refill 600 px straight up; the last fix has checks
+only, no full run.

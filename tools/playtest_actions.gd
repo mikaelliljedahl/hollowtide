@@ -36,6 +36,9 @@ const DASH_REACH := 384.0
 ## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
 ## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
 const DUCK_RANGE := 300.0
+## A refill more than this far (px) above the feet is out of one jump's reach; the steer would
+## only jump in place under it (jev-c3 did that below a vaults_02 shrine 600 px up for 320 s).
+const REFILL_CLIMB := 320.0
 ## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
 ## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
 const ENEMY_RADIUS := 120.0
@@ -349,7 +352,7 @@ static func _opener_spot(boss: Dictionary) -> Array:
 
 
 ## `go_to_refill:<kind>` toward the nearest refill that restores what is short: Harpoons when
-## none are left, health below a third.
+## none are left, health below a third; none that is out of a jump's reach above.
 static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var me: Dictionary = state["player"]
 	var kit: Dictionary = state["kit"]
@@ -362,6 +365,8 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 		var restores: Array = refill["restores"]
 		var wanted := short.filter(func(need: String) -> bool: return restores.has(need))
 		if wanted.is_empty() or _near(_vec(refill["rel"])):
+			continue
+		if float(refill["rel"][1]) < -REFILL_CLIMB:
 			continue
 		return _entry(
 			"go_to_refill:%s" % refill["kind"],
