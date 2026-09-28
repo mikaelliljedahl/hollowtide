@@ -16,7 +16,15 @@ const MAX_EXITS := 3
 const GROUNDED_AIM_DROP := 160.0
 ## Kinds that are movement, for stuck detection: choosing one of these means "I want to move".
 const MOVING_KINDS := [
-	"approach", "retreat", "go_to_exit", "go_to_ambush", "pick_up", "jump", "go_to_refill"
+	"approach",
+	"retreat",
+	"go_to_exit",
+	"go_to_ambush",
+	"pick_up",
+	"jump",
+	"go_to_refill",
+	"go_to_objective",
+	"go_to_door",
 ]
 ## How far a retreat runs (12 frames at run speed, rounded up); a live boss's arena edge must be
 ## at least this far behind the player for `retreat` to be offered.
@@ -31,11 +39,15 @@ const BEAM_NAMES := {"base": "seed bolt", "ice": "Snare (ice)", "wave": "Echo (w
 
 ## Returns [{key, kind, label, program}] for `state` (from playtest_state.gd). The first entry is
 ## always `idle` and the last two the plain jumps; the rest follow a fixed priority, cut to fit, so
-## the list is deterministic.
-static func candidates(state: Dictionary, player: Player) -> Array:
+## the list is deterministic. `route` holds campaign mode's candidates (tools/playtest_campaign.gd):
+## they lead, except `go_to_door`, which takes the place of `go_to_exit`.
+static func candidates(state: Dictionary, player: Player, route: Array = []) -> Array:
 	var result: Array = [_entry("idle", "idle", "stand still", Programs.idle())]
 	if state.get("room") == null:
 		return result
+	result.append_array(
+		route.filter(func(entry: Dictionary) -> bool: return entry["kind"] != "go_to_door")
+	)
 	var me: Dictionary = state["player"]
 	var abilities: Array = state["kit"]["abilities"]
 	var enemies: Array = state["enemies"]
@@ -82,6 +94,12 @@ static func candidates(state: Dictionary, player: Player) -> Array:
 		)
 	# A living boss makes its room the goal: leaving is never offered while it fights.
 	var boss_alive := enemies.any(func(enemy: Dictionary) -> bool: return enemy["is_boss"])
+	if not route.is_empty():
+		if not boss_alive:
+			result.append_array(
+				route.filter(func(entry: Dictionary) -> bool: return entry["kind"] == "go_to_door")
+			)
+		return result.slice(0, MAX_CANDIDATES - 2) + _jumps()
 	var exits := 0
 	for door in state["exits"]:
 		if boss_alive or bool(door["gated"]) or exits >= MAX_EXITS:
@@ -95,11 +113,15 @@ static func candidates(state: Dictionary, player: Player) -> Array:
 				Programs.steer(player, _vec(door["rel"]), true)
 			)
 		)
-	var jumps: Array = [
+	var jumps := _jumps()
+	return result.slice(0, MAX_CANDIDATES - jumps.size()) + jumps
+
+
+static func _jumps() -> Array:
+	return [
 		_entry("jump:left", "jump", "jump left", Programs.jump(-1, Programs.JUMP_HOLD_FRAMES)),
 		_entry("jump:right", "jump", "jump right", Programs.jump(1, Programs.JUMP_HOLD_FRAMES)),
 	]
-	return result.slice(0, MAX_CANDIDATES - jumps.size()) + jumps
 
 
 ## Fight options against `target`: approach, retreat, the boss opener, shots, pulse, beam switches
@@ -401,11 +423,13 @@ static func _harpoon_target(enemies: Array, missiles: int) -> Dictionary:
 	return {}
 
 
+## True when an equipped bolt damages it; the Snare only freezes (0 damage), so an enemy it
+## alone reaches still gets the Harpoon or the Resonance Pulse offered.
 static func _beam_hurts(kinds: Array) -> bool:
-	return kinds.has("beam") or kinds.has("ice") or kinds.has("wave")
+	return kinds.has("beam") or kinds.has("wave")
 
 
-static func _entry(key: String, kind: String, label: String, program: Array) -> Dictionary:
+static func _entry(key: String, kind: String, label: String, program: Variant) -> Dictionary:
 	return {"key": key, "kind": kind, "label": label, "program": program}
 
 

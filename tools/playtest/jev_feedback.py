@@ -35,6 +35,11 @@ GROUPS = {
     "go_to_ambush": "travel",
     "pick_up": "travel",
     "go_to_refill": "travel",
+    "go_to_objective": "travel",
+    "go_to_door": "travel",
+    "fast_travel": "travel",
+    "open_gate": "attack",
+    "freeze": "attack",
     "idle": "wait",
     "jump": "jump",
 }
@@ -43,7 +48,7 @@ GROUPS = {
 def action_name(key: str) -> str:
     """Readable action without enemy ids: `shoot`, `jump:left`, `go_to_exit:west`."""
     parts = key.split(":")
-    if parts[0] in ("jump", "go_to_exit") and len(parts) > 1:
+    if parts[0] in ("jump", "go_to_exit", "go_to_door") and len(parts) > 1:
         return f"{parts[0]}:{parts[1]}"
     return parts[0]
 

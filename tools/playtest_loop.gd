@@ -10,7 +10,10 @@ const Programs = preload("res://tools/playtest_programs.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Bridge = preload("res://tools/playtest_bridge.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
+const Campaign = preload("res://tools/playtest_campaign.gd")
 const LOGGED_FALLBACKS := 5
+## A streamed decision log is flushed this often, so a long run can be followed from outside.
+const LOG_FLUSH_EVERY := 200
 
 var policy_name := Policy.HEURISTIC
 var timeout_ms := 1000
@@ -22,7 +25,11 @@ var tick := 0
 ## The candidate being played ({key, kind, label, program}).
 var current: Dictionary = {}
 ## One JSON line per decision: tick, time, state, candidates, choice, policy, latency, fallback.
+## Kept in memory unless `open_log` streams them to a file (campaign runs are long).
 var decision_log: Array[String] = []
+## Campaign mode (tools/playtest_campaign.gd): adds the goal and the route candidates; null otherwise.
+var campaign: Campaign
+var _log_file: FileAccess
 var _policy: Policy
 var _root: Node
 var _player: Player
@@ -66,6 +73,19 @@ func finish(summary: Dictionary) -> void:
 	telemetry.detach()
 	if bridge != null:
 		bridge.close(summary)
+	if _log_file != null:
+		_log_file.close()
+		_log_file = null
+
+
+## Streams decision lines to `path` instead of keeping them; returns false when it cannot open it.
+func open_log(path: String) -> bool:
+	_log_file = FileAccess.open(path, FileAccess.WRITE)
+	return _log_file != null
+
+
+func streaming() -> bool:
+	return _log_file != null
 
 
 func _busy() -> bool:
@@ -80,7 +100,11 @@ func _busy() -> bool:
 func _decide() -> void:
 	tick += 1
 	var state := exporter.snapshot(_root, _player, tick, telemetry.now)
-	var options := Actions.candidates(state, _player)
+	var route: Array = []
+	if campaign != null:
+		state["goal"] = campaign.goal(state)
+		route = campaign.candidates(state)
+	var options := Actions.candidates(state, _player, route)
 	var offered := Actions.public(options)
 	var stuck := telemetry.is_stuck()
 	var started := Time.get_ticks_usec()
@@ -109,26 +133,27 @@ func _decide() -> void:
 		current = options[0]
 	driver.start(current["program"])
 	telemetry.record_decision(policy_name, latency, fallback, current["kind"])
-	(
-		decision_log
-		. append(
-			(
-				JSON
-				. stringify(
-					{
-						"tick": tick,
-						"t": state["t"],
-						"policy": policy_name,
-						"key": current["key"],
-						"fallback": fallback,
-						"latency_ms": snappedf(latency / 1000.0, 0.01),
-						"state": state,
-						"candidates": offered,
-					}
-				)
-			)
+	var line := (
+		JSON
+		. stringify(
+			{
+				"tick": tick,
+				"t": state["t"],
+				"policy": policy_name,
+				"key": current["key"],
+				"fallback": fallback,
+				"latency_ms": snappedf(latency / 1000.0, 0.01),
+				"state": state,
+				"candidates": offered,
+			}
 		)
 	)
+	if _log_file != null:
+		_log_file.store_line(line)
+		if tick % LOG_FLUSH_EVERY == 0:
+			_log_file.flush()
+	else:
+		decision_log.append(line)
 
 
 func _log_fallback(reason: String) -> void:

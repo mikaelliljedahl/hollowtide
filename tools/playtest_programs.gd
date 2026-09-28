@@ -16,7 +16,7 @@ const SLIP_FRAMES := 9
 ## before the player counts twice for her: once as just pressed in that frame, and once more from
 ## her queued `_input` press in the next frame (measured in tools/check_playtest_round3.gd). Only
 ## the beam cycle has no cooldown to absorb the second one, so one tap would step two beams.
-const LATE_PRESSES: Array[StringName] = [&"cycle_beam"]
+const LATE_PRESSES: Array[StringName] = [&"cycle_beam", &"jump"]
 
 
 ## A walking program toward `rel`, jumping when a wall blocks the way or the target is above.
@@ -147,24 +147,32 @@ static func _sign(value: float) -> int:
 	return -1 if value < 0.0 else 1
 
 
-## Plays programs frame by frame. Only presses and releases input actions.
+## Plays programs frame by frame: an Array of held-action sets, or a live program that decides
+## each frame (an object with `next() -> Array` and a `finished` flag, as tools/playtest_nav.gd's
+## Follow). Only presses and releases input actions.
 class Driver:
 	extends RefCounted
 
-	var program: Array = []
+	var program: Variant = []
 	var frame := 0
 	var _held: Dictionary = {}
 
-	func start(next: Array) -> void:
+	func start(next: Variant) -> void:
 		program = next
 		frame = 0
 
 	func done() -> bool:
-		return frame >= program.size()
+		if program is Array:
+			return frame >= (program as Array).size()
+		return bool(program.get("finished"))
 
 	## Applies the next frame's held set; call once per physics frame before the player runs.
 	func step() -> void:
-		var wanted: Array = program[frame] if frame < program.size() else []
+		var wanted: Array = []
+		if program is Array:
+			wanted = program[frame] if frame < (program as Array).size() else []
+		elif not bool(program.get("finished")):
+			wanted = program.call(&"next")
 		frame += 1
 		for action in _held.keys():
 			if not wanted.has(action):
