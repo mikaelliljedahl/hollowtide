@@ -7,6 +7,8 @@ extends Node
 ## exit while a boss lives, a surprise enemy's wind-up reads as a telegraph, kit pickups stack.
 ## Round 3 (tools/check_playtest_round3.gd): beam switching and boss openers, the Resonance Pulse,
 ## ammo truth and refills, hazards in the state and the damage record, the jump shot, boss rooms.
+## Campaign mode (tools/check_playtest_campaign.gd): objective order, door routing, timeouts, the
+## heuristic's route choices, and a flow field followed and a gate opened through real inputs.
 ## godot --headless --path . res://tools/check_playtest_agent.tscn -- --test-mode
 
 const Loop = preload("res://tools/playtest_loop.gd")
@@ -14,6 +16,7 @@ const Actions = preload("res://tools/playtest_actions.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Agent = preload("res://tools/playtest_agent.gd")
 const Round3 = preload("res://tools/check_playtest_round3.gd")
+const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const STATE_KEYS := [
 	"tick",
@@ -151,7 +154,9 @@ func _run() -> void:
 	await _test_round_two_candidates()
 	await _test_surprise_wind_up_is_telegraph()
 	_test_kit_pickups_stack()
+	_test_hang_watchdog()
 	await Round3.new(self).run()
+	await CampaignCheck.new(self).run()
 	await _test_bridge_round_trip()
 	await _test_timeout_falls_back()
 	await _test_missing_server_falls_back()
@@ -373,6 +378,32 @@ func _test_kit_pickups_stack() -> void:
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
+
+
+## The wall-clock watchdog: no new decision for hang-ms ends the run and hang.json says what the
+## driver and the game were doing.
+func _test_hang_watchdog() -> void:
+	var agent := Agent.new()
+	add_child(agent)
+	agent.options["out"] = "user://playtest_hang_check"
+	agent.options["hang-ms"] = "50"
+	agent._root = _root
+	agent._loop = _loop(Policy.HEURISTIC)
+	_check(agent.watch_hang() == -1, "a fresh decision is not a hang")
+	OS.delay_msec(80)
+	var idle := agent.watch_hang()
+	_check(idle >= 50, "no decision for longer than hang-ms is a hang (%d ms)" % idle)
+	agent._loop.tick += 1
+	_check(agent.watch_hang() == -1, "a new decision resets the watchdog")
+	agent.dump_hang(idle)
+	var path := ProjectSettings.globalize_path("user://playtest_hang_check/hang.json")
+	var dump = JSON.parse_string(FileAccess.get_file_as_string(path))
+	_check(
+		dump is Dictionary and dump.has("paused") and dump.has("program") and dump.has("held"),
+		"hang.json records the pause, the program and the held actions"
+	)
+	agent._loop.finish({})
+	agent.free()
 
 
 func _test_bridge_round_trip() -> void:

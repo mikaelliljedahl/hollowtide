@@ -263,7 +263,8 @@ while it waits, so latency costs wall time only; the runner raises `--timeout-ms
 | `--jev-model` | `jev-1.13.0` | Model id sent in each request. |
 | `--jev-timeout-ms` | 800 | Per request, no retry; a late answer is a `timeout` fallback. |
 | `--jev-min-confidence` | 0.35 | Below it the heuristic's hint is played (`low_confidence`). |
-| `--jev-hz` | 5 | At most this many requests per game second; decisions in between play the hint and are recorded as `skip:rate`. |
+| `--jev-hz` | 5 | At most this many requests per game second; decisions in between repeat Jev's last answer while it is offered (`held`), else play the hint, and are recorded as `skip:rate`. |
+| `--jev-budget-usd` | none | Estimated spend per run after which the hint is played (`skip:budget`). |
 
 Sources per decision (`tools/playtest/jev_backend.py:532`): `jev`; `skip:rate`,
 `skip:single_option`, `skip:no_room`; `fallback:<reason>` with `timeout`, `network`,
@@ -464,3 +465,38 @@ Headless, one run at a time. Runs are under `/Volumes/Personal/Tools/hollowtide-
 - For the room owners (not a harness change): with a working opener the bot beats the Tidal Heart
   in about 11 to 13 s with at most 10 damage, and stage 1 lasts 5.7 s in every run. Compare with a
   human run before reading it as a balance finding.
+
+## 19. Campaign mode and run safety (2026-09-28)
+
+`python3 tools/playtest/run.py --campaign` starts a new game in the start room with an empty kit
+(no teleports, no grants) and plays toward the ending. `tools/playtest/campaign_route.py` plans
+the objectives with the campaign graph solver and writes one flow field per objective; the game
+side (`tools/playtest_campaign.gd:100`) adds the goal to the state and offers `go_to_objective`,
+`go_to_door`, `open_gate`, `freeze` and `fast_travel`. The planner only sets goals; the policy
+picks the move. While a gate or a floater on the route can be handled from where the player
+stands, `go_to_objective` is not offered, since following the route cannot get past it. An
+objective has 300 game seconds; a timed-out objective is set aside, a second timeout ends the run
+(`tools/playtest_progress.gd:30`). Deaths do not end a campaign run; the 2,700 s cap does.
+
+Navigation fixes from the first full runs (`tools/playtest_nav.gd`): a jump peaking below a target
+straight overhead steers into the nearer shaft wall so the wall jump the solver planned happens
+(`_wall_start`, line 242); a player on a ledge's lip above a drop steps on with a 1 px dead zone
+instead of 10; a one-frame touchdown on a cell the hop passes keeps the hop (`_on_hop`, line 125);
+a straight jump blocked because the body overlaps a wall column above first steps to the cell's
+centre (`_takeoff_side`, line 357); in the air, flying a row above a hop cell counts as passing it,
+so the target no longer stays behind her and pulls her back into a lava pit (`control`, line 165).
+
+Run safety: the launch scene ends a run as `hung` when no decision is made for
+`--playtest-hang-ms` of wall time (default 30 s) and writes `hang.json` with the pause, root
+flags, open menu, program, held and pressed actions (`tools/playtest_agent.gd:250`). It writes
+`heartbeat.txt` every 20 s of wall time; the runner kills a process whose heartbeat and output
+have been silent for 120 s, or that passes `--wall-limit` (`tools/playtest/run.py:44`). Piped Godot
+output is block-buffered, so the heartbeat file, not stdout, is the liveness signal. The Jev
+backend stops calling after an estimated `--jev-budget-usd` and plays the hint (`skip:budget`,
+`tools/playtest/jev_backend.py:486`). The runner starts Godot with its own HOME and XDG folders
+under the run directory (`tools/godot_env.py`), so user:// (settings.cfg, logs) never lands in the
+player's folder, and it leaves the Jev key out of Godot's environment.
+
+First full runs (seed 1, `/Volumes/Personal/Tools/hollowtide-runs/full2/`, not in the repo): Jev
+reached 11 of 13 objectives in 1,949 game seconds and stopped at the Tidal Heart (two 300 s
+timeouts; 20 deaths; about $0.19). The heuristic stalled earlier on the same build.

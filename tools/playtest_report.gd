@@ -10,6 +10,8 @@ const MAX_FINDINGS := 12
 static func findings(record: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var data: Dictionary = record["telemetry"]
+	if record.has("campaign"):
+		result.append(_campaign_finding(record["campaign"]))
 	result.append_array(_boss_findings(data["bosses"]))
 	var disengaged: Dictionary = data["boss_damage_while_disengaged"]
 	for boss in disengaged:
@@ -118,6 +120,8 @@ static func to_markdown(record: Dictionary) -> String:
 	]
 	for finding in record.get("findings", findings(record)):
 		lines.append("- " + finding)
+	if record.has("campaign"):
+		lines.append_array(_campaign_lines(record["campaign"]))
 	lines.append_array(["", "## Deaths", ""])
 	lines.append_array(
 		_table(["t (s)", "Room", "Cell", "Killer"], data["deaths"], _death_row, "No deaths.")
@@ -213,6 +217,74 @@ static func to_markdown(record: Dictionary) -> String:
 		]
 	)
 	return "\n".join(lines)
+
+
+static func _campaign_finding(campaign: Dictionary) -> String:
+	var end: Dictionary = campaign["end"]
+	if bool(campaign["reached_ending"]):
+		return (
+			"Campaign: reached the ending at %.1f s, %d of %d objectives."
+			% [end["t"], campaign["objectives_done"], campaign["objectives_total"]]
+		)
+	return (
+		"Campaign: stopped at %.1f s (%s) with %d of %d objectives, in %s on: %s."
+		% [
+			end["t"],
+			end["reason"],
+			campaign["objectives_done"],
+			campaign["objectives_total"],
+			end["room"],
+			end["objective"] if not String(end["objective"]).is_empty() else "no objective"
+		]
+	)
+
+
+static func _campaign_lines(campaign: Dictionary) -> Array[String]:
+	var lines: Array[String] = ["", "## Campaign objectives", ""]
+	lines.append_array(
+		_table(
+			[
+				"#",
+				"Objective",
+				"Reached at (s)",
+				"Seconds",
+				"Attempts",
+				"Deaths",
+				"Damage",
+				"Stuck (s)",
+				"No progress (s)"
+			],
+			campaign["objectives"],
+			func(row: Dictionary) -> Array:
+				return [
+					row["index"],
+					row["objective"],
+					row["reached_at"] if row["reached"] else "not reached",
+					row["seconds"],
+					row["attempts"],
+					row["deaths"],
+					row["damage"],
+					row["stuck_seconds"],
+					row["no_progress_seconds"]
+				],
+			"No objectives."
+		)
+	)
+	var visited: Array = campaign["rooms_visited"].map(
+		func(row: Dictionary) -> String: return "%s (%.0f s)" % [row["room"], row["t"]]
+	)
+	lines.append_array(["", "Rooms in order first entered: %s" % ", ".join(visited)])
+	lines.append_array(["", "## Campaign deaths and respawns", ""])
+	lines.append_array(
+		_table(
+			["t (s)", "Died in", "Killer", "Respawned at", "Objective"],
+			campaign["deaths"],
+			func(row: Dictionary) -> Array:
+				return [row["t"], row["room"], row["killer"], row["respawn_room"], row["objective"]],
+			"No deaths."
+		)
+	)
+	return lines
 
 
 static func _boss_findings(attempts: Array) -> Array[String]:

@@ -3,7 +3,8 @@
 docs/features/playtest-agent.md, a failing backend yields a null key instead of killing the run,
 the runner always passes --test-mode, the aggregate derives cross-run findings, and the jev
 backend talks to a local stub /v1/systemone server (no network): request shape, answer parsing,
-timeout and low-confidence fallbacks, a missing key, and no API key in any written file."""
+timeout and low-confidence fallbacks, a missing key, and no API key in any written file. Campaign
+mode's route planner is tested in tools/check_playtest_campaign.py, whose cases run here too."""
 
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ import aggregate  # noqa: E402
 import jev_backend  # noqa: E402
 import jev_feedback  # noqa: E402
 import run  # noqa: E402
+from check_playtest_campaign import CampaignRouteTest, JevObjectiveTest  # noqa: E402, F401
 from policy_server import HeuristicPassthrough, PolicyServer  # noqa: E402
 
 CANDIDATES = [{"key": "idle", "kind": "idle", "label": "stand still"}]
@@ -101,6 +103,23 @@ class PolicyServerTest(unittest.TestCase):
 
 
 class RunnerTest(unittest.TestCase):
+    def test_godot_gets_its_own_home_and_no_key(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            out = Path(scratch) / "run"
+            saved = os.environ.get(jev_backend.KEY_ENV)
+            os.environ[jev_backend.KEY_ENV] = "placeholder"
+            try:
+                env = run.child_env(out)
+            finally:
+                if saved is None:
+                    os.environ.pop(jev_backend.KEY_ENV)
+                else:
+                    os.environ[jev_backend.KEY_ENV] = saved
+            home = (out / "home").resolve()
+            for key in ("HOME", "XDG_DATA_HOME", "XDG_CONFIG_HOME"):
+                self.assertTrue(Path(env[key]).is_relative_to(home), key)
+            self.assertNotIn(jev_backend.KEY_ENV, env)
+
     def test_command_is_an_argument_vector_in_test_mode(self):
         args = argparse.Namespace(
             godot="godot",
@@ -321,8 +340,23 @@ class JevBackendTest(unittest.TestCase):
 
     def test_rate_cap_skips_between_calls(self):
         self.decide(3.0)
-        self.assertEqual(self.decide(3.1), "retreat")
+        # Jev's answer is kept between calls instead of the hint ("retreat").
+        self.assertEqual(self.decide(3.1), "shoot:e2:forward")
         self.assertEqual(self.backend.records[1]["source"], "skip:rate")
+        self.assertTrue(self.backend.records[1]["held"])
+        self.assertEqual(len(self.stub.requests), 1)
+
+    def test_rate_skip_plays_the_hint_after_a_fallback(self):
+        self.stub.confidence = 0.2
+        self.decide(3.0)
+        self.assertEqual(self.decide(3.1), "retreat")
+        self.assertNotIn("held", self.backend.records[1])
+
+    def test_budget_stops_the_calls(self):
+        self.backend.config.budget_usd = 1e-9
+        self.decide(3.0)
+        self.assertEqual(self.decide(4.0), "retreat")
+        self.assertEqual(self.backend.records[1]["source"], "skip:budget")
         self.assertEqual(len(self.stub.requests), 1)
 
     def test_timeout_falls_back_to_the_hint(self):

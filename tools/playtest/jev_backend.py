@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
+import jev_objective
+from jev_feedback import PRICE_PER_INPUT_TOKEN
 from policy_server import Backend
 
 KEY_ENV = "TYPESAFE_API_KEY"
@@ -47,6 +49,8 @@ MOVING_KINDS = (
     "pick_up",
     "jump",
     "go_to_refill",
+    "go_to_objective",
+    "go_to_door",
 )
 MAX_HAZARDS = 2
 HAZARD_ALERT_TILES = 4.0
@@ -70,6 +74,16 @@ RUBRIC = {
     "pick_up": "Right when the area is safe.",
     "go_to_exit": "Leaves the room; right only when nothing here is left to fight.",
     "jump": "Right to clear an obstacle or to break out of a stall.",
+    "go_to_objective": (
+        "Follows the planned route toward the current objective; right unless a threat must be"
+        " dealt with first."
+    ),
+    "go_to_door": "Leaves through this door; right when it is the door on the route.",
+    "open_gate": "Opens the closed gate on the route; right when it blocks the way and no hit is imminent.",
+    "freeze": "Freezes a frost floater the route stands on; right before jumping onto it.",
+    "fast_travel": (
+        "Travels to another shrine; right when the objective is far from here and much nearer there."
+    ),
 }
 DANGER_CRITERIA = [
     "low: nothing can hit the player within the next second",
@@ -89,6 +103,8 @@ class JevConfig:
     timeout_ms: int = 800
     min_confidence: float = 0.35
     max_hz: float = 5.0
+    # Estimated spend (input tokens at the published price) after which the hint is played.
+    budget_usd: float | None = None
 
 
 def api_key_present() -> bool:
@@ -174,6 +190,7 @@ def _threat(enemy: dict[str, Any]) -> dict[str, Any]:
         "player_can_hurt_it": bool(enemy.get("hurt_by")),
         "in_line_of_sight": bool(enemy.get("visible")),
         "arena_enemy": bool(enemy.get("ambush")),
+        "frozen": bool(enemy.get("frozen")),
     }
     if enemy.get("switch_to"):
         entry["hurt_by_bolt"] = BEAM_NAMES.get(enemy["switch_to"], enemy["switch_to"])
@@ -230,6 +247,12 @@ def goal_text(state: dict[str, Any]) -> str:
         return "Start the arena fight by walking into the arena, then clear every wave alive."
     if arena and arena.get("state") in ("sealing", "fighting", "intermission"):
         return "Clear the arena in this room: defeat every wave without dying."
+    goal = state.get("goal")
+    if goal:
+        return (
+            f"Reach the campaign objective: {goal['objective']}. Follow the route; fight only what"
+            " threatens or blocks the way."
+        )
     return "Explore: reach a pickup or an open exit without taking damage."
 
 
@@ -270,7 +293,7 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
         facts["boss_stage"] = boss.get("stage")
         facts["boss_attack"] = boss.get("attack") or "none"
         facts["boss_shell"] = shell_text(boss)
-    return {
+    compact: dict[str, Any] = {
         "goal": goal_text(state),
         "player": {
             "health_pct": health_pct,
@@ -289,6 +312,9 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
         "facts": facts,
         "last_action": last.get("summary", "none"),
     }
+    if state.get("goal"):
+        compact["objective"] = jev_objective.facts(state["goal"])
+    return compact
 
 
 def build_request(
@@ -405,6 +431,9 @@ class JevBackend(Backend):
         self._cooldown_until = 0.0
         self._sent: deque[float] = deque()
         self._last: dict[str, Any] = {}
+        self._input_tokens = 0
+        # Jev's last answered key, repeated on rate skips while it is offered.
+        self._intent = ""
 
     def start(self, hello: dict[str, Any]) -> None:
         require_key()
@@ -418,6 +447,12 @@ class JevBackend(Backend):
         skip = self._skip_reason(float(state.get("t", 0.0)))
         if skip is not None or state.get("room") is None:
             record["source"] = skip or "skip:no_room"
+            # Between calls Jev's last answer is kept while it is still offered: playing the
+            # heuristic's hint here made the two alternate (route one step, arena the next).
+            keys = {c["key"] for c in legal(candidates, state, hint)}
+            if skip == "skip:rate" and self._intent in keys:
+                record["held"] = True
+                return self._finish(record, self._intent, state)
             return self._finish(record, hint, state)
         offered = legal(candidates, state, hint)
         record["removed"] = sorted({c["key"] for c in candidates} - {c["key"] for c in offered})
@@ -448,6 +483,9 @@ class JevBackend(Backend):
             return "fallback:disabled"
         if game_t - self._last_call_t < 1.0 / self.config.max_hz:
             return "skip:rate"
+        budget = self.config.budget_usd
+        if budget is not None and self._input_tokens * PRICE_PER_INPUT_TOKEN >= budget:
+            return "skip:budget"
         now = time.monotonic()
         if now < self._cooldown_until:
             return "fallback:cooldown"
@@ -525,11 +563,13 @@ class JevBackend(Backend):
                 "output_tokens": int(usage.get("output_tokens", 0)),
             }
         )
+        self._input_tokens += record["input_tokens"]
         if choice not in keys:
             return self._fallback(record, "bad_choice", hint)
         if confidence < self.config.min_confidence:
             return self._fallback(record, "low_confidence", hint)
         record["source"] = "jev"
+        self._intent = choice
         return choice
 
     def _fallback(
@@ -538,6 +578,7 @@ class JevBackend(Backend):
         if started is not None:
             record["latency_ms"] = round((time.perf_counter() - started) * 1000.0, 1)
         record["source"] = f"fallback:{reason}"
+        self._intent = ""
         return hint
 
     def _finish(self, record: dict[str, Any], key: str, state: dict[str, Any]) -> str:

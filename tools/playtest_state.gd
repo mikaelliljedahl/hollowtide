@@ -148,6 +148,7 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		"hurt_by": hurt_by(enemy),
 		"switch_to": switch_to(enemy),
 		"visible": clear_line(enemy, feet + EYE, enemy.global_position),
+		"frozen": enemy.get("is_frozen") == true,
 	}
 	if enemy.has_method(&"presentation_state"):
 		var shown := StringName(enemy.call(&"presentation_state"))
@@ -196,10 +197,15 @@ static func harpoons_ready() -> bool:
 	return GameState.has_missiles and GameState.missile_count >= cost
 
 
-## An owned, unequipped beam (GameState id) that hurts `enemy` now when the equipped one does not;
-## "" otherwise.
+## An owned, unequipped beam (GameState id) that hurts `enemy` now when the equipped one does not
+## (or only freezes it); "" otherwise.
 static func switch_to(enemy: Node) -> String:
-	if not enemy.has_method(&"is_vulnerable_to") or enemy.call(&"is_vulnerable_to", beam_kind()):
+	if not enemy.has_method(&"is_vulnerable_to"):
+		return ""
+	# The Snare only freezes an ordinary enemy (0 damage), so a bolt that damages it is still
+	# worth switching to; a boss keeps the Snare as its shell opener.
+	var freezes_only := beam_kind() == &"ice" and not enemy.is_in_group(&"bosses")
+	if enemy.call(&"is_vulnerable_to", beam_kind()) and not freezes_only:
 		return ""
 	for beam in Boss.owned_beams():
 		if beam != String(GameState.active_beam) and enemy.call(&"is_vulnerable_to", _kind(beam)):
