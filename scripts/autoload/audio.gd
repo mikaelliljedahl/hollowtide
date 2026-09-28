@@ -78,6 +78,8 @@ const STEP_VARIANT_PATHS: Array[String] = [
 ]
 const FOOTSTEP_DIR := "res://assets/audio/sfx/footsteps/"
 const BUS_LAYOUT_PATH := "res://assets/audio/default_bus_layout.tres"
+## Wall-clock time shutdown() gives the mixer to let go of every stream before a quit.
+const MIXER_RELEASE_MSEC := 150
 const MUSIC_PATHS: Dictionary[StringName, String] = {
 	&"fringe": "res://assets/audio/music/fringe.ogg",
 	&"nexus": "res://assets/audio/music/nexus.ogg",
@@ -199,6 +201,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_ensure_buses()
 	tree_exiting.connect(_cleanup)
+	# Closing the window quits through shutdown() (see _notification) instead of at once.
+	get_tree().set_auto_accept_quit(false)
 	_active_beam_snapshot = GameState.active_beam
 	if not GameState.state_changed.is_connected(_on_game_state_changed):
 		GameState.state_changed.connect(_on_game_state_changed)
@@ -689,17 +693,33 @@ func _kill_tween(player: Node) -> void:
 
 
 func shutdown():
-	# Mixer release is asynchronous. Drop every strong ref, then yield several frames.
+	# Mixer release is asynchronous and runs on the wall clock. Drop every strong ref, then yield
+	# frames until enough real time has passed (with --fixed-fps, frames outrun the clock).
 	_cleanup()
 	if not is_inside_tree():
 		return
+	var started := Time.get_ticks_msec()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await get_tree().create_timer(0.08, true, false, true).timeout
+	while Time.get_ticks_msec() - started < MIXER_RELEASE_MSEC:
+		await get_tree().process_frame
 
 
 func _exit_tree() -> void:
 	_cleanup()
+
+
+func _notification(what: int) -> void:
+	# An immediate quit leaves the playing music stream held by the mixer and leaks it; give the
+	# mixer the same release time the title's Quit button does. Deferred: shutdown frees this
+	# node's players, which the close notification is still being propagated to.
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not _shutting_down:
+		_quit_after_shutdown.call_deferred()
+
+
+func _quit_after_shutdown() -> void:
+	await shutdown()
+	get_tree().quit()
 
 
 func _cleanup() -> void:

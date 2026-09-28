@@ -41,6 +41,9 @@ const PAN_SPEED := 900.0
 const NO_TILE := Vector2(-9999, -9999)
 const PIN_NAMES := {"return": "COME BACK", "danger": "DANGER", "item": "ITEM MARK"}
 const TRAVEL_FOCUS_SPEED := 9.0
+## Key hint and area counters: the 1920x1080 layout scales down to 1280x720, where this still
+## renders at about 13 px.
+const SMALL_TEXT_SIZE := Style.SIZE_H2
 
 var current_room := ""
 var _canvas: Control
@@ -93,7 +96,7 @@ func _ready() -> void:
 	_progress = HBoxContainer.new()
 	_progress.add_theme_constant_override("separation", 40)
 	_progress.position = Vector2(0, 134)
-	_progress.size = Vector2(1920, 26)
+	_progress.size = Vector2(1920, 28)
 	_progress.alignment = BoxContainer.ALIGNMENT_CENTER
 	_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_progress)
@@ -103,10 +106,10 @@ func _ready() -> void:
 	_legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_legend.draw.connect(_draw_legend)
 	add_child(_legend)
-	_hint = Style.label(self, "", 15, Style.TEXT_FAINT, 2)
+	_hint = Style.label(self, "", SMALL_TEXT_SIZE, Style.TEXT_MUTED, 2)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_hint.position = Vector2(FRAME.position.x, 1036)
-	_hint.size = Vector2(FRAME.size.x, 24)
+	_hint.position = Vector2(FRAME.position.x, 1034)
+	_hint.size = Vector2(FRAME.size.x, 28)
 
 
 func toggle() -> void:
@@ -326,7 +329,10 @@ func _reset_view() -> void:
 	var usable := FRAME.size - Vector2(FIT_MARGIN, FIT_MARGIN) * 2.0
 	_fit_scale = minf(minf(usable.x / bounds.size.x, usable.y / bounds.size.y), MAX_FIT_SCALE)
 	_zoom = 1.0
-	_center = bounds.get_center()
+	# Open on the player so the pin cursor starts on a known cell; R recentres the same way.
+	var player := _player_tile()
+	_center = player if player != NO_TILE else bounds.get_center()
+	_clamp_center()
 
 
 func _set_zoom(value: float, anchor_screen: Vector2) -> void:
@@ -437,10 +443,8 @@ func _refresh_labels() -> void:
 		swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		chip.add_child(swatch)
 		var name_text: String = AREA_NAMES[area] if seen else "UNCHARTED"
-		var color := Style.TEXT_FAINT
-		if seen:
-			color = Style.ACCENT if value.x == value.y else Style.TEXT_MUTED
-		Style.label(chip, "%s  %d/%d" % [name_text, value.x, value.y], Style.SIZE_SMALL, color, 2)
+		var color := Style.ACCENT if seen and value.x == value.y else Style.TEXT_MUTED
+		Style.label(chip, "%s  %d/%d" % [name_text, value.x, value.y], SMALL_TEXT_SIZE, color, 2)
 		_progress.add_child(chip)
 	_refresh_legend()
 

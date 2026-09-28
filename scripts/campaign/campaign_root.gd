@@ -414,6 +414,7 @@ func _place_player(local_position: Vector2, reset: bool) -> void:
 		player.reset_for_spawn(target)
 	else:
 		player.global_position = target
+	player.settle_after_teleport()
 	var camera := player.get_node_or_null("Camera2D") as Camera2D
 	if camera != null:
 		camera.reset_smoothing()
