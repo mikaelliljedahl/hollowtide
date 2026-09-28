@@ -30,6 +30,7 @@ GROUPS = {
     "retreat": "evade",
     "jump_over": "evade",
     "dash_through": "evade",
+    "duck": "evade",
     "wall_jump": "evade",
     "go_to_exit": "travel",
     "go_to_ambush": "travel",

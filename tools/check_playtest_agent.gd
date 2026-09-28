@@ -5,6 +5,8 @@ extends Node
 ## external bridge round-trips one decision with a stub server, and a silent or missing server
 ## falls back to the heuristic. Round 2 fixes: no shot at a target far below a grounded player, no
 ## exit while a boss lives, a surprise enemy's wind-up reads as a telegraph, kit pickups stack.
+## Jev round 2: a chest-high shot offers `duck`, and the program curls her under it; a steer
+## jumps floor lava ahead instead of walking into it.
 ## Round 3 (tools/check_playtest_round3.gd): beam switching and boss openers, the Resonance Pulse,
 ## ammo truth and refills, hazards in the state and the damage record, the jump shot, boss rooms.
 ## Campaign mode (tools/check_playtest_campaign.gd): objective order, door routing, timeouts, the
@@ -15,6 +17,7 @@ const Loop = preload("res://tools/playtest_loop.gd")
 const Actions = preload("res://tools/playtest_actions.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Agent = preload("res://tools/playtest_agent.gd")
+const Programs = preload("res://tools/playtest_programs.gd")
 const Round3 = preload("res://tools/check_playtest_round3.gd")
 const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
@@ -153,6 +156,8 @@ func _run() -> void:
 	await _test_heuristic_clears_hopper()
 	await _test_round_two_candidates()
 	await _test_surprise_wind_up_is_telegraph()
+	await _test_duck_under_a_shot()
+	await _test_steer_jumps_floor_lava()
 	_test_kit_pickups_stack()
 	_test_hang_watchdog()
 	await Round3.new(self).run()
@@ -300,6 +305,67 @@ func _test_heuristic_clears_hopper() -> void:
 	await _frames(40)
 
 
+## A chest-high shot flying at a standing player with Slipstream offers `duck`, the heuristic takes
+## it, and the real program curls her so the shot flies over; a floor-level shot offers none.
+func _test_duck_under_a_shot() -> void:
+	GameState.reset_progress()
+	GameState.unlock_ability(&"beam")
+	GameState.unlock_ability(&"slipstream")
+	GameState.reset_health()
+	await _frames(90)
+	var chest := _player.global_position + Vector2(0.0, -120.0)
+	var shot := ENEMY_PROJECTILE_SCENE.instantiate() as EnemyProjectile
+	_root.add_child(shot)
+	shot.global_position = chest + Vector2(280.0, 0.0)
+	shot.speed = 380.0
+	shot.launch(Vector2.LEFT, 12)
+	await _frames(1)
+	var loop := _loop(Policy.HEURISTIC)
+	var state := loop.exporter.snapshot(_root, _player, 1, 0.0)
+	var options := Actions.candidates(state, _player)
+	var duck := Actions.find(options, "duck")
+	_check(not duck.is_empty(), "a chest-high shot offers duck (%s)" % [Actions.public(options)])
+	var pick := Policy.new(1).heuristic(state, Actions.public(options), false)
+	_check(pick == "duck", "the heuristic ducks (%s)" % pick)
+	var health := GameState.health
+	var driver := Programs.Driver.new()
+	driver.start(duck.get("program", []))
+	while not driver.done():
+		driver.step()
+		await get_tree().physics_frame
+	driver.release_all()
+	_check(
+		GameState.health == health,
+		"curled, the shot flies over (%d -> %d)" % [health, GameState.health]
+	)
+	_check(not _player.is_ball, "and she stands up again")
+	state["projectiles"] = [{"rel": [200, -20], "vel": [-380, 0], "style": "orb"}]
+	_check(
+		Actions.find(Actions.candidates(state, _player), "duck").is_empty(),
+		"no duck under a floor shot"
+	)
+	loop.finish({})
+	if is_instance_valid(shot):
+		shot.queue_free()
+	await _frames(20)
+
+
+## Floor lava one step ahead makes a steer toward a target beyond it jump; with the lava gone it
+## walks.
+func _test_steer_jumps_floor_lava() -> void:
+	var lava := DevHazard.new()
+	lava.configure_profile(&"lava_surface", Vector2(256, 64), 12)
+	_root.current_room.add_child(lava)
+	lava.global_position = _player.global_position + Vector2(40.0 + 28.0 + 128.0, -32.0)
+	await _frames(2)
+	var program := Programs.steer(_player, Vector2(600, 0), false)
+	_check((program[0] as Array).has(&"jump"), "the steer jumps lava ahead (%s)" % [program[0]])
+	lava.queue_free()
+	await _frames(2)
+	program = Programs.steer(_player, Vector2(600, 0), false)
+	_check(not (program[0] as Array).has(&"jump"), "without lava it walks (%s)" % [program[0]])
+
+
 ## A boss far below a grounded player gets no shot (no aim reaches it) and, while it lives, no
 ## exit is offered: vaults_03 round 1 emptied the quiver into the ledge and then left the room.
 func _test_round_two_candidates() -> void:
@@ -356,6 +422,23 @@ func _test_surprise_wind_up_is_telegraph() -> void:
 			break
 	_check(seen, "a twitching drop spider is exported as winding up")
 	spider.queue_free()
+	GameState.reset_health()
+	await _frames(40)
+	var eel := EnemyFactory.create(&"surface_eel") as Node2D
+	eel.position = entities.to_local(_player.global_position + Vector2(160, 0))
+	entities.add_child(eel)
+	seen = false
+	for _frame in 120:
+		await _frames(1)
+		if eel.call(&"presentation_state") == &"bubble":
+			var loop := _loop(Policy.HEURISTIC)
+			var state := loop.exporter.snapshot(_root, _player, 1, 0.0)
+			loop.finish({})
+			for enemy in state["enemies"]:
+				seen = seen or (enemy["type"] == "surface_eel" and enemy["telegraph"])
+			break
+	_check(seen, "a surface eel boiling its liquid is exported as winding up")
+	eel.queue_free()
 	GameState.reset_health()
 	await _frames(40)
 

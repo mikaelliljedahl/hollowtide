@@ -66,6 +66,8 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 		keys[entry["key"]] = entry["key"]
 	if keys.has("dash_through"):
 		return keys["dash_through"]
+	if keys.has("duck"):
+		return keys["duck"]
 	if stuck:
 		if keys.has("wall_jump"):
 			return keys["wall_jump"]
@@ -109,14 +111,20 @@ func _dodge(state: Dictionary) -> String:
 
 ## Outside campaign mode every offered refill is taken. In campaign mode a refill run is for low
 ## health, or for Harpoons when the objective is a boss or a harpoon socket blocks the route; a
-## detour for spare bolts otherwise costs more than it gives.
+## detour for spare bolts otherwise costs more than it gives. A live boss's room keeps its
+## Harpoon refill inside the arena (content catalog), so there it is walked to from anywhere.
 func _refill_wanted(state: Dictionary, key: String) -> bool:
 	var goal = state.get("goal")
 	if not goal is Dictionary or (goal as Dictionary).is_empty():
 		return true
+	var refill := _refill_for(state, key.get_slice(":", 1))
+	var boss_fight := (state["enemies"] as Array).any(
+		func(enemy: Dictionary) -> bool: return enemy["is_boss"]
+	)
+	if boss_fight and not refill.is_empty() and (refill["restores"] as Array).has("harpoons"):
+		return true
 	# The refill run steers straight at it; one out of that reach is left to the route (a death
 	# respawns at the last shrine with full health anyway).
-	var refill := _refill_for(state, key.get_slice(":", 1))
 	if (
 		refill.is_empty()
 		or absf(float(refill["rel"][0])) > REFILL_REACH.x
@@ -226,7 +234,12 @@ func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
 		if keys.has(kind):
 			return keys[kind]
 	var opener = boss.get("opener")
-	if not bool(boss.get("open", true)) and opener is Dictionary and opener["owned"]:
+	if (
+		not bool(boss.get("open", true))
+		and bool(boss.get("opening", true))
+		and opener is Dictionary
+		and opener["owned"]
+	):
 		var beam := "select_beam:%s" % opener["beam"]
 		if keys.has(beam):
 			return beam

@@ -447,8 +447,16 @@ class JevRoundThreeStateTest(unittest.TestCase):
         self.assertEqual(compact["hazards"], [{"kind": "lava", "where": "right", "touching": True}])
         self.assertEqual(compact["facts"]["refill_here_for"], "harpoons")
 
+    def test_spent_opening_reads_closed_without_an_opener(self):
+        state = self.state()
+        state["enemies"][0]["opening"] = False
+        self.assertEqual(
+            jev_backend.compact_state(state, {})["threats"][0]["shell"],
+            "closed; nothing hurts it until it recovers after its next attack",
+        )
+
     def test_new_kinds_have_rubric_groups_and_legality(self):
-        for kind in ("jump_shoot", "open_boss", "select_beam", "pulse", "go_to_refill"):
+        for kind in ("jump_shoot", "open_boss", "select_beam", "pulse", "go_to_refill", "duck"):
             self.assertIn(kind, jev_backend.RUBRIC)
             self.assertIn(kind, jev_feedback.GROUPS)
         candidates = [

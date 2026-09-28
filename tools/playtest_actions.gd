@@ -29,6 +29,21 @@ const MOVING_KINDS := [
 ## How far a retreat runs (12 frames at run speed, rounded up); a live boss's arena edge must be
 ## at least this far behind the player for `retreat` to be offered.
 const RETREAT_REACH := 160.0
+## How far a dash program carries the player (0.18 s at 1500 px/s, then 9 walking frames); a dash
+## into a shot is not offered when it would leave a live boss's arena (a probe dashed out of the
+## depths_02 door at the arena edge and lost the fight).
+const DASH_REACH := 384.0
+## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
+## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
+const DUCK_RANGE := 300.0
+## A refill more than this far (px) above the feet is out of one jump's reach; the steer would
+## only jump in place under it (jev-c3 did that below a vaults_02 shrine 600 px up for 320 s).
+const REFILL_CLIMB := 320.0
+## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
+## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
+const ENEMY_RADIUS := 120.0
+const DUCK_CLEAR := 80.0
+const DUCK_REACH := 200.0
 ## A boss whose centre is this far above the feet floats: jumping toward it lands in its body.
 const FLOATING_ABOVE := 160.0
 ## A Resonance Pulse is offered at an enemy this close and this level with the player.
@@ -52,16 +67,34 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var abilities: Array = state["kit"]["abilities"]
 	var enemies: Array = state["enemies"]
 	var target := primary_target(enemies)
-	if not target.is_empty():
+	# A frost floater the route is about to freeze is a platform, not a target: a bolt kills it
+	# (jev-c2 shot the vaults_02 floaters down instead of freezing them, and stalled there).
+	var platform := route.any(func(entry: Dictionary) -> bool: return entry["kind"] == "freeze")
+	if not target.is_empty() and not (platform and target["type"] == "frost_floater"):
 		result.append_array(_fight(state, target, player))
 	var shot := incoming_projectile(state)
-	if not shot.is_empty() and abilities.has("undertow_dash") and bool(me["dash_ready"]):
+	if (
+		not shot.is_empty()
+		and abilities.has("undertow_dash")
+		and bool(me["dash_ready"])
+		and _boss_arenas_keep(enemies, _sign(float(shot["rel"][0])), DASH_REACH)
+	):
 		result.append(
 			_entry(
 				"dash_through",
 				"dash_through",
 				"dash into the incoming %s shot" % shot["style"],
 				Programs.dash(_sign(float(shot["rel"][0])))
+			)
+		)
+	var low := duck_shot(state)
+	if not low.is_empty():
+		result.append(
+			_entry(
+				"duck",
+				"duck",
+				"curl into a ball so the %s shot flies over" % low["style"],
+				Programs.duck()
 			)
 		)
 	if bool(me["on_wall"]):
@@ -136,15 +169,26 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	var rel := _vec(target["rel"])
 	var toward := _sign(rel.x)
 	var reach := shot_reach(abilities)
+	# A boss fights, and can be hurt, only while the player is inside its arena (boss-rework,
+	# section 4): from outside, the only fight move is to walk in. A kiln_03 probe stood east of
+	# the arena step shooting into it for 280 s.
+	var engaged := not is_boss or bool(target.get("engaged", true))
 	var result: Array = []
 	if is_boss:
 		var goal := boss_goal(target)
+		var step := Vector2(Aim.firing_step(goal[0], goal[1]), 0)
+		var spot := _opener_spot(target)
+		if not engaged:
+			step = rel
+		elif not spot.is_empty():
+			# Out of sight of the opener: climb to a spot it lines up from.
+			step = _vec(spot)
 		result.append(
 			_entry(
 				"approach:%s" % target["id"],
 				"approach",
 				"move to firing range of %s" % target["type"],
-				Programs.steer(player, Vector2(Aim.firing_step(goal[0], goal[1]), 0), false)
+				Programs.steer(player, step, false)
 			)
 		)
 	else:
@@ -156,7 +200,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 				Programs.steer(player, rel, false)
 			)
 		)
-	if not is_boss or retreat_stays_in_arena(target, -toward):
+	if not is_boss or stays_in_arena(target, -toward, RETREAT_REACH):
 		result.append(
 			_entry(
 				"retreat",
@@ -165,10 +209,10 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 				Programs.run(-toward, Programs.STEP_FRAMES)
 			)
 		)
-	if is_boss and not ball:
+	if is_boss and not ball and engaged:
 		result.append_array(_opener(target, kit, grounded, reach, int(me["facing"])))
 	var aim := target_aim(target, grounded, reach)
-	if abilities.has("beam") and not ball and rel.length() <= SHOT_RANGE:
+	if abilities.has("beam") and not ball and engaged and rel.length() <= SHOT_RANGE:
 		if not aim.is_empty():
 			result.append(
 				_entry(
@@ -192,7 +236,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 						Programs.jump_shoot(toward, frame, int(me["facing"]))
 					)
 				)
-	var harpoon := _harpoon_target(state["enemies"], int(kit["missiles"]))
+	var harpoon := _harpoon_target(state["enemies"], kit)
 	if not harpoon.is_empty() and not ball:
 		var hrel := _vec(harpoon["rel"])
 		var haim := target_aim(harpoon, grounded, reach)
@@ -237,13 +281,18 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	return result
 
 
-## The boss's opener shot, when its shell is closed, the opener's beam is equipped and an aim
-## from here lines up with the opener's point (its body or its Echo grate).
+## The boss's opener shot, when its shell is closed, its current opening is unspent, a Harpoon is
+## left to follow it, the opener's beam is equipped and an aim from here lines up with the
+## opener's point (its body or its Echo grate) in sight.
 static func _opener(
 	boss: Dictionary, kit: Dictionary, grounded: bool, reach: float, facing: int
 ) -> Array:
 	var opener = boss.get("opener")
 	if bool(boss.get("open", true)) or not opener is Dictionary or not bool(opener["owned"]):
+		return []
+	if not bool(boss.get("opening", true)) or int(kit.get("missiles", 0)) <= 0:
+		return []
+	if not bool(opener.get("visible", true)):
 		return []
 	if opener["via"] == "punish" or opener["beam"] != kit["beam"]:
 		return []
@@ -291,8 +340,19 @@ static func _beam_switches(target: Dictionary, kit: Dictionary) -> Array:
 	return result
 
 
+## Where to stand for a closed boss's opener that is out of sight from here ([] when it is in
+## sight, spent, unusable, or no spot was found).
+static func _opener_spot(boss: Dictionary) -> Array:
+	var opener = boss.get("opener")
+	if bool(boss.get("open", true)) or not bool(boss.get("opening", true)):
+		return []
+	if not opener is Dictionary or not bool(opener["owned"]) or bool(opener.get("visible", true)):
+		return []
+	return opener.get("spot_rel", [])
+
+
 ## `go_to_refill:<kind>` toward the nearest refill that restores what is short: Harpoons when
-## none are left, health below a third.
+## none are left, health below a third; none that is out of a jump's reach above.
 static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var me: Dictionary = state["player"]
 	var kit: Dictionary = state["kit"]
@@ -306,6 +366,8 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 		var wanted := short.filter(func(need: String) -> bool: return restores.has(need))
 		if wanted.is_empty() or _near(_vec(refill["rel"])):
 			continue
+		if float(refill["rel"][1]) < -REFILL_CLIMB:
+			continue
 		return _entry(
 			"go_to_refill:%s" % refill["kind"],
 			"go_to_refill",
@@ -315,12 +377,13 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	return {}
 
 
-## Where a boss fight aims: the opener's point while the shell is closed and the opener can be
-## used, else the boss body. [point relative to the feet, hit radius].
+## Where a boss fight aims: the opener's point while the shell is closed, the opening unspent and
+## the opener usable, else the boss body. [point relative to the feet, hit radius].
 static func boss_goal(boss: Dictionary) -> Array:
 	var opener = boss.get("opener")
 	if (
 		not bool(boss.get("open", true))
+		and bool(boss.get("opening", true))
 		and opener is Dictionary
 		and bool(opener["owned"])
 		and opener["via"] != "punish"
@@ -330,25 +393,37 @@ static func boss_goal(boss: Dictionary) -> Array:
 	return [_vec(boss["rel"]), Aim.BOSS_RADIUS]
 
 
-## False when a run of RETREAT_REACH px toward `direction` would leave the boss's arena (the
-## boss stops fighting outside it, and past it lies the door).
-static func retreat_stays_in_arena(boss: Dictionary, direction: int) -> bool:
+## False when a move of `reach` px toward `direction` would leave the boss's arena (the boss
+## stops fighting outside it, and past it lies the door).
+static func stays_in_arena(boss: Dictionary, direction: int, reach: float) -> bool:
 	var arena = boss.get("arena_rel")
 	if not arena is Array:
 		return true
 	if direction > 0:
-		return float(arena[2]) >= RETREAT_REACH
-	return float(arena[0]) <= -RETREAT_REACH
+		return float(arena[2]) >= reach
+	return float(arena[0]) <= -reach
+
+
+## True unless a move of `reach` px toward `direction` leaves a live boss's arena.
+static func _boss_arenas_keep(enemies: Array, direction: int, reach: float) -> bool:
+	return enemies.all(
+		func(enemy: Dictionary) -> bool:
+			return not enemy["is_boss"] or stays_in_arena(enemy, direction, reach)
+	)
 
 
 ## Aim at `target`: a boss needs a bolt line within its body radius; other enemies use the
-## quantised aim, minus a level shot that would fly under a target well above the crossbow.
+## quantised aim, minus a level shot that would fly under a target well above the crossbow, and
+## minus any aim whose bolt line passes more than ENEMY_RADIUS from it (jev-c2 fired straight up
+## 1,200 times at a vaults_01 ceiling diver 185 px to the side).
 static func target_aim(target: Dictionary, grounded: bool, reach: float) -> String:
 	var rel := _vec(target["rel"])
 	if bool(target["is_boss"]):
 		return Aim.line_up(rel, grounded, Aim.BOSS_RADIUS, reach)
 	var aim := aim_for(rel, grounded)
 	if aim == "forward" and (rel - Aim.EYE).y < -Aim.LEVEL_TOLERANCE:
+		return ""
+	if aim.is_empty() or Aim.miss(rel, aim, SHOT_RANGE) > ENEMY_RADIUS:
 		return ""
 	return aim
 
@@ -386,6 +461,27 @@ static func find(candidates_list: Array, key: String) -> Dictionary:
 	return {}
 
 
+## The nearest shot about to cross the player's column at body height but above a curled ball,
+## while Slipstream can curl a standing, grounded player; {} otherwise. Probe 2026-09-28
+## (kiln_03, stage 3 Ember Fan from 10 tiles): curling in place cleared 17 of 17 start times,
+## every jump or run 0 to 2 of 17, because the five-way fan leaves no gap a standing body fits.
+static func duck_shot(state: Dictionary) -> Dictionary:
+	var me: Dictionary = state["player"]
+	if not (state["kit"]["abilities"] as Array).has("slipstream"):
+		return {}
+	if not bool(me["grounded"]) or me["form"] != "standing":
+		return {}
+	for shot in state.get("projectiles", []):
+		var rel := _vec(shot["rel"])
+		var velocity := _vec(shot["vel"])
+		if rel.length() > DUCK_RANGE or absf(velocity.x) < 1.0 or rel.x * velocity.x >= 0.0:
+			continue
+		var height := -(rel.y + velocity.y * (-rel.x / velocity.x))
+		if height >= DUCK_CLEAR and height <= DUCK_REACH:
+			return shot
+	return {}
+
+
 ## Nearest enemy shot flying at the player, or {}.
 static func incoming_projectile(state: Dictionary) -> Dictionary:
 	for shot in state.get("projectiles", []):
@@ -413,12 +509,21 @@ static func aim_for(rel: Vector2, grounded: bool) -> String:
 	return "forward"
 
 
-static func _harpoon_target(enemies: Array, missiles: int) -> Dictionary:
-	if missiles <= 0:
+## The enemy a Harpoon is offered at: one in sight that it hurts and the bolt cannot. Never
+## through rock, and never a second one at a boss while the first is still flying, since one
+## opening takes one Harpoon (boss-rework R8).
+static func _harpoon_target(enemies: Array, kit: Dictionary) -> Dictionary:
+	if int(kit["missiles"]) <= 0:
 		return {}
 	for enemy in enemies:
 		var kinds: Array = enemy["hurt_by"]
-		if kinds.has("missile") and (enemy["is_boss"] or not _beam_hurts(kinds)):
+		if not kinds.has("missile") or not bool(enemy["visible"]):
+			continue
+		if enemy["is_boss"] and int(kit.get("harpoons_flying", 0)) > 0:
+			continue
+		if enemy["is_boss"] and not bool(enemy.get("engaged", true)):
+			continue
+		if enemy["is_boss"] or not _beam_hurts(kinds):
 			return enemy
 	return {}
 

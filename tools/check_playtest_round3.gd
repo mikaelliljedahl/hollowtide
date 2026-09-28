@@ -1,8 +1,9 @@
 extends RefCounted
 ## Round 3 cases of the playtest agent check (tools/check_playtest_agent.gd runs them in its room):
-## beam switching and boss openers, the Resonance Pulse, ammo truth and refills, lava and falling
-## spikes in the state and the damage record, the jump shot, and boss-room bounds. The real-input
-## cases play candidate programs through the Driver against the real player.
+## beam switching and boss openers, the boss Harpoon economy, the Resonance Pulse, ammo truth and
+## refills, lava and falling spikes in the state and the damage record, the jump shot, and
+## boss-room bounds. The real-input cases play candidate programs through the Driver against the
+## real player.
 
 const Actions = preload("res://tools/playtest_actions.gd")
 const Aim = preload("res://tools/playtest_aim.gd")
@@ -30,6 +31,8 @@ func _init(host: Node) -> void:
 func run() -> void:
 	await _test_beam_switch_and_opener()
 	await _test_real_boss_facts()
+	await _test_boss_harpoon_economy()
+	await _test_hidden_opener()
 	await _test_pulse()
 	await _test_ammo_truth_and_refill()
 	await _test_hazards()
@@ -142,6 +145,7 @@ func _test_beam_switch_and_opener() -> void:
 		"cycle_beam taps equip the Snare (%s)" % GameState.active_beam
 	)
 	state = _state()
+	state["kit"]["missiles"] = 5
 	state["enemies"] = [boss]
 	var keys := _keys(state)
 	_check(
@@ -160,6 +164,7 @@ func _test_beam_switch_and_opener() -> void:
 	_check(not approach.is_empty() and jumps.is_empty(), "approaching a floating boss never jumps")
 	boss["open"] = true
 	boss["hurt_by"] = []
+	state["kit"]["missiles"] = 0
 	state["enemies"] = [boss]
 	_check(
 		not _keys(state).any(func(k: String) -> bool: return k.begins_with("harpoon")),
@@ -201,6 +206,147 @@ func _test_real_boss_facts() -> void:
 	_check(Boss.grate_of(boss) == grate, "its Echo grate is found through the relay")
 	boss.queue_free()
 	grate.queue_free()
+	await _frames(2)
+
+
+## One opening takes one Harpoon (boss-rework R8), so the Harpoons go where they count: never
+## through rock, never a second one while the first flies, no opener with none left or with the
+## opening spent, and an empty quiver walks to the boss room's refill from anywhere in it. Jev-a3
+## (depths_02) spent 27 bolts for 7 hits and walked to the refill once in 387 tries.
+func _test_boss_harpoon_economy() -> void:
+	_reset_kit([&"beam", &"ice_beam", &"missiles"])
+	GameState.collect_pickup("round3.boss_quiver", &"missile_tank")
+	var state := _state()
+	_check(state["kit"]["harpoons_flying"] == 0, "no Harpoon in the air before a shot")
+	Input.action_press(&"fire_missile")
+	await _frames(2)
+	Input.action_release(&"fire_missile")
+	_check(
+		_state()["kit"]["harpoons_flying"] == 1,
+		"a fired Harpoon counts as flying (%s)" % _state()["kit"]
+	)
+	await _frames(120)
+	var real := EnemyFactory.create(&"tidal_heart") as Node2D
+	var entities := WorldFxTestbed.entities(_root.current_room)
+	var eye := _player.global_position + State.EYE
+	entities.add_child(real)
+	real.global_position = eye + Vector2(420, 0)
+	var grate := WaveGrate.new()
+	entities.add_child(grate)
+	grate.global_position = eye + Vector2(210, 0)
+	grate.set_relay(real)
+	await _frames(2)
+	_check(
+		State.clear_line(_player, eye, real.global_position),
+		"the Tidal Heart's grate does not hide it while the Harpoon passes (B1)"
+	)
+	real.call(&"set_test_phase", 2)
+	_check(
+		not State.clear_line(_player, eye, real.global_position), "a shut B2 grate blocks the line"
+	)
+	real.queue_free()
+	grate.queue_free()
+	await _frames(2)
+	var boss := _boss(Vector2(40, -420), true, null, ["missile"])
+	state["enemies"] = [boss]
+	state["kit"]["missiles"] = 4
+	state["kit"]["harpoons_flying"] = 0
+	boss["visible"] = false
+	_check(
+		not _keys(state).any(func(k: String) -> bool: return k.begins_with("harpoon")),
+		"no Harpoon through rock at an open boss (%s)" % [_keys(state)]
+	)
+	boss["visible"] = true
+	_check(_keys(state).has("harpoon:e9:up"), "in sight, the open boss takes a Harpoon")
+	state["kit"]["harpoons_flying"] = 1
+	_check(
+		not _keys(state).any(func(k: String) -> bool: return k.begins_with("harpoon")),
+		"no second Harpoon while the first is flying"
+	)
+	var opener := {"beam": "ice", "via": "body", "owned": true, "point_rel": [300, -320]}
+	GameState.active_beam = &"ice"
+	state["kit"]["beam"] = "ice"
+	boss = _boss(Vector2(300, -320), false, opener, [])
+	boss["opening"] = false
+	state["enemies"] = [boss]
+	_check(
+		not _keys(state).any(func(k: String) -> bool: return k.begins_with("open_boss")),
+		"no opener once the opening is spent"
+	)
+	boss["opening"] = true
+	state["kit"]["missiles"] = 0
+	_check(
+		not _keys(state).any(func(k: String) -> bool: return k.begins_with("open_boss")),
+		"no opener with no Harpoon left to follow it"
+	)
+	state["goal"] = {"kind": "boss", "target": "tidal_heart", "route_status": "at_goal"}
+	state["kit"]["max_missiles"] = 5
+	state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [-1500, 0]}]
+	_check(
+		_pick(state) == "go_to_refill:missilerefill",
+		"an empty quiver walks to the boss room's refill across the arena (%s)" % _pick(state)
+	)
+
+
+## depths_02: the Tidal Heart's B2 grate hangs just above a ledge, and a player under the ledge
+## lines the Echo up on it through rock. The opener is withheld there, the state names a spot
+## clear of the ledge it lines up from, and the approach walks out from under the ledge instead of
+## jumping into it.
+func _test_hidden_opener() -> void:
+	_reset_kit([&"beam", &"wave_beam", &"missiles"])
+	GameState.collect_pickup("round3.hidden_quiver", &"missile_tank")
+	await _frames(30)
+	var entities := WorldFxTestbed.entities(_root.current_room)
+	var feet := _player.global_position
+	var ledge := StaticBody2D.new()
+	var shape := CollisionShape2D.new()
+	var box := RectangleShape2D.new()
+	box.size = Vector2(320, 40)
+	shape.shape = box
+	ledge.add_child(shape)
+	entities.add_child(ledge)
+	ledge.global_position = feet + Vector2(64, -236)
+	var real := EnemyFactory.create(&"tidal_heart") as Node2D
+	entities.add_child(real)
+	real.global_position = feet + Vector2(1100, -300)
+	var room_rect := Rect2(feet.x - 256, feet.y - 448, 1728, 448)
+	real.call(&"configure_arena", room_rect)
+	real.call(&"set_test_phase", 2)
+	var grate := WaveGrate.new()
+	entities.add_child(grate)
+	grate.global_position = feet + State.EYE + Vector2(256, -256)
+	grate.set_relay(real)
+	await _frames(2)
+	var state := _state()
+	var found: Array = state["enemies"].filter(func(e: Dictionary) -> bool: return e["is_boss"])
+	var opener: Dictionary = found[0]["opener"] if not found.is_empty() else {}
+	_check(
+		opener.get("via") == "grate" and opener.get("visible") == false,
+		"the grate behind the ledge is out of sight (%s)" % opener
+	)
+	_check(
+		not _keys(state).any(func(k: String) -> bool: return k.begins_with("open_boss")),
+		"no Echo at a grate behind rock (%s)" % [_keys(state)]
+	)
+	var spot: Array = opener.get("spot_rel", [])
+	_check(
+		spot.size() == 2 and absf(float(spot[0])) >= 224.0,
+		"the state names a firing spot clear of the ledge (%s)" % [spot]
+	)
+	var approach := Actions.find(Actions.candidates(state, _player), "approach:%s" % found[0]["id"])
+	var program: Array = approach.get("program", [])
+	_check(
+		(
+			not program.is_empty()
+			and not program.any(func(h: Array) -> bool: return h.has(&"jump"))
+			and (program[0] as Array).any(
+				func(action: StringName) -> bool: return action in [&"move_left", &"move_right"]
+			)
+		),
+		"under the ledge the approach walks out instead of jumping (%s)" % [program.slice(0, 2)]
+	)
+	for node in [ledge, real, grate]:
+		node.queue_free()
 	await _frames(2)
 
 
@@ -274,6 +420,8 @@ func _test_ammo_truth_and_refill() -> void:
 	state["kit"]["missiles"] = 5
 	state["refills"] = [{"kind": "refill", "restores": ["health", "harpoons"], "rel": [600, 0]}]
 	_check(_keys(state).has("go_to_refill:refill"), "low health offers the health refill")
+	state["refills"][0]["rel"] = [19, -600]
+	_check(not _keys(state).has("go_to_refill:refill"), "not one 600 px straight up, out of reach")
 	station.queue_free()
 	await _frames(2)
 
@@ -358,7 +506,7 @@ func _test_jump_shot() -> void:
 	_check(absf(rise - 132.0) <= 40.0, "the bolt leaves about 132 px up (%.0f)" % rise)
 
 
-## A live boss's arena bounds the retreat; the plain jumps always close the list.
+## A live boss's arena bounds the retreat and the dash; the plain jumps always close the list.
 func _test_boss_room_bounds() -> void:
 	var state := _state()
 	var boss := _boss(
@@ -383,3 +531,27 @@ func _test_boss_room_bounds() -> void:
 	)
 	boss["arena_rel"] = [-600, -600, 1500, 100]
 	_check(_keys(state).has("retreat"), "with room behind, the retreat returns")
+	# A shot from behind at the arena's west edge: dashing into it would carry her out the door.
+	state["kit"]["abilities"] = ["beam", "undertow_dash"]
+	state["player"]["dash_ready"] = true
+	state["projectiles"] = [{"rel": [-200, -90], "vel": [400, 0], "style": "tide"}]
+	boss["arena_rel"] = [-100, -600, 1500, 100]
+	_check(not _keys(state).has("dash_through"), "no dash into a shot out of a live boss's arena")
+	boss["arena_rel"] = [-600, -600, 1500, 100]
+	_check(_keys(state).has("dash_through"), "with room behind, the dash returns")
+	# Outside the arena (kiln_03, east of the step) nothing hurts the boss: walk in, do not shoot.
+	boss["rel"] = [-331, -92]
+	boss["hurt_by"] = ["wave", "missile"]
+	boss["engaged"] = false
+	state["kit"].merge({"missiles": 5, "harpoons_flying": 0}, true)
+	state["projectiles"] = []
+	var outside := Actions.candidates(state, _player)
+	var shots := outside.filter(
+		func(e: Dictionary) -> bool: return e["kind"] in ["shoot", "harpoon", "open_boss"]
+	)
+	_check(shots.is_empty(), "no shot at a boss from outside its arena (%s)" % [shots])
+	var walk_in: Array = Actions.find(outside, "approach:e9").get("program", [])
+	_check(
+		not walk_in.is_empty() and (walk_in[0] as Array).has(&"move_left"),
+		"the approach walks into the arena (%s)" % [walk_in.slice(0, 1)]
+	)
