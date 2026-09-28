@@ -3,6 +3,8 @@ extends Area2D
 ## Floor shrine. `save` refills, sets the checkpoint and writes the campaign slot; `refill` restores
 ## health and missiles; `missilerefill` restores missiles only (placed before missile-only locks
 ## and inside boss arenas so mandatory ammo never depends on random drops).
+## `save` and `refill` lie dormant during a fight (CombatLock): a sealed ambush or a boss holding the
+## player. `missilerefill` never does, so a boss arena's Harpoon supply stays recurring.
 ## A save shrine also opens the shrine menu (CampaignRoot.open_shrine): fast travel
 ## (docs/features/fast-travel.md) and Tide Sockets (docs/features/tide-modules.md). While it offers
 ## anything, an up chevron hovers over it and move_up opens it.
@@ -13,6 +15,7 @@ const FLOOR_OFFSET_Y := 38.0
 const PROMPT_Y := -230.0
 const PROMPT_COLOR := Color("7fe3ff")
 const PROMPT_FADE_SPEED := 5.0
+const DORMANT_TINT := Color(0.55, 0.8, 0.8)
 const TEXTURES := {
 	&"save": "res://assets/sprites/devmode/checkpoint_shrine.png",
 	&"refill": "res://assets/sprites/devmode/refill_shrine.png",
@@ -78,11 +81,14 @@ func _physics_process(delta: float) -> void:
 	_arming = maxf(_arming - delta, 0.0)
 	if _prompt != null:
 		_update_prompt(delta)
-	if _cooldown <= 0.0:
-		return
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	if _visual != null:
-		_visual.modulate = Color(0.55, 0.8, 0.8) if _cooldown > 0.0 else Color.WHITE
+		_visual.modulate = DORMANT_TINT if _cooldown > 0.0 or _locked() else Color.WHITE
+
+
+## True while a fight holds this shrine dormant (see the header).
+func _locked() -> bool:
+	return station_kind != &"missilerefill" and CombatLock.active(get_tree())
 
 
 func _update_prompt(delta: float) -> void:
@@ -139,11 +145,11 @@ func _on_body_exited(body: Node2D) -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group(&"player"):
 		_player = body as CharacterBody2D
-	if _cooldown > 0.0 or _arming > 0.0 or not body.is_in_group(&"player"):
+	if _cooldown > 0.0 or _arming > 0.0 or not body.is_in_group(&"player") or _locked():
 		return
 	_cooldown = 1.2 if station_kind == &"save" else 0.5
 	if _visual != null:
-		_visual.modulate = Color(0.55, 0.8, 0.8)
+		_visual.modulate = DORMANT_TINT
 	match station_kind:
 		&"save":
 			GameState.refill()

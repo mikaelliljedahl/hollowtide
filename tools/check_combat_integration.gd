@@ -240,8 +240,10 @@ func _setup_boss_loadout() -> void:
 	await get_tree().physics_frame
 
 
+## Real missiles every 0.4 s; the boss's own punish windows pace the damage (boss-rework R8), so
+## the loop allows a paced fight of well over 40 s.
 func _kill_with_missiles(boss: Node) -> void:
-	for _index in 80:
+	for _index in 240:
 		if int(boss.get("health")) <= 0:
 			return
 		if GameState.missile_count == 0:
@@ -252,7 +254,7 @@ func _kill_with_missiles(boss: Node) -> void:
 
 
 func _kill_tidal(tidal: Node, grate: Node) -> void:
-	for _index in 100:
+	for _index in 300:
 		if int(tidal.get("health")) <= 0:
 			return
 		if not tidal.call("is_vulnerable_to", &"missile"):
@@ -267,10 +269,12 @@ func _kill_tidal(tidal: Node, grate: Node) -> void:
 				Weapons.reset_runtime()
 				Weapons.fire(&"beam", Vector2(0, 300), Vector2.RIGHT)
 				await _physics_frames(14)
-				_check(
-					tidal.call("is_vulnerable_to", &"missile"),
-					"explicit wave grate opens tidal phase two"
-				)
+				# A spent opening stays shut until the next punish window (boss-rework R8).
+				if int(tidal.get("_opening_damage")) > 0:
+					_check(
+						tidal.call("is_vulnerable_to", &"missile"),
+						"explicit wave grate opens tidal phase two"
+					)
 		if GameState.missile_count == 0:
 			GameState.refill_missiles(5)
 		GameState.set_active_beam(&"base")

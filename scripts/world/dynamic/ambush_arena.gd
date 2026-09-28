@@ -5,9 +5,10 @@ extends Node2D
 ## remembered as cleared (world flag), so the ambush never repeats. Every spawn is telegraphed and
 ## uses an authored point at a safe distance from the player (AmbushRules). Safety: only enemies
 ## the current kit can beat are spawned and an arena with none never seals; death, leaving the
-## arena or a fight in which no enemy is hurt for `stall_seconds` aborts and re-arms it once the
-## player has left the trigger; a failsafe clears after `max_seconds`; escaped enemies count as
-## beaten. Position is the arena centre; spawn points and rectangles are relative to it.
+## arena or a fight in which no enemy is hurt for `stall_seconds` (campaign only) aborts and
+## re-arms it once the player has left the trigger; a failsafe clears after `max_seconds`; escaped
+## enemies count as beaten. Position is the arena centre; spawn points and rectangles are relative
+## to it.
 
 signal sealed
 signal cleared
@@ -44,7 +45,8 @@ const LEASH_FLOOR_MARGIN := 16.0
 @export var local_id := "arena"
 @export var flag_id := ""
 @export var max_seconds := 120.0
-## Aborts the fight when no ambush enemy loses health for this long.
+## Aborts the fight when no ambush enemy loses health for this long; 0 turns the abort off (the
+## Trials gauntlet, where an abort would end the run while the player is still fighting).
 @export var stall_seconds := 40.0
 @export var area_override: StringName = &""
 ## False for arenas that are the whole point of the room (the Trials gauntlet): the skip-ambushes
@@ -372,6 +374,8 @@ func _is_alive(enemy) -> bool:
 
 ## Stall backstop: true once no ambush enemy has lost health (or died) for `stall_seconds`.
 func _stalled(delta: float) -> bool:
+	if stall_seconds <= 0.0:
+		return false
 	_stall += delta
 	for key in _health.keys():
 		var enemy := instance_from_id(key)

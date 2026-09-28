@@ -23,6 +23,7 @@ func _run() -> void:
 	await _hidden_before_ending()
 	await _gauntlet_clears_in_order()
 	await _gauntlet_death_fails()
+	await _gauntlet_outlasts_stall()
 	await _boss_rush_chains_three()
 	_best_kept_only_when_better()
 	_save_round_trip_and_old_saves()
@@ -321,6 +322,36 @@ func _gauntlet_death_fails() -> void:
 	_check(
 		_disk_snapshot().get(TrialRecords.SNAPSHOT_KEY, {}) == best, "a failed run saves nothing"
 	)
+	await _close(root)
+
+
+## A wave nobody hurts for longer than the campaign's 40 s stall abort keeps the run going:
+## the gauntlet only ends on a clear or a death.
+func _gauntlet_outlasts_stall() -> void:
+	print("gauntlet stall")
+	_check(TrialsEntry.prepare(TrialCatalog.GAUNTLET), "gauntlet restarts for the stall case")
+	var root := await _trial()
+	var arena := root.arena
+	root.player.dev_invulnerable = true
+	var feet := TrialRoomBuilder.feet(root.room, Vector2i(20, 14))
+	root.player.global_position = feet
+	_check(
+		await _until(func() -> bool: return arena.state == AmbushArena.State.FIGHTING, 3.0),
+		"the first wave is fighting"
+	)
+	for _frame in 60 * 45:
+		root.player.global_position = feet
+		root.player.velocity = Vector2.ZERO
+		await get_tree().physics_frame
+	_check(
+		root.phase == TrialsRoot.Phase.RUNNING and arena.state == AmbushArena.State.FIGHTING,
+		(
+			"45 s without a hit does not abort the gauntlet (phase %d, arena %d)"
+			% [root.phase, arena.state]
+		)
+	)
+	GameState.apply_damage(99999)
+	await _until(func() -> bool: return root.phase == TrialsRoot.Phase.DONE, 2.0)
 	await _close(root)
 
 

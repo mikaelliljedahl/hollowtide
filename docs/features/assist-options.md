@@ -39,7 +39,7 @@ bosses, and any mark on saves or Trials results that assists were used (section 
 |---|---|---|---|
 | Game speed | 100, 90, 80, 70, 60, 50 % | Sets the engine base speed (`Engine.time_scale`), so movement, enemies, timers and physics all slow together | `apply_game_speed`, `scripts/progression/assist.gd:43` |
 | Damage taken | 100, 50, 25, 0 % | Multiplies every hit and heat tick the player takes (section 4) | `scale_damage`, `scripts/progression/assist.gd:35` |
-| Skip ambushes | Off, On | Ambush arenas never seal, except an arena that opts out (section 6) | `_skipped_by_assist`, `scripts/world/dynamic/ambush_arena.gd:331` |
+| Skip ambushes | Off, On | Ambush arenas never seal, except an arena that opts out (section 6) | `_skipped_by_assist`, `scripts/world/dynamic/ambush_arena.gd:332` |
 
 The rows are built at `scripts/ui/settings_menu.gd:124` to `:139`.
 
@@ -85,7 +85,7 @@ back to the settings file once when nothing has been mirrored yet (`_value`,
 
 ## 6. Skip ambushes
 
-While the option is on, an armed ambush arena ignores the player (`scripts/world/dynamic/ambush_arena.gd:159`):
+While the option is on, an armed ambush arena ignores the player (`scripts/world/dynamic/ambush_arena.gd:160`):
 it never seals, spawns nothing, sets no clear flag and drops no clear refill, so the Ebb Mend glyph
 heals nothing there either. The check runs only in the armed state, so turning the option on during a
 fight does not end that fight; the next death or leave abort re-arms the arena and it then stays open.
@@ -97,7 +97,7 @@ the campaign. Fast travel refuses trips only while an arena is sealing or fighti
 never block it.
 
 An arena that is the whole point of its room sets `assist_skippable` to false
-(`scripts/world/dynamic/ambush_arena.gd:50`) and ignores the option. The Trials Gauntlet is that
+(`scripts/world/dynamic/ambush_arena.gd:51`) and ignores the option. The Trials Gauntlet is that
 case: skipping it would leave a run that never starts.
 
 ## 7. Known interactions

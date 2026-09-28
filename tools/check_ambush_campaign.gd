@@ -3,7 +3,8 @@ extends Node
 ## Campaign ambushes outside the Fringe (docs/features/ambush-arenas.md): one arena each in the
 ## nexus, vaults, kiln and depths. Per arena: the kit the campaign move tests grant never seals it,
 ## the arrival kit seals every opening, both waves clear when their enemies are killed, and the clear
-## flag survives a room reload.
+## flag survives a room reload. A save shrine inside an arena neither refills nor saves until the
+## clear, and the vaults_01 wave-2 turret stays on the pit floor.
 ## godot --headless --path . res://tools/check_ambush_campaign.tscn -- --test-mode
 
 const CAMPAIGN := preload("res://scenes/campaign/campaign.tscn")
@@ -27,6 +28,7 @@ const CASES := [
 		"seals": 2,
 		"idle_kit": [&"slipstream"],
 		"kit": [&"beam", &"slipstream", &"bombs", &"missiles"],
+		"pit_floor": Vector2(13.5, 15),
 	},
 	{
 		"room": "kiln_02",
@@ -154,6 +156,83 @@ func _kill_all(arena: AmbushArena) -> void:
 			enemy.call("receive_hit", 999, &"missile", {})
 
 
+## Sweep 2026-09-24: a shard turret perched on the cache shelf covered the whole sealed pit. Every
+## authored spawn lies on the pit floor, and the player stands mid-pit (where the relocation rule
+## used to lift the turret onto the shelf) while wave 2 spawns.
+func _check_pit_spawns(room: String, arena: AmbushArena, pit_floor: Vector2) -> void:
+	var feet := (arena.get_parent() as Node2D).to_global(pit_floor * TILE)
+	var lifted: Array[Vector2] = []
+	for point in arena.authored_points():
+		if absf(point.y - feet.y) >= TILE:
+			lifted.append(point)
+	_check(
+		lifted.is_empty(),
+		"%s: every spawn point is on the pit floor (above it: %s)" % [room, lifted]
+	)
+	var player := _root.get("player") as Player
+	player.global_position = feet
+	player.velocity = Vector2.ZERO
+
+
+## The save shrine inside `arena`, if the layout puts one there.
+func _shrine_in(arena: AmbushArena) -> Area2D:
+	for node in get_tree().get_nodes_in_group(&"campaign_station"):
+		var station := node as Area2D
+		if (
+			station.get("station_kind") == &"save"
+			and arena.arena_rect_global().has_point(station.global_position)
+		):
+			return station
+	return null
+
+
+func _shrine_floor(shrine: Area2D) -> Vector2:
+	return shrine.global_position + Vector2(0, float(shrine.get("FLOOR_OFFSET_Y")))
+
+
+## Mid-fight the shrine gives back nothing and writes no checkpoint, however often she steps on.
+func _shrine_dormant(room: String, shrine: Area2D) -> void:
+	var player := _root.get("player") as Player
+	var checkpoint := GameState.checkpoint.duplicate(true)
+	GameState.health = 10
+	GameState.missile_count = 0
+	for _visit in 2:
+		player.global_position = _shrine_floor(shrine)
+		player.velocity = Vector2.ZERO
+		await _seconds(1.5)
+		player.global_position.x -= 3 * TILE
+		await _seconds(0.3)
+	_check(
+		GameState.health == 10 and GameState.missile_count == 0,
+		(
+			"%s: the save shrine refills nothing mid-fight (health %d, Harpoons %d)"
+			% [room, GameState.health, GameState.missile_count]
+		)
+	)
+	_check(GameState.checkpoint == checkpoint, "%s: the save shrine does not save mid-fight" % room)
+
+
+## After the clear the same shrine refills and saves again.
+func _shrine_awake(room: String, shrine: Area2D) -> void:
+	var player := _root.get("player") as Player
+	player.global_position.x = shrine.global_position.x - 4 * TILE
+	await _seconds(1.3)
+	player.global_position = _shrine_floor(shrine)
+	player.velocity = Vector2.ZERO
+	await _seconds(0.5)
+	_check(
+		(
+			GameState.health == GameState.max_health
+			and GameState.missile_count == GameState.max_missiles
+		),
+		"%s: the save shrine refills after the clear" % room
+	)
+	_check(
+		GameState.checkpoint.get("room", "") == room,
+		"%s: the save shrine saves after the clear" % room
+	)
+
+
 # --- cases -----------------------------------------------------------------------------------
 
 
@@ -181,15 +260,37 @@ func _case(case: Dictionary) -> void:
 	for ids in arena.all_waves():
 		spawns += ids.size()
 	var first_id := arena.get_instance_id()
+	var shrine := _shrine_in(arena)
+	if shrine != null:
+		await _shrine_dormant(room, shrine)
+	if case.has("pit_floor"):
+		_check_pit_spawns(room, arena, case["pit_floor"])
 	var waves := 0
+	var turret_y := -INF
 	for _frame in 60 * 40:
 		if arena.state == AmbushArena.State.CLEARED:
 			break
 		if arena.state == AmbushArena.State.FIGHTING:
 			waves = maxi(waves, arena.wave_index + 1)
+			for enemy in arena.enemies:
+				if is_instance_valid(enemy) and enemy.get("enemy_id") == &"shard_turret":
+					turret_y = maxf(turret_y, (enemy as Node2D).global_position.y)
 		_kill_all(arena)
 		await get_tree().physics_frame
 	_check(arena.state == AmbushArena.State.CLEARED and waves == 2, "%s: both waves clear" % room)
+	if case.has("pit_floor"):
+		var floor_y := (
+			(arena.get_parent() as Node2D).to_global((case["pit_floor"] as Vector2) * TILE).y
+		)
+		_check(
+			absf(turret_y - floor_y) < TILE,
+			(
+				"%s: the wave-2 turret stands on the pit floor (y %.0f, floor %.0f)"
+				% [room, turret_y, floor_y]
+			)
+		)
+	if shrine != null:
+		await _shrine_awake(room, shrine)
 	_check(
 		(
 			_telegraphs.size() == spawns
