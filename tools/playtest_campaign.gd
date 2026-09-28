@@ -117,7 +117,7 @@ func candidates(state: Dictionary) -> Array:
 	var follow := _follow(current, where, index) if result.is_empty() else {}
 	if not follow.is_empty():
 		result.append(follow)
-	result.append_array(_doors(state, current))
+	result.append_array(_doors(state, current, follow))
 	result.append_array(travel.candidates(_root, _player, index, where))
 	return result
 
@@ -157,8 +157,10 @@ func _follow(current: Dictionary, where: Dictionary, index: int) -> Dictionary:
 	)
 
 
-## One `go_to_door` per open door of the room, the route's door first and following the route.
-func _doors(state: Dictionary, current: Dictionary) -> Array:
+## One `go_to_door` per open door of the room, the route's door first. While the route can be
+## followed, the route's door plays the route itself: a straight steer at a door far below turns
+## back and forth under it (jev-c1 spent 580 s in fringe_04 above its bomb floor that way).
+func _doors(state: Dictionary, current: Dictionary, follow: Dictionary) -> Array:
 	var room := String(state["room"]["id"])
 	if not Rooms.ROOMS.has(room):
 		return []
@@ -178,6 +180,8 @@ func _doors(state: Dictionary, current: Dictionary) -> Array:
 		)
 		if id == on_route:
 			entry["label"] += " (on the route to %s)" % current["room"]
+			if not follow.is_empty():
+				entry["program"] = follow["program"]
 			result.push_front(entry)
 		else:
 			result.append(entry)

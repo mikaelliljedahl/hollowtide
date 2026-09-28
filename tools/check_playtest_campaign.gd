@@ -361,6 +361,19 @@ func _test_navigator_climbs(room: CampaignRoom) -> void:
 	var offered := Actions.public(Actions.candidates(state, _player, campaign.candidates(state)))
 	var pick := Policy.new(1).heuristic(state, offered, false)
 	_check(pick == "go_to_objective", "the heuristic follows the route (%s)" % pick)
+	var follow := {"program": Nav.Follow.new(campaign.nav, _root, _player, 0, 1)}
+	GameState.unlock_ability(&"slipstream")
+	GameState.unlock_ability(&"bombs")
+	var in_fringe_04 := state.duplicate(true)
+	in_fringe_04["room"]["id"] = "fringe_04"
+	var doors: Array = campaign._doors(in_fringe_04, {"room": "vaults_02"}, follow)
+	_check(
+		not doors.is_empty() and is_same(doors[0]["program"], follow["program"]),
+		(
+			"the route's door plays the route (%s)"
+			% [doors.map(func(d): return [d["key"], d["label"]])]
+		)
+	)
 	var driver := Programs.Driver.new()
 	for _frame in 900:
 		if driver.done():
