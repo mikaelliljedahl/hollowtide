@@ -6,7 +6,10 @@ extends RefCounted
 ## place clears Fault Slam and Boulder Volley when it starts 0.15 to 0.9 s before the shockwave
 ## or the rock arrives, a step of about 110 px clears Rockfall, and running away clears Shoulder
 ## Charge; against the low roof at the west end the body is pinned, and there Rockfall is cleared
-## by rolling under the roof and the charge by standing still (it stops short of the pocket).
+## by rolling under the roof and the charge by standing still (it stops short of the pocket). The
+## Cinder Warden probe in kiln_03 (player at cell 26, boss 6 tiles east, stage 3): curling in place
+## clears the Ember Fan at any start (15/17), standing still clears the Heat Ring (17/17), running
+## away clears the Scuttle Rush when started within 0.9 s (10/17).
 
 const Programs = preload("res://tools/playtest_programs.gd")
 ## Shot speeds and origins of scripts/enemies/boss_attacks.gd (`emissions`).
@@ -27,6 +30,14 @@ const SPOT_STEP := 8
 const SETTLE_FRAMES := 12
 ## A walk stops this close (px) to its spot; walking stops in about 20 px.
 const STEP_TOLERANCE := 24.0
+## Ember Fan (scripts/enemies/boss_attacks.gd): speed, origin, the second fan's delay in
+## desperation, and the seconds a curled ball waits after the fan reaches her column.
+const FAN_SPEED := 380.0
+const FAN_ORIGIN := 60.0
+const FAN_REPEAT := 0.3
+const FAN_PASS := 0.35
+## Seconds after release a player standing still waits while the Heat Ring passes her.
+const RING_PASS := 1.0
 const DESPERATION_STAGE := 4
 ## Half the body width plus a shot's radius: a shot this close to the body's centre line hits.
 const REACH := 40.0
@@ -100,12 +111,28 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 				return _entry(
 					attack, "curl and roll under the low roof until the %s is over" % name, roll
 				)
-		"shoulder_charge":
+		"ember_fan":
+			# Curl where she stands and stay curled until the fan (both fans in desperation) passed.
+			var reach := maxf(rel.length() - FAN_ORIGIN, 0.0) / FAN_SPEED
+			var passed := release + reach + FAN_PASS + (FAN_REPEAT if desperate else 0.0)
+			if passed < 0.0:
+				return {}
+			program = Programs.hold([&"slipstream"], 2)
+			program.append_array(Programs.hold([], roundi(passed * FPS)))
+			program.append_array(Programs.hold([&"slipstream"], 2))
+			program.append_array(Programs.hold([], Programs.SLIP_FRAMES))
+			label = "curl into a ball where she stands until the Ember Fan has flown over"
+		"heat_ring":
+			if phase != "telegraph":
+				return {}
+			program = Programs.hold([], roundi((release + RING_PASS) * FPS))
+			label = "stand still: the Heat Ring's gap is aimed at her"
+		"shoulder_charge", "scuttle_rush":
 			if phase != "telegraph":
 				return {}
 			if pinned:
 				program = Programs.hold([], int((release + 0.6) * FPS))
-				label = "stand still in the pocket: the Shoulder Charge stops short of it"
+				label = "stand still in the pocket: the charge stops short of it"
 			else:
 				# Run to the wall's pocket but not out of the arena (the boss stops fighting there).
 				var arena = boss.get("arena_rel")
@@ -155,6 +182,17 @@ static func _jumps(arrival: float, gap: float) -> Array:
 	frames.append_array(Programs.hold([], roundi(gap * FPS) - DOUBLE_JUMP_HOLD))
 	frames.append_array(Programs.jump(0, DOUBLE_JUMP_HOLD))
 	return frames
+
+
+## A live boss standing on the floor between the player and `goal`, or {}.
+static func boss_between(enemies: Array, goal: Vector2) -> Dictionary:
+	for enemy in enemies:
+		if not enemy["is_boss"]:
+			continue
+		var rel := Vector2(float(enemy["rel"][0]), float(enemy["rel"][1]))
+		if rel.x * goal.x > 0.0 and absf(rel.x) < absf(goal.x) and absf(rel.y) < 200.0:
+			return enemy
+	return {}
 
 
 ## True when nothing solid hangs within JUMP_OVER_ROOM px above the top of a boss body at `rel`

@@ -1,5 +1,5 @@
 extends RefCounted
-## Playtest agent macro actions (docs/features/playtest-agent.md). `candidates()` offers 6 to 14
+## Playtest agent macro actions (docs/features/playtest-agent.md). `candidates()` offers 5 to 14
 ## labelled options for the current state; each carries a program built by
 ## playtest_programs.gd: one Array of held input actions per physics frame.
 
@@ -35,6 +35,8 @@ const RETREAT_REACH := 160.0
 ## into a shot is not offered when it would leave a live boss's arena (a probe dashed out of the
 ## depths_02 door at the arena edge and lost the fight).
 const DASH_REACH := 384.0
+## A trigger this far (px) above or below the feet is not on her floor.
+const AMBUSH_FLOOR := 160.0
 ## The boss approach stops this far (px) inside the arena's edge.
 const ARENA_MARGIN := 48.0
 ## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
@@ -117,13 +119,21 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	if not refill.is_empty():
 		result.append(refill)
 	var arena = state["ambush"]
-	if arena != null and arena["state"] == "armed" and not _near(_vec(arena["trigger_rel"])):
+	# In campaign mode only on the trigger's own floor: the route reaches it otherwise, and a straight
+	# steer at a trigger far below stood still on the ledge above it (jev-r3 spent 550 s in fringe_03).
+	var trigger := _vec(arena["trigger_rel"]) if arena != null else Vector2.ZERO
+	if (
+		arena != null
+		and arena["state"] == "armed"
+		and not _near(trigger)
+		and (route.is_empty() or absf(trigger.y) <= AMBUSH_FLOOR)
+	):
 		result.append(
 			_entry(
 				"go_to_ambush",
 				"go_to_ambush",
 				"walk into the arena",
-				Programs.steer(player, _vec(arena["trigger_rel"]), false)
+				Programs.steer(player, trigger, false)
 			)
 		)
 	for pickup in (state["pickups"] as Array).slice(0, 2):
@@ -206,7 +216,10 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 			_entry(
 				"approach:%s" % target["id"],
 				"approach",
-				"move to firing range of %s" % target["type"],
+				(
+					("move to firing range of %s" if engaged else "walk into the arena of %s")
+					% target["type"]
+				),
 				Programs.steer(player, step, false)
 			)
 		)
@@ -219,7 +232,14 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 				Programs.steer(player, rel, false)
 			)
 		)
-	if not is_boss or stays_in_arena(target, -toward, RETREAT_REACH):
+	# No retreat from a threat out of reach, or into a wall: Jev at 10 health retreated from a bat
+	# 500 px away into the vaults_02 east wall 2,600 times (jev-r2, round 3).
+	var pinned := player.test_move(player.global_transform, Vector2(-toward * 24, 0))
+	if (
+		(not is_boss or stays_in_arena(target, -toward, RETREAT_REACH))
+		and rel.length() <= THREAT_RANGE
+		and not pinned
+	):
 		result.append(
 			_entry(
 				"retreat",
@@ -389,22 +409,11 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 			continue
 		var label := "go to the %s refill to restore %s" % [refill["kind"], " and ".join(wanted)]
 		var program: Variant = Programs.steer(player, _vec(refill["rel"]), true)
-		var boss := _boss_between(state["enemies"], _vec(refill["rel"]))
+		var boss := Dodge.boss_between(state["enemies"], _vec(refill["rel"]))
 		if not boss.is_empty() and Dodge.headroom(player, _vec(boss["rel"])):
 			label += ", jumping over %s on the way" % boss["type"]
 			program = Dodge.JumpOver.new(player, _vec(refill["rel"]), _vec(boss["rel"]))
 		return _entry("go_to_refill:%s" % refill["kind"], "go_to_refill", label, program)
-	return {}
-
-
-## A live boss standing on the floor between the player and `goal`, or {}.
-static func _boss_between(enemies: Array, goal: Vector2) -> Dictionary:
-	for enemy in enemies:
-		if not enemy["is_boss"]:
-			continue
-		var rel := _vec(enemy["rel"])
-		if rel.x * goal.x > 0.0 and absf(rel.x) < absf(goal.x) and absf(rel.y) < 200.0:
-			return enemy
 	return {}
 
 

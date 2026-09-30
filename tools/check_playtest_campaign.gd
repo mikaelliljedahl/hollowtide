@@ -293,6 +293,18 @@ func _test_shots_that_can_land() -> void:
 	var freeze := {"key": "freeze:28_13", "kind": "freeze", "label": "", "program": []}
 	_check(not shots.call([]).is_empty(), "a stray floater can be shot")
 	_check(shots.call([freeze]).is_empty(), "not the floater the route is freezing")
+	# jev-r3: an armed arena whose trigger lies 448 px below stood her still on the ledge above it
+	# for 550 s; in campaign mode the route leads there instead.
+	state["enemies"] = []
+	state["ambush"] = {"state": "armed", "trigger_rel": [30, 448]}
+	var route := [{"key": "go_to_objective", "kind": "go_to_objective", "label": "", "program": []}]
+	var ambush := func() -> bool:
+		return Actions.candidates(state, _player, route).any(
+			func(e: Dictionary) -> bool: return e["kind"] == "go_to_ambush"
+		)
+	_check(not ambush.call(), "no straight walk at an arena trigger far below")
+	state["ambush"]["trigger_rel"] = [300, 0]
+	_check(ambush.call(), "a trigger on her floor is still walked to")
 
 
 static func _pick(state: Dictionary, offered: Array) -> String:

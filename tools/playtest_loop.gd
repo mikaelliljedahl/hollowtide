@@ -131,7 +131,10 @@ func _decide() -> void:
 	current = Actions.find(options, key)
 	if current.is_empty():
 		current = options[0]
-	driver.start(current["program"])
+	if _player.is_ball and current["kind"] in Programs.STANDING_KINDS:
+		driver.start(Programs.StandFirst.new(current["program"]))
+	else:
+		driver.start(current["program"])
 	telemetry.record_decision(policy_name, latency, fallback, current["kind"])
 	var line := (
 		JSON

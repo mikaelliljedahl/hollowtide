@@ -29,6 +29,9 @@ func run() -> void:
 	for attack in [&"fault_slam", &"rockfall", &"boulder_volley"]:
 		await _test_attack(attack)
 	await _test_headroom()
+	await _test_retreat_reach()
+	_test_walk_into_arena()
+	await _test_stands_up_first()
 
 
 func _check(condition: bool, label: String) -> void:
@@ -141,3 +144,95 @@ func _test_headroom() -> void:
 		refill.get("program") is Dodge.JumpOver, "the refill run jumps over the boss (%s)" % refill
 	)
 	await _frames(2)
+
+
+## Retreat is offered from a near threat only, and never into a wall: at 10 health Jev retreated
+## from a bat 500 px away into the vaults_02 east wall for 500 s (jev-r2).
+func _test_retreat_reach() -> void:
+	_reset_kit()
+	await _frames(20)
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	var bat := {
+		"id": "e7",
+		"type": "bat",
+		"rel": [-500, -40],
+		"dist": 502,
+		"health": 6,
+		"max_health": 6,
+		"is_boss": false,
+		"telegraph": false,
+		"ambush": false,
+		"hurt_by": ["beam"],
+		"switch_to": "",
+		"visible": true,
+	}
+	state["enemies"] = [bat]
+	var keys := Actions.candidates(state, _player).map(
+		func(e: Dictionary) -> String: return e["key"]
+	)
+	_check(not keys.has("retreat"), "no retreat from a bat 500 px away (%s)" % [keys])
+	bat["rel"] = [-300, -40]
+	bat["dist"] = 303
+	keys = Actions.candidates(state, _player).map(func(e: Dictionary) -> String: return e["key"])
+	_check(keys.has("retreat"), "a bat 300 px away offers the retreat")
+	bat["rel"] = [300, -40]
+	var wall := StaticBody2D.new()
+	var shape := CollisionShape2D.new()
+	var box := RectangleShape2D.new()
+	box.size = Vector2(40, 400)
+	shape.shape = box
+	wall.add_child(shape)
+	WorldFxTestbed.entities(_root.current_room).add_child(wall)
+	wall.global_position = _player.global_position + Vector2(-50, -200)
+	await _frames(2)
+	keys = Actions.candidates(state, _player).map(func(e: Dictionary) -> String: return e["key"])
+	_check(not keys.has("retreat"), "no retreat into the wall behind her (%s)" % [keys])
+	wall.queue_free()
+	await _frames(2)
+
+
+## Outside its arena a boss neither fights nor takes damage, so the heuristic walks in even when it
+## is closer than its spacing (cw-j1 idled 268 s 28 px outside the kiln_03 arena).
+func _test_walk_into_arena() -> void:
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	state["enemies"] = [
+		{
+			"id": "e1",
+			"type": "furnace_mother",
+			"rel": [344, -92],
+			"dist": 356,
+			"health": 67,
+			"max_health": 360,
+			"is_boss": true,
+			"telegraph": false,
+			"ambush": false,
+			"hurt_by": [],
+			"switch_to": "",
+			"visible": true,
+			"engaged": false,
+			"arena_rel": [28, -768, 2716, 0],
+			"attack": "",
+			"attack_state": "idle",
+		}
+	]
+	var options := Actions.public(Actions.candidates(state, _player))
+	var pick := Policy.new(1).heuristic(state, options, false)
+	_check(pick == "approach:e1", "the heuristic walks into a disengaged boss's arena (%s)" % pick)
+
+
+## A curled player stands up before a move that needs her standing: after a missed stand-up tap
+## she rolled around for 110 s in a Cinder Warden probe, where no shot is ever offered.
+func _test_stands_up_first() -> void:
+	_reset_kit()
+	await _frames(20)
+	Input.action_press(&"slipstream")
+	await _frames(2)
+	Input.action_release(&"slipstream")
+	await _frames(20)
+	_check(_player.is_ball, "the player is curled for the case")
+	var loop := Loop.new(_root, _player, Policy.HEURISTIC, 5, [])
+	for _frame in 40:
+		loop.physics_step(1.0 / 60.0)
+		await _host.get_tree().physics_frame
+	loop.finish({})
+	_check(not _player.is_ball, "the agent stands her up before its next move (%s)" % loop.current)

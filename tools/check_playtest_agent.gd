@@ -250,7 +250,7 @@ func _test_state_and_candidates() -> void:
 	var round_trip = JSON.parse_string(JSON.stringify(state))
 	_check(round_trip is Dictionary and round_trip.size() == state.size(), "state is JSON-safe")
 	var options := Actions.candidates(state, _player)
-	_check(options.size() >= 6 and options.size() <= 14, "6-14 candidates (%d)" % options.size())
+	_check(options.size() >= 5 and options.size() <= 14, "5-14 candidates (%d)" % options.size())
 	_check(options[0]["key"] == "idle", "idle comes first")
 	var keys := {}
 	var valid := true
@@ -262,8 +262,9 @@ func _test_state_and_candidates() -> void:
 				valid = valid and action is StringName and InputMap.has_action(action)
 	_check(keys.size() == options.size(), "candidate keys are unique")
 	_check(valid, "every program holds only real input actions")
-	for kind in ["approach", "retreat", "shoot", "jump"]:
+	for kind in ["approach", "shoot", "jump"]:
 		_check(options.any(func(e: Dictionary) -> bool: return e["kind"] == kind), "offers " + kind)
+	_check(not keys.has("retreat"), "no retreat from the hopper 1,024 px away")
 	loop.finish({})
 	hopper.queue_free()
 	await _frames(5)

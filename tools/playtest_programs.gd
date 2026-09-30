@@ -27,6 +27,19 @@ const DUCK_FRAMES := 45
 ## her queued `_input` press in the next frame (measured in tools/check_playtest_round3.gd). Only
 ## the beam cycle has no cooldown to absorb the second one, so one tap would step two beams.
 const LATE_PRESSES: Array[StringName] = [&"cycle_beam", &"jump"]
+## Candidate kinds that need a standing body: a curled player stands up first (`StandFirst`).
+const STANDING_KINDS := [
+	"approach",
+	"retreat",
+	"shoot",
+	"jump_shoot",
+	"harpoon",
+	"open_boss",
+	"select_beam",
+	"jump_over",
+	"go_to_refill",
+	"idle",
+]
 
 
 ## A walking program toward `rel`, jumping when a wall blocks the way or the target is above.
@@ -200,6 +213,34 @@ static func hold(held: Array, count: int) -> Array:
 
 static func _sign(value: float) -> int:
 	return -1 if value < 0.0 else 1
+
+
+## Stands a curled player up (one Slipstream tap, then the curl's frames) before `program`, which
+## may be an Array or a live program. A curl whose stand-up tap came during a hit's input lock
+## left her rolling in ball form, where no shot is offered, for 110 s in a Cinder Warden probe.
+class StandFirst:
+	extends RefCounted
+
+	var finished := false
+	var _program: Variant
+	var _frame := 0
+
+	func _init(program: Variant) -> void:
+		_program = program
+
+	func next() -> Array:
+		_frame += 1
+		if _frame <= 2:
+			return [&"slipstream"]
+		if _frame <= 2 + SLIP_FRAMES:
+			return []
+		var index := _frame - 3 - SLIP_FRAMES
+		if _program is Array:
+			finished = index >= (_program as Array).size() - 1
+			return _program[index] if index < (_program as Array).size() else []
+		var held: Array = _program.call(&"next")
+		finished = bool(_program.get("finished"))
+		return held
 
 
 ## Plays programs frame by frame: an Array of held-action sets, or a live program that decides
