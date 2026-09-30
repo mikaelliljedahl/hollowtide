@@ -69,6 +69,9 @@ coherent update; loading the same snapshot does not re-issue the pickup reward.
   target file atomically. Snapshot contains schema version and domain which is checked when reading.
 - A corrupt master file permits restoration from a valid backup within the same domain. An unknown
   version is left untouched. If a valid backup is missing, menu error/new game selection is displayed without automatic deletion.
+  *Superseded in part (2026-09-28):* such a slot no longer blocks later saves; the next save sets it
+  aside under a new name and writes a fresh slot. See
+  [Accepted save-slot safety amendment](#accepted-save-slot-safety-amendment).
 - **Station reset:** reset station volatiles, local test doors/blocks and
   station sandbox flags to saved station baseline. Keep selected preset and its
   resource levels as starting values. Never change anything on disk; campaign world is not affected.
@@ -440,3 +443,67 @@ the Boss Rush (the three bosses in order). Design: [features/trials.md](features
   before anything is written, so the only possible change to the save is a better best.
 - Vision fit: Trials never replace the world. They are reached only from the title after the ending,
   and the results panel is a menu outside the game world; the world itself still carries no text.
+
+## Accepted boss pacing and fight-refill amendment
+
+Accepted by the user's merge of PR #4 on 2026-09-28. It settles the design calls from the first Jev
+sweep: boss fights lasted 4 to 7 s with a full Harpoon supply, and shrines inside ambush arenas
+refilled the player mid-fight. Design: [features/boss-rework.md](features/boss-rework.md) and
+[features/ambush-arenas.md](features/ambush-arenas.md) section 3.
+
+- **No health or save during a fight.** While an ambush arena is sealing, fighting or between waves,
+  or a living boss holds the player inside its arena, every source that restores health or saves
+  lies dormant (`scripts/world/dynamic/combat_lock.gd:14`, `scripts/campaign/station.gd:91`,
+  `scripts/dev/dev_refill_pad.gd:52`). Ammo-only sources stay live, because each boss arena that
+  needs Harpoons keeps its recurring Quiver Cache refill. Fast travel uses the same lock.
+- **Damage paced by openings.** The fight's start and every punish window are an opening that
+  accepts at most 1/16 of the boss's maximum health, rounded up (a quarter of health over four
+  openings per stage, `scripts/enemies/boss_patterns.gd:120`). No hit carries past a stage
+  threshold, and a stage change spends the opening and closes any open window
+  (`scripts/enemies/boss.gd:197`), so every stage attacks. Boss HP, the damage matrix and weapon
+  requirements are unchanged.
+- **Wall pocket.** A boss's walk and every charge stop 128 px of floor short of the first wall, low
+  roof or step (`scripts/enemies/boss_attacks.gd:27`, `scripts/enemies/boss_motion.gd:86`), so a
+  player backed against it is out of reach.
+- **Trials Gauntlet has no stall abort** (`scripts/trials/trials_root.gd:95`); campaign arenas keep
+  the 40 s abort.
+
+## Accepted save-slot safety amendment
+
+Accepted by the user's merge of PR #5 on 2026-09-28. It supersedes the "left untouched" wording in
+[Save domains and reset](#save-domains-and-reset--suggested-exact-delimitation) and in
+[devmode-contract.md](devmode-contract.md), because a damaged or newer-version slot blocked every
+later save and could undo a boss win.
+
+- A corrupt, unknown-version, stale or wrong-domain slot without a valid backup is never overwritten
+  or deleted: the next save renames it to `slot_01.<kind>.<pid>.<usec>.json` and writes a new slot
+  (`scripts/save/save_store.gd:129`). A corrupt slot with a valid backup is still restored from the
+  backup, and the damaged file is kept the same way.
+- The title explains why Continue is missing (`scripts/ui/start_menu.gd:184`).
+- **Test isolation.** Every automated Godot run (the suite runner, the playtest runner and capture
+  checks) gets its own HOME and XDG folders through `tools/godot_env.py`, because Godot on macOS
+  resolves user:// from HOME and ignores XDG. The `godot isolation` suite checks that the real
+  player's settings file is unchanged. `make run`, `make dev` and the editor import in `make import`
+  are not test runs and use the real HOME.
+
+## Accepted campaign playtest mode
+
+Accepted by the user's merges of PR #6 (2026-09-28), PR #7 (2026-09-28) and PR #8 (2026-09-30). The
+playtest agent plays the real campaign through real inputs; its campaign mode starts a new game with
+an empty kit and no teleports or grants and plays toward the ending. Design and results:
+[features/playtest-agent.md](features/playtest-agent.md) sections 13, 19 and 20.
+
+- **Dev tooling only.** Everything lives in `tools/`, is reached only from the command line, and the
+  launch scene refuses to run outside a debug build with `--test-mode`
+  (`tools/playtest_agent.gd:78`), so the player's save is never written. It is never a player mode
+  and must stay out of any release export.
+- **Game changes only through normal ownership.** The agent itself changes no game code; findings
+  that need a game change (the kiln_01 vent flyers in PR #7) go through the owning role and a check.
+- **Data boundary.** The heuristic and random policies send nothing off the machine. The hosted
+  TypeSafe Jev backend is the user's explicit choice per run and receives only the compact game
+  state and the candidate action keys: never repository contents, source, logs, paths or save files.
+  The key is read from the environment variable `TYPESAFE_API_KEY` at the moment of each request
+  (`tools/playtest/jev_backend.py:28`), never passed as a flag, logged or written, and it is removed
+  from Godot's environment (`tools/playtest/run.py:104`). `--jev-budget-usd` caps estimated spend.
+- **No training on Jev outputs.** Never train or fine-tune any model, local ones included, on Jev's
+  answers, probabilities or danger scores (TypeSafe's terms forbid distillation).
