@@ -6,6 +6,8 @@
     python3 tools/playtest/run.py --room fringe_03 --kit beam --seeds 1 --policy external \\
         --backend jev          # hosted Jev; needs TYPESAFE_API_KEY in the environment
     python3 tools/playtest/run.py --campaign --seeds 1 --out <dir>   # new game to the ending
+    python3 tools/playtest/run.py --campaign --policy external --backend jev --critic
+        # ... and Jev rates every room, arena and boss afterwards (ratings.md per run)
 
 Each run launches Godot with res://tools/playtest_agent.tscn in --test-mode with its own save root
 and its own user:// directory under the run's output folder, so the player's real save and
@@ -28,6 +30,7 @@ from pathlib import Path
 import aggregate
 import campaign_route
 import jev_backend
+import jev_critic
 import jev_feedback
 from policy_server import BACKENDS, Backend, PolicyServer
 
@@ -179,6 +182,13 @@ def run_one(args: argparse.Namespace, seed: int, base: Path) -> tuple[Path, Back
         jev = jev_feedback.apply(out, backend)
         for finding in jev["findings"] if jev else []:
             print(f"  - {finding}")
+    if args.critic and (out / "report.json").exists():
+        rated = jev_critic.rate_run(out, args.jev_base_url, args.jev_model, args.critic_budget_usd)
+        card = rated["scorecard"]
+        print(
+            f"critic: {card['rated']} rated, {card['failed']} failed, overall"
+            f" {card.get('all', {}).get('overall')}; see {out / jev_critic.RATINGS_MD}"
+        )
     return out, backend
 
 
@@ -232,6 +242,17 @@ def main() -> int:
         help="estimated spend per run after which the heuristic's hint is played (skip:budget)",
     )
     parser.add_argument(
+        "--critic",
+        action="store_true",
+        help="after each run, Jev rates every room, arena and boss (needs TYPESAFE_API_KEY)",
+    )
+    parser.add_argument(
+        "--critic-budget-usd",
+        type=float,
+        default=jev_critic.DEFAULT_BUDGET_USD,
+        help="estimated spend per run after which the critic skips the remaining segments",
+    )
+    parser.add_argument(
         "--wall-limit", type=float, help="wall seconds before the run is killed (seconds * 4 + 120)"
     )
     parser.add_argument("--godot", default=os.environ.get("GODOT", "godot"))
@@ -251,14 +272,15 @@ def main() -> int:
         args.seconds = CAMPAIGN_SECONDS if args.campaign else 90.0
     if args.max_deaths is None:
         args.max_deaths = CAMPAIGN_MAX_DEATHS if args.campaign else 3
-    if args.backend == jev_backend.JevBackend.name:
-        if args.policy != "external":
-            parser.error("--backend jev needs --policy external")
+    if args.backend == jev_backend.JevBackend.name and args.policy != "external":
+        parser.error("--backend jev needs --policy external")
+    if args.backend == jev_backend.JevBackend.name or args.critic:
         try:
             jev_backend.require_key()
         except jev_backend.JevConfigError as error:
             print(f"error: {error}")
             return 2
+    if args.backend == jev_backend.JevBackend.name:
         # The game must wait longer than one Jev request, or every slow answer becomes a timeout.
         args.timeout_ms = max(args.timeout_ms, args.jev_timeout_ms + 700)
 

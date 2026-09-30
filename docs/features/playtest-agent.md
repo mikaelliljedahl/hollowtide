@@ -55,6 +55,7 @@ to game code.
 | Jev backend | `tools/playtest/jev_backend.py:391` | Hosted Jev or any `/v1/systemone` server (section 12). |
 | Jev feedback | `tools/playtest/jev_feedback.py:103` | Confusion hotspots, danger peaks, disagreement (section 12). |
 | Aggregate | `tools/playtest/aggregate.py:28` | Cross-run findings over several seeds or runs. |
+| Jev critic | `tools/playtest/jev_critic.py` | Jev rates each room, arena and boss after a run (section 22). |
 
 Decisions happen when the current program ends, at most every 6 physics frames (10 Hz at 60 Hz).
 A jump is committed for 28 frames, so the effective rate is 3 to 10 Hz. While the tree is paused
@@ -341,6 +342,12 @@ local server that ignores it.
 
 ## 14. Tests
 
+- `tools/check_playtest_critic.py` (suite `playtest critic`): the Jev critic against a local stub
+  `/v1/systemone` (no network): segments cut from a report (a room leaves its arena and boss
+  windows out, a boss's attacks seen against landed, retries, foreseen hits), the request's five
+  Scores and one Choice, answers parsed into named levels, goodness and flags, a bad answer or a
+  401 recorded per segment, the budget stop, a missing key, and no key in any written file.
+  `tools/check_playtest_dodge.gd` covers the boss recorder's `attacks_landed`.
 - `tools/check_playtest_agent.gd` (suite `playtest agent`): option parsing and refusals, state keys
   and JSON round trip, candidate count, unique keys and real input actions only, the heuristic kills
   a hopper in a small real room built with `tools/worldfx_testbed.gd` through inputs only, telemetry
@@ -657,3 +664,35 @@ that crosses the whole arena is to stand still for up to 5 s, and the next attac
 that. Ending a dodge when the boss telegraphs its next attack is the likely fix; two check-room
 setups (a stage 4 chain, and a stage 2 rotation behind a pillar) did not reproduce the hit on the
 current code, so it is not in this round.
+
+## 22. Jev critic (2026-09-30)
+
+`--critic` on `tools/playtest/run.py` (or `python3 tools/playtest/jev_critic.py <run dir>...` on a
+finished run) asks Jev to rate every segment of the run: each room's traversal, each arena and
+each boss fight, one entry per id in play order. It runs after the game has ended, from the run's
+`report.json` and `decisions.jsonl`, so no rating request competes with the policy's real-time
+decisions; the summary is the same one a live hook would send.
+
+Per segment, code builds the state: seconds (a room's time minus its fights), attempts and
+retries (a room counts its failed objective attempts), deaths, damage by source, hits, stuck
+seconds, the arena's best wave or the boss's best stage, per boss attack how often it was seen,
+landed and escaped (a landed attack is one that dealt damage, counted once however many hits it
+dealt; `attacks_landed` in the boss telemetry), the run's median time for the same kind of
+segment, and Jev's own play there (`jev_play`: decisions, mean confidence, low-confidence share,
+mean danger and high-danger share, and hits foreseen or not, as in the danger peaks of section 12).
+
+One POST per segment asks five Scores with three described levels each, difficulty (too easy,
+fair, too hard), fairness (were the hits avoidable: no, partly, yes), readability (unclear, some
+unclear, clear), pacing (boring, good, hectic) and fun (low, medium, high), and one Choice for the
+main problem over none, unfair_hit, unclear_warning, too_long, too_short, navigation_confusing,
+too_hard and too_easy. Every probability and confidence is kept in `ratings.json`; `ratings.md`
+has one row per segment and the scorecard. Composite scoring happens in code: a dimension's
+goodness in 0..1 is P(fair) for difficulty, P(good) for pacing and score / 2 for the others, and
+the overall is weighted 0.25 difficulty, 0.25 fairness, 0.2 readability, 0.15 pacing, 0.15 fun.
+A segment is flagged when Jev puts at least 0.4 on too hard, unfair (no), unclear or boring, or
+its main problem is unfair_hit, unclear_warning, too_long, too_hard or navigation_confusing with
+confidence 0.4 or more. A flag is a lead for a probe in the real room, never a change on its own.
+
+Jev reads numbers, not the screen: "readability" is judged from whether its own danger rating was
+high before a hit, and "fun" is a guess from the same facts. The critic stops at
+`--critic-budget-usd` (default $0.05 per run) and uses the policy's key handling (section 13).

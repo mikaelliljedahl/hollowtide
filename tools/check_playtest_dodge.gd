@@ -11,6 +11,7 @@ const Actions = preload("res://tools/playtest_actions.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
 const State = preload("res://tools/playtest_state.gd")
+const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const BOSS_OFFSET := Vector2(416, -92)
 ## The Tidal Heart floats 330 px above her feet and 250 px ahead, as in the depths_02 probe.
 const TIDAL_OFFSET := Vector2(250, -330)
@@ -38,6 +39,7 @@ func run() -> void:
 	await _test_guard_charge()
 	for attack in Tide.ATTACKS:
 		await _test_tidal(attack)
+	_test_attacks_landed()
 
 
 func _check(condition: bool, label: String) -> void:
@@ -336,3 +338,26 @@ func _test_tidal(attack: StringName) -> void:
 	for shot in _host.get_tree().get_nodes_in_group(&"enemy_shot"):
 		shot.queue_free()
 	await _frames(40)
+
+
+## The Jev critic's "attacks seen vs escaped": an attack that hits twice lands once, the next one
+## counts again, and an attack started before this fight counts nothing.
+func _test_attacks_landed() -> void:
+	var telemetry := Telemetry.new()
+	var boss := Node.new()
+	telemetry.set(
+		"_boss", {"start": 10.0, "attacks_landed": {}, "attack_landed": false, "node": boss}
+	)
+	var attacks: Dictionary = telemetry.get("_boss_attacks")
+	attacks[boss.get_instance_id()] = {"attack": "rockfall", "t": 4.0}
+	telemetry.call("_note_boss_attack_landed")
+	var landed: Dictionary = telemetry.get("_boss")["attacks_landed"]
+	_check(landed.is_empty(), "an attack from before the fight is not counted (%s)" % landed)
+	attacks[boss.get_instance_id()] = {"attack": "fault_slam", "t": 12.0}
+	telemetry.call("_note_boss_attack_landed")
+	telemetry.call("_note_boss_attack_landed")
+	_check(landed.get("fault_slam") == 1, "two hits of one attack land once (%s)" % landed)
+	telemetry.get("_boss")["attack_landed"] = false
+	telemetry.call("_note_boss_attack_landed")
+	_check(landed.get("fault_slam") == 2, "the next attack counts again (%s)" % landed)
+	boss.free()

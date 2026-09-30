@@ -207,6 +207,7 @@ func _on_health_changed(current: int, _maximum: int) -> void:
 	if not _boss.is_empty():
 		var by_attack: Dictionary = _boss["damage_by_source"]
 		by_attack[source] = int(by_attack.get(source, 0)) + lost
+		_note_boss_attack_landed()
 
 
 func _on_player_died() -> void:
@@ -256,6 +257,23 @@ func _on_boss_attack(attack: StringName, boss: CombatBoss) -> void:
 	if not _boss.is_empty():
 		var counts: Dictionary = _boss["attacks"]
 		counts[String(attack)] = int(counts.get(String(attack), 0)) + 1
+		_boss["attack_landed"] = false
+
+
+## Counts the boss's current attack as landed once, however many hits it deals; the rest of the
+## attacks it started were escaped (the Jev critic's "attacks seen vs escaped").
+func _note_boss_attack_landed() -> void:
+	if bool(_boss["attack_landed"]):
+		return
+	var boss = _boss["node"]
+	var current: Dictionary = (
+		_boss_attacks.get(boss.get_instance_id(), {}) if is_instance_valid(boss) else {}
+	)
+	if current.is_empty() or float(current["t"]) < float(_boss["start"]):
+		return
+	var landed: Dictionary = _boss["attacks_landed"]
+	landed[current["attack"]] = int(landed.get(current["attack"], 0)) + 1
+	_boss["attack_landed"] = true
 
 
 func _on_boss_stage(stage: int, _boss_node: CombatBoss) -> void:
@@ -304,6 +322,8 @@ func _track_boss() -> void:
 			"stage_start": now,
 			"stage_seconds": {},
 			"attacks": {},
+			"attacks_landed": {},
+			"attack_landed": false,
 			"damage_by_source": {},
 			"node": boss,
 		}
@@ -324,12 +344,14 @@ func _finish_boss(outcome: String) -> void:
 			{
 				"id": _boss["id"],
 				"room": _boss["room"],
+				"t": snappedf(float(_boss["start"]), 0.01),
 				"outcome": outcome,
 				"seconds": snappedf(now - float(_boss["start"]), 0.1),
 				"stage_reached": _boss["stage"],
 				"stage_seconds": _boss["stage_seconds"],
 				"boss_health_left": health,
 				"attacks": _boss["attacks"],
+				"attacks_landed": _boss["attacks_landed"],
 				"damage_by_source": _boss["damage_by_source"],
 			}
 		)
@@ -366,6 +388,7 @@ func _finish_ambush(outcome: String) -> void:
 			{
 				"id": _ambush["id"],
 				"room": _ambush["room"],
+				"t": snappedf(float(_ambush["start"]), 0.01),
 				"outcome": outcome,
 				"seconds": snappedf(now - float(_ambush["start"]), 0.1),
 				"wave_reached": _ambush["wave"],
