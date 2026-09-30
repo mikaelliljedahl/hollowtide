@@ -5,11 +5,15 @@ origin: 270 34
 heat: 1 7 28 9
 current: 13 0 3 6 dir=up strength=520 kind=steam
 current: 13 14 3 3 dir=up strength=520 kind=steam
-# crucible: the heat floor seals the west door, the vent and the hole until both waves fall.
-ambush: 1 7 28 8 wave=shooting_gargoyle,vent_flyer wave2=vent_flyer,vent_flyer,shooting_gargoyle trigger=1,11,6,4 spawns=8,8,18,6 id=crucible
+# crucible: Emberkite (optional mini-boss, flag mini:emberkite) fights in the heat floor below the
+# wall. The Bolt Quiver (M) waits in a sealed nook at the right edge behind two flag gates; the
+# crumble lid still passes the top route through two gap columns, the third column is a gate so a
+# player dropping from above cannot reach the nook.
 legend:
   M pickup missile_tank missile_02
   c crumble
+  B miniboss emberkite arena=1,7,28,8 return=3,14
+  G flaggate mini:emberkite
 grid:
 #############...##############
 #............................#
@@ -18,13 +22,13 @@ grid:
 #............................#
 #............................#
 #########################...##
-#........................ccc.#
-#.........................M..#
+#........................ccGM#
+#...........................G#
 #........................###.#
 #............................#
 #............................#
 ....................#####....#
-.............................#
+.........B...................#
 .............................#
 #############...##############
 #############...##############

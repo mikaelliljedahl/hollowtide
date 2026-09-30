@@ -1,13 +1,14 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
-[ext_resource type="PackedScene" path="res://scenes/pickups/pickup.tscn" id="4_pickup"]
-[ext_resource type="Script" path="res://scripts/campaign/heat_zone.gd" id="5_heat"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/crumble_floor.gd" id="6_crumble"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/ambush_arena.gd" id="7_ambush"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/push_current.gd" id="8_current"]
+[ext_resource type="Script" path="res://scripts/campaign/mini_boss_spawn.gd" id="4_miniboss"]
+[ext_resource type="Script" path="res://scripts/campaign/flag_gate.gd" id="5_flaggate"]
+[ext_resource type="PackedScene" path="res://scenes/pickups/pickup.tscn" id="6_pickup"]
+[ext_resource type="Script" path="res://scripts/campaign/heat_zone.gd" id="7_heat"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/crumble_floor.gd" id="8_crumble"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/push_current.gd" id="9_current"]
 
 [node name="kiln_08" type="Node2D"]
 script = ExtResource("1_room")
@@ -32,36 +33,44 @@ script = ExtResource("3_visuals")
 
 [node name="Entities" type="Node2D" parent="."]
 
-[node name="Pickup_missile_02" parent="Entities" instance=ExtResource("4_pickup")]
-position = Vector2(1696, 544)
+[node name="MiniBoss" type="Marker2D" parent="Entities"]
+position = Vector2(608, 864)
+script = ExtResource("4_miniboss")
+boss_id = &"emberkite"
+arena = Rect2(64, 448, 1792, 512)
+return_point = Vector2(224, 960)
+
+[node name="FlagGate01" type="StaticBody2D" parent="Entities"]
+position = Vector2(1760, 480)
+script = ExtResource("5_flaggate")
+required_flags = PackedStringArray("mini:emberkite")
+gate_size = Vector2(64, 64)
+
+[node name="FlagGate02" type="StaticBody2D" parent="Entities"]
+position = Vector2(1824, 544)
+script = ExtResource("5_flaggate")
+required_flags = PackedStringArray("mini:emberkite")
+gate_size = Vector2(64, 64)
+
+[node name="Pickup_missile_02" parent="Entities" instance=ExtResource("6_pickup")]
+position = Vector2(1824, 480)
 instance_id = "kiln_08.missile_02"
 kind = &"missile_tank"
 
 [node name="Heat01" type="Area2D" parent="Entities"]
 position = Vector2(960, 736)
-script = ExtResource("5_heat")
+script = ExtResource("7_heat")
 zone_size = Vector2(1792, 576)
 
 [node name="Crumble01" type="Node2D" parent="Entities"]
 position = Vector2(1600, 448)
-script = ExtResource("6_crumble")
-cells = 3
+script = ExtResource("8_crumble")
+cells = 2
 permanent = false
-
-[node name="Ambush_crucible" type="Node2D" parent="Entities"]
-position = Vector2(960, 704)
-script = ExtResource("7_ambush")
-arena_size = Vector2(1792, 512)
-wave = PackedStringArray("shooting_gargoyle", "vent_flyer")
-extra_waves = Array[PackedStringArray]([PackedStringArray("vent_flyer", "vent_flyer", "shooting_gargoyle")])
-spawn_offsets = PackedVector2Array(416, 24, 352, -32, -160, -96, 160, -96, 544, 24)
-door_rects = Array[Rect2]([Rect2(-896, 64, 64, 192), Rect2(-128, 192, 192, 64)])
-trigger_rect = Rect2(-896, 0, 384, 256)
-local_id = "crucible"
 
 [node name="Current01" type="Area2D" parent="Entities"]
 position = Vector2(928, 192)
-script = ExtResource("8_current")
+script = ExtResource("9_current")
 zone_size = Vector2(192, 384)
 direction = Vector2(0, -1)
 strength = 520
@@ -69,7 +78,7 @@ kind = &"steam"
 
 [node name="Current02" type="Area2D" parent="Entities"]
 position = Vector2(928, 992)
-script = ExtResource("8_current")
+script = ExtResource("9_current")
 zone_size = Vector2(192, 192)
 direction = Vector2(0, -1)
 strength = 520
