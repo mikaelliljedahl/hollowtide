@@ -2,12 +2,15 @@ id: vaults_08
 area: vaults
 name: Icicle Shaft
 origin: 0 17
-ambush: 1 2 28 30 wave=hopper,hopper wave2=armored_guard,hopper trigger=16,26,12,6 spawns=2,22,26,10 id=icicle
+# icicle_shaft: Rimeweaver (optional mini-boss, flag mini:rimeweaver) fights in the lower shaft; the Quiver Cache
+# waits in the sealed pocket at the bottom right, behind the flag gate.
 legend:
   t timeddoor seconds=6 id=fringe_cut
   o switch door=t
   R missilerefill
   v stalactite
+  B miniboss rimeweaver arena=1,9,28,23 return=22,10
+  G flaggate mini:rimeweaver
 grid:
 ######...#####################
 ######...#####################
@@ -38,8 +41,8 @@ grid:
 #.............######.........#
 #............................#
 #............................#
+#...................######GGG#
 #...................######...#
-#...................######...#
-#...................######.R.#
+#.......B...........######.R.#
 #############...##############
 #############...##############
