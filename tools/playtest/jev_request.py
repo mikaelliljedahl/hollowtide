@@ -127,8 +127,9 @@ def _bolt_matters(target: dict[str, Any], kit: dict[str, Any]) -> bool:
     """False for a shot that cannot change an ordinary enemy: no bolt hurts it, or the Snare at
     one already frozen. The heuristic never fires those; Jev did for minutes (full-jev-a: 40 s of
     seed bolts at a vaults_01 armored guard until the arena's stall abort, 120 s of Snare shots at
-    a frozen kiln_01 mimic with the energy tank never taken). Bosses keep every shot (openers)."""
-    if not target or target.get("is_boss"):
+    a frozen kiln_01 mimic with the energy tank never taken). A closed boss no bolt hurts is the
+    same: its opener is `open_boss`, and t4-min-s1 fired 2,605 bolts at the shut Tidal Heart."""
+    if not target:
         return True
     if not any(kind in BOLT_KINDS for kind in target.get("hurt_by", [])):
         return False

@@ -796,3 +796,14 @@ turned back, and the floater thawed and dropped her into the hall. The lip probe
 now read the row above too (`_rest_rows` in `tools/playtest_nav.gd`). Real-input probe from
 (33, 14) with that run's route and kit, enemies removed but the floaters, four floater phases:
 before, the Updraft Cloak took 118.1, 119.1, 116.6 and 26.4 s; after, 27.9, 26.9, 25.4 and 5.3 s.
+
+**Opener out of line.** `t4-min-s1` (`--minimum-kit`, seed 1) reached 11 of 13 and then held the
+Tidal Heart in stage 3 for 585 s: from depths_02 (38 to 39, 14) its grate was in sight 740 px across
+and 352 px up, which no grounded aim lines up with, so neither `open_boss` nor a firing spot was
+offered, and Jev chose `shoot` at the closed boss 2,605 times. The opener now counts as `visible`
+only when a grounded aim also lines up with it (`tools/playtest_boss.gd`), so the state names the
+firing spot, and the Jev backend drops a bolt shot at a boss no bolt hurts, as it already did for
+ordinary enemies (`_bolt_matters` in `tools/playtest/jev_request.py`). Room runs from (39, 14)
+with that kit, Jev policy and critic, 300 s: before, 0 of 3 attempts won, 2 deaths, rated 0.38
+(too hard, boring); with the spot only, 0 of 2, 1 death, 0.58, 899 body shots; with both, won the
+first attempt in 106.1 s with no death, rated 0.82 (fair, good pacing, fun high).

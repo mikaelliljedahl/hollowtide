@@ -499,6 +499,13 @@ class JevRoundThreeStateTest(unittest.TestCase):
         state["kit"]["beam"] = "base"
         keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
         self.assertEqual(keys, ["go_to_objective"])
+        # A closed boss no bolt hurts (its opener is open_boss): no body shot; an open one keeps it.
+        mimic.update(type="tidal_heart", is_boss=True, hurt_by=[])
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["go_to_objective"])
+        mimic["hurt_by"] = ["beam", "missile"]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["shoot:e63:up", "go_to_objective"])
 
     def test_crouch_shot_is_explained_and_legal_on_the_ground(self):
         self.assertIn("crouch_shot", jev_request.RUBRIC)
