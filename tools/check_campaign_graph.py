@@ -252,7 +252,9 @@ class Solver:
         exit_state = self.exit(state)
         if exit_state is not None and exit_state != "blocked":
             return [exit_state]
-        supported = self.platform(room, x, y + 1)
+        supported = self.platform(room, x, y + 1) or (
+            y == room.height - 1 and exit_state == "blocked" and up == 0
+        )
         jump = BALL_JUMP if ball else self.jump
         rows = (y,) if ball else (y, y - 1, y - 2)
         if any((x, row) in self.world.downdraft[room_id] for row in rows):

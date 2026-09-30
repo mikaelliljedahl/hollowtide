@@ -4,7 +4,6 @@ name: Brine Lift
 origin: 45 119
 current: 4 2 5 3 dir=up strength=520 kind=water
 legend:
-  G flaggate regional:stone_guardian,regional:furnace_mother
   t timeddoor seconds=6 id=lift
   o switch door=t
   v stalactite
@@ -13,7 +12,7 @@ legend:
 grid:
 #####...#####################################
 #####...#####################################
-#....GGG....v.......v.........v.......v....##
+#...........v.......v.........v.......v....##
 #..L.......................................##
 #..........................................##
 #####################......................##

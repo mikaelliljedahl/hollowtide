@@ -9,6 +9,7 @@ current: 13 14 3 3 dir=up strength=520 kind=steam
 ambush: 1 7 28 8 wave=shooting_gargoyle,vent_flyer wave2=vent_flyer,vent_flyer,shooting_gargoyle trigger=1,11,6,4 spawns=8,8,18,6 id=crucible
 legend:
   M pickup missile_tank missile_02
+  c crumble
 grid:
 #############...##############
 #............................#
@@ -17,7 +18,7 @@ grid:
 #............................#
 #............................#
 #########################...##
-#............................#
+#........................ccc.#
 #.........................M..#
 #........................###.#
 #............................#
