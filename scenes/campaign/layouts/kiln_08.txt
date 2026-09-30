@@ -1,0 +1,29 @@
+id: kiln_08
+area: kiln
+name: Crucible Run
+origin: 270 34
+heat: 1 7 28 9
+current: 13 0 3 6 dir=up strength=520 kind=steam
+current: 13 14 3 3 dir=up strength=520 kind=steam
+# crucible: the heat floor seals the west door, the vent and the hole until both waves fall.
+ambush: 1 7 28 8 wave=shooting_gargoyle,vent_flyer wave2=vent_flyer,vent_flyer,shooting_gargoyle trigger=1,11,6,4 spawns=8,8,18,6 id=crucible
+legend:
+  M pickup missile_tank missile_02
+grid:
+#############...##############
+#............................#
+#............................#
+#............................#
+#............................#
+#............................#
+#########################...##
+#............................#
+#.........................M..#
+#........................###.#
+#............................#
+#............................#
+....................#####....#
+.............................#
+.............................#
+#############...##############
+#############...##############
