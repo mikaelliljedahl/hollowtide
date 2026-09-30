@@ -6,6 +6,7 @@ extends RefCounted
 const Aim = preload("res://tools/playtest_aim.gd")
 const Programs = preload("res://tools/playtest_programs.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const Dodge = preload("res://tools/playtest_dodge.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
@@ -15,9 +16,10 @@ const MAX_EXITS := 3
 ## is under every aim the crossbow has, so no shot is offered at it.
 const GROUNDED_AIM_DROP := 160.0
 ## Kinds that are movement, for stuck detection: choosing one of these means "I want to move".
+## `retreat` is not one: backed into a boss arena's pocket it holds her there on purpose, and a
+## stall there made the heuristic jump into the Stone Guardian (jev-r1, round 3).
 const MOVING_KINDS := [
 	"approach",
-	"retreat",
 	"go_to_exit",
 	"go_to_ambush",
 	"pick_up",
@@ -33,6 +35,8 @@ const RETREAT_REACH := 160.0
 ## into a shot is not offered when it would leave a live boss's arena (a probe dashed out of the
 ## depths_02 door at the arena edge and lost the fight).
 const DASH_REACH := 384.0
+## The boss approach stops this far (px) inside the arena's edge.
+const ARENA_MARGIN := 48.0
 ## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
 ## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
 const DUCK_RANGE := 300.0
@@ -66,6 +70,12 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var me: Dictionary = state["player"]
 	var abilities: Array = state["kit"]["abilities"]
 	var enemies: Array = state["enemies"]
+	for enemy in enemies:
+		if enemy["is_boss"] and bool(enemy.get("engaged", true)):
+			var dodge := Dodge.candidate(enemy, player, bool(me["grounded"]))
+			if not dodge.is_empty():
+				result.append(dodge)
+			break
 	var target := primary_target(enemies)
 	# A frost floater the route is about to freeze is a platform, not a target: a bolt kills it
 	# (jev-c2 shot the vaults_02 floaters down instead of freezing them, and stalled there).
@@ -177,6 +187,15 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	if is_boss:
 		var goal := boss_goal(target)
 		var step := Vector2(Aim.firing_step(goal[0], goal[1]), 0)
+		var arena = target.get("arena_rel")
+		if arena is Array:
+			# The firing range may lie past the arena's edge (the vaults_03 east pocket is 260 px
+			# deep); stepping out there disengages the boss, and walking back in re-engaged it, for
+			# 180 s in a Jev probe. Stop inside instead.
+			var low := float(arena[0]) + ARENA_MARGIN
+			var high := float(arena[2]) - ARENA_MARGIN
+			if low <= high:
+				step.x = clampf(step.x, low, high)
 		var spot := _opener_spot(target)
 		if not engaged:
 			step = rel
@@ -368,12 +387,24 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 			continue
 		if float(refill["rel"][1]) < -REFILL_CLIMB:
 			continue
-		return _entry(
-			"go_to_refill:%s" % refill["kind"],
-			"go_to_refill",
-			"go to the %s refill to restore %s" % [refill["kind"], " and ".join(wanted)],
-			Programs.steer(player, _vec(refill["rel"]), true)
-		)
+		var label := "go to the %s refill to restore %s" % [refill["kind"], " and ".join(wanted)]
+		var program: Variant = Programs.steer(player, _vec(refill["rel"]), true)
+		var boss := _boss_between(state["enemies"], _vec(refill["rel"]))
+		if not boss.is_empty() and Dodge.headroom(player, _vec(boss["rel"])):
+			label += ", jumping over %s on the way" % boss["type"]
+			program = Dodge.JumpOver.new(player, _vec(refill["rel"]), _vec(boss["rel"]))
+		return _entry("go_to_refill:%s" % refill["kind"], "go_to_refill", label, program)
+	return {}
+
+
+## A live boss standing on the floor between the player and `goal`, or {}.
+static func _boss_between(enemies: Array, goal: Vector2) -> Dictionary:
+	for enemy in enemies:
+		if not enemy["is_boss"]:
+			continue
+		var rel := _vec(enemy["rel"])
+		if rel.x * goal.x > 0.0 and absf(rel.x) < absf(goal.x) and absf(rel.y) < 200.0:
+			return enemy
 	return {}
 
 

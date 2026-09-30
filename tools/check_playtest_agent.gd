@@ -9,6 +9,8 @@ extends Node
 ## jumps floor lava ahead instead of walking into it.
 ## Round 3 (tools/check_playtest_round3.gd): beam switching and boss openers, the Resonance Pulse,
 ## ammo truth and refills, hazards in the state and the damage record, the jump shot, boss rooms.
+## Boss dodges (tools/check_playtest_dodge.gd): a real Stone Guardian's forced attacks answered
+## through real inputs without damage, and the refill run's jump over the boss.
 ## Campaign mode (tools/check_playtest_campaign.gd): objective order, door routing, timeouts, the
 ## heuristic's route choices, and a flow field followed and a gate opened through real inputs.
 ## godot --headless --path . res://tools/check_playtest_agent.tscn -- --test-mode
@@ -20,6 +22,7 @@ const Agent = preload("res://tools/playtest_agent.gd")
 const Programs = preload("res://tools/playtest_programs.gd")
 const Round3 = preload("res://tools/check_playtest_round3.gd")
 const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
+const DodgeCheck = preload("res://tools/check_playtest_dodge.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const STATE_KEYS := [
 	"tick",
@@ -161,6 +164,7 @@ func _run() -> void:
 	_test_kit_pickups_stack()
 	_test_hang_watchdog()
 	await Round3.new(self).run()
+	await DodgeCheck.new(self).run()
 	await CampaignCheck.new(self).run()
 	await _test_bridge_round_trip()
 	await _test_timeout_falls_back()

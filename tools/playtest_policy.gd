@@ -64,6 +64,8 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 	for entry in candidates:
 		keys[entry["kind"]] = entry["key"]
 		keys[entry["key"]] = entry["key"]
+	if keys.has("dodge"):
+		return keys["dodge"]
 	if keys.has("dash_through"):
 		return keys["dash_through"]
 	if keys.has("duck"):
