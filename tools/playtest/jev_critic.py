@@ -92,6 +92,7 @@ PROBLEM_QUESTION = "main_problem"
 WEIGHTS = {"difficulty": 0.25, "fairness": 0.25, "readability": 0.2, "pacing": 0.15, "fun": 0.15}
 ACTIONABLE = ("unfair_hit", "unclear_warning", "too_long", "too_hard", "navigation_confusing")
 FLAG_PROBABILITY = 0.4
+WINDOW_SLACK = 0.1
 KIND_WORDS = {
     "room": "moving through a room (fights inside arenas and boss fights are rated separately)",
     "ambush": "a sealed arena: waves of enemies; the doors open when every wave is cleared",
@@ -162,7 +163,12 @@ def _fight(
     first = tries[0]
     room = first["room"]
     # Reports from before the critic carry no start time; their fight then spans nothing.
-    windows = [(float(e["t"]), float(e["t"]) + float(e["seconds"])) for e in tries if "t" in e]
+    # `seconds` is rounded to 0.1 s, so the death that ends a try can land just past its end.
+    windows = [
+        (float(e["t"]), float(e["t"]) + float(e["seconds"]) + WINDOW_SLACK)
+        for e in tries
+        if "t" in e
+    ]
     fight_hits = [h for h in hits if h["room"] == room and _in(float(h["t"]), windows)]
     facts: dict[str, Any] = {
         "seconds": round(sum(float(e["seconds"]) for e in tries), 1),
@@ -233,7 +239,7 @@ def _room(
     failed = [
         a for a in campaign.get("attempts", []) if a.get("room") == room and a["outcome"] != "done"
     ]
-    fight_seconds = sum(end - start for start, end in fights)
+    fight_seconds = sum(end - start - WINDOW_SLACK for start, end in fights)
     facts = {
         "seconds": round(max(0.0, float(seconds) - fight_seconds), 1),
         "visits": max(1, len(visits)),

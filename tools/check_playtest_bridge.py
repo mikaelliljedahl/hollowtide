@@ -479,6 +479,26 @@ class JevRoundThreeStateTest(unittest.TestCase):
             "equipped bolt", request["questions"]["action"]["criteria"]["select_beam:wave"]
         )
 
+    def test_no_useless_bolt_shots(self):
+        state = self.state()
+        mimic = dict(state["enemies"][0], id="e63", type="mimic", is_boss=False, frozen=True)
+        mimic["hurt_by"] = ["ice", "missile", "bomb"]
+        state["enemies"] = [mimic]
+        candidates = [
+            {"key": "shoot:e63:up", "kind": "shoot", "label": "fire the crossbow up at mimic"},
+            {"key": "go_to_objective", "kind": "go_to_objective", "label": "follow the route"},
+        ]
+        keys = [c["key"] for c in jev_backend.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["go_to_objective"])
+        mimic["frozen"] = False
+        keys = [c["key"] for c in jev_backend.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["shoot:e63:up", "go_to_objective"])
+        # An armored guard only the Resonance Pulse hurts: no bolt shot at it.
+        mimic.update(type="armored_guard", hurt_by=["bomb"], frozen=False)
+        state["kit"]["beam"] = "base"
+        keys = [c["key"] for c in jev_backend.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["go_to_objective"])
+
 
 class JevFeedbackTest(unittest.TestCase):
     def record(self, t, cell, probabilities, confidence, danger, hint="shoot:e1:forward"):

@@ -42,7 +42,7 @@ def report() -> dict:
         "meta": {"run_id": "campaign-jev-s1"},
         "telemetry": {
             "hits": hits,
-            "deaths": [{"t": 72.0, "room": "vaults_03", "killer": "sg:slam"}],
+            "deaths": [{"t": 72.04, "room": "vaults_03", "killer": "sg:slam"}],
             "room_seconds": {"fringe_03": 50.0, "vaults_03": 70.0},
             "stuck": [{"room": "fringe_03", "cell": [1, 1], "t": 5.0, "seconds": 4.0}],
             "ambushes": [
