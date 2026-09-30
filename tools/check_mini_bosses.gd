@@ -23,7 +23,7 @@ const HARPOON_EVERY_FRAMES := 21
 const STAGE_TIMEOUT_FRAMES := 60 * 40
 ## A player landing a Harpoon in every opening: spec target 25-45 s; the openings and windows in the
 ## spec add up to about 15 s, so the floor asserts that a fight is not a burst (see mini-bosses.md).
-const MIN_FIGHT_SECONDS := 12.0
+const MIN_FIGHT_SECONDS := 22.0
 const MAX_FIGHT_SECONDS := 45.0
 
 var failures: Array[String] = []

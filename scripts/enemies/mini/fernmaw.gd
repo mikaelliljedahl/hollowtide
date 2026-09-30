@@ -12,15 +12,27 @@ const SPORE_OFFSET := 192.0
 const ROOT_OFFSET := 256.0
 const SPORE_ARC_HEIGHT := 260.0
 const TIMING := {
-	&"spore_lob": {"telegraph": 0.6, "active": 0.1, "punish": 1.2},
-	&"pounce": {"telegraph": 0.65, "active": 0.8, "punish": 1.4},
-	&"root_burst": {"telegraph": 0.75, "active": 0.3, "punish": 1.4},
+	&"spore_lob": {"telegraph": 0.75, "active": 0.1, "punish": 1.3},
+	&"pounce": {"telegraph": 0.85, "active": 0.8, "punish": 1.4},
+	&"root_burst": {"telegraph": 0.9, "active": 0.3, "punish": 1.5},
 }
 const CHARGES: Array[StringName] = [&"pounce"]
 const MOVE_SPEEDS: Array[float] = [120.0, 150.0]
+## The boss opens only after the last attack of a chain, so chain length sets the pace.
 const ROTATIONS := [
-	[[&"spore_lob"], [&"pounce"]],
-	[[&"root_burst"], [&"pounce"], [&"spore_lob"], [&"pounce", &"spore_lob"]],
+	[
+		[&"spore_lob", &"pounce", &"spore_lob", &"pounce"],
+		[&"pounce", &"spore_lob", &"pounce", &"spore_lob", &"pounce"],
+		[&"spore_lob", &"spore_lob", &"pounce", &"spore_lob"],
+	],
+	[
+		[&"spore_lob", &"pounce", &"root_burst", &"pounce", &"spore_lob"],
+		[&"root_burst"],
+		[&"pounce"],
+		[&"spore_lob"],
+		[&"root_burst"],
+		[&"pounce"],
+	],
 ]
 
 
