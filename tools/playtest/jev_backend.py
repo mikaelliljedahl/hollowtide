@@ -43,7 +43,6 @@ QUESTION_DANGER = "danger"
 QUESTION_UNSURE = "unsure"
 MOVING_KINDS = (
     "approach",
-    "retreat",
     "go_to_exit",
     "go_to_ambush",
     "pick_up",
@@ -70,6 +69,10 @@ RUBRIC = {
     "jump_over": "Right when a ground enemy is about to touch the player.",
     "dash_through": "Dashing into a shot deflects it; right when a shot is about to hit.",
     "duck": "Curling into a ball lets a shot at body height fly over; right just before it hits.",
+    "dodge": (
+        "The answer that avoids the boss attack winding up now, timed for you; choose it over"
+        " retreat or approach while it is offered."
+    ),
     "wall_jump": "Right when clinging to a wall and the way on is upward.",
     "go_to_ambush": "Starts the arena fight, which the goal needs; right unless a hit is imminent.",
     "pick_up": "Right when the area is safe.",
@@ -169,7 +172,7 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
             or (kind in ("shoot", "jump_shoot") and "beam" not in kit.get("abilities", []))
             or (kind == "pulse" and "bombs" not in kit.get("abilities", []))
             or (kind == "dash_through" and not player.get("dash_ready", False))
-            or (kind == "duck" and not player.get("grounded", False))
+            or (kind in ("duck", "dodge") and not player.get("grounded", False))
             or (kind == "wall_jump" and not player.get("on_wall", False))
             or (kind == "jump_over" and not player.get("grounded", False))
         )

@@ -55,7 +55,7 @@ class CampaignRouteTest(unittest.TestCase):
         """Same objectives as the solver's no-optional progression, each one reachable by the
         graph check's own solver with exactly the kit and flags the route owns before it."""
         _errors, _stages, collected = graph.progress(self.world, {}, True, "route", True, False)
-        targets = [objective["target"] for objective in self.objectives]
+        targets = [o["target"] for o in self.objectives if not o["optional"]]
         self.assertEqual(targets[0], "fringe_02.slipstream")
         self.assertEqual(targets[-1], "ending")
         bosses = set(self.world.bosses)
@@ -82,13 +82,26 @@ class CampaignRouteTest(unittest.TestCase):
             )
             self.assertTrue(reached, f"{objective['target']} unreachable with its kit")
 
+    def test_nearby_upgrades_are_optional_and_close(self):
+        """Bolt Quivers and energy tanks within the detour, only while a boss is ahead; the
+        required objectives keep the minimum-kit order."""
+        extras = [o for o in self.objectives if o["optional"]]
+        self.assertIn("vaults_02.missile_01", [o["target"] for o in extras])
+        last_boss = max(i for i, o in enumerate(self.objectives) if o["kind"] == "boss")
+        for extra in extras:
+            self.assertLess(extra["index"], last_boss, extra["target"])
+            self.assertLessEqual(extra["steps"], campaign_route.EXTRA_DETOUR, extra["target"])
+            self.assertIn(extra["grants"], ("missiles", "energy_tank"), extra["target"])
+        minimum = [o.target for o in campaign_route.plan(self.world, extras=False)]
+        self.assertEqual([o["target"] for o in self.objectives if not o["optional"]], minimum)
+
     def test_each_objective_is_ready_with_the_kit_before_it(self):
         owned: set[str] = set()
         flags: set[str] = set()
         for objective in self.objectives:
             self.assertLessEqual(set(objective["abilities"]), owned, objective["target"])
             self.assertLessEqual(set(objective["flags"]), flags, objective["target"])
-            if objective["kind"] == "pickup":
+            if objective["kind"] == "pickup" and not objective["optional"]:
                 owned.add(objective["grants"])
             elif objective["kind"] == "boss":
                 flags.update(objective["grants"].split(","))

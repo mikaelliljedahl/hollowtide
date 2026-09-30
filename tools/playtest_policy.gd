@@ -64,6 +64,8 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 	for entry in candidates:
 		keys[entry["kind"]] = entry["key"]
 		keys[entry["key"]] = entry["key"]
+	if keys.has("dodge"):
+		return keys["dodge"]
 	if keys.has("dash_through"):
 		return keys["dash_through"]
 	if keys.has("duck"):
@@ -227,6 +229,10 @@ func _fight_move(state: Dictionary, target: Dictionary, keys: Dictionary) -> Str
 ## to the opener's beam, walk to where it lines up, fire it), harpoon it while open, and keep
 ## BOSS_SPACING while nothing hurts it. "" hands over to the generic fight.
 func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
+	if not bool(boss.get("engaged", true)):
+		# Outside its arena it neither fights nor takes damage: walk in (cw-j1 idled 268 s at the
+		# kiln_03 arena's edge once the retreat was withheld there).
+		return keys["approach"]
 	var distance := float(boss["dist"])
 	if bool(boss["telegraph"]) and distance < TELEGRAPH_DISTANCE:
 		return keys.get("jump_over", keys.get("retreat", "idle"))
@@ -252,7 +258,8 @@ func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
 	if keys.has(switch):
 		return switch
 	if distance < BOSS_SPACING:
-		return keys.get("retreat", keys["approach"])
+		# Pinned against the arena wall there is no retreat; walking in would touch it.
+		return keys.get("retreat", "idle")
 	return keys["approach"]
 
 

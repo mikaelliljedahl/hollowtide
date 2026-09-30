@@ -7,7 +7,10 @@ the start with an empty kit it repeatedly takes the nearest objective the solver
 kit owned at that moment (a required pickup, a boss, finally the ending), exactly the order in which
 the solver's stages unlock the world, but one objective at a time. Intended sequence breaks and
 timed doors are left out: they are skilled or optional moves, and the campaign finishes without
-them (the graph check's "no-breaks" run).
+them (the graph check's "no-breaks" run). Like a player, the route also takes a Bolt Quiver or an
+energy tank that lies within EXTRA_DETOUR solver steps while a boss is still ahead; such an
+objective is `optional` (the agent drops it after one timeout). `--minimum-kit` plans the required
+items only.
 
 For every objective it writes a flow field over the solver's movement graph at that point: for each
 resting state (feet on a floor or a frozen floater, not mid-jump) the number of solver steps to the
@@ -47,6 +50,12 @@ MAX_HOP_STEPS = 64
 BALL_COST = 3
 TOGGLE_COST = 2
 LAVA_COST = 20
+# Health and Harpoon upgrades the route picks up when they lie this close (solver steps) while a
+# boss is still ahead. Round 3 (2026-09-29): with the minimum kit (100 health, 5 Harpoons) every
+# Stone Guardian refill trip from the west pocket crosses the boss; the vaults_02 quiver is 13
+# steps off the route.
+EXTRA_KINDS = {"missile_tank", "energy_tank"}
+EXTRA_DETOUR = 50
 
 State = tuple[str, int, int, bool, int, int]
 
@@ -61,6 +70,7 @@ class Objective:
     abilities: list[str] = field(default_factory=list)  # owned when the objective starts
     flags: list[str] = field(default_factory=list)
     steps: int = 0  # solver steps from the previous objective
+    optional: bool = False  # a nearby upgrade, not needed to finish
 
 
 def required_pickups(world: World) -> dict[str, tuple[str, str, int, int]]:
@@ -91,6 +101,16 @@ def _candidates(world: World, abilities: set[str], flags: set[str], taken: set[s
         room_id = sorted(world.endings)[0][0]
         cells = sorted((x, y) for room, x, y in world.endings if room == room_id)
         yield Objective("ending", "ending", room_id, cells, "")
+
+
+def _extras(world: World, flags: set[str], taken: set[str]):
+    """Health and Harpoon upgrades not yet taken, while a boss is still to be fought."""
+    if all(f"boss:{boss}" in flags for boss in world.bosses):
+        return
+    for (room_id, x, y), (pickup_id, kind) in sorted(world.pickups.items()):
+        if kind in EXTRA_KINDS and pickup_id not in taken and pickup_id != REQUIRED_MISSILE_TANK:
+            grants = "missiles" if kind == "missile_tank" else kind
+            yield Objective("pickup", pickup_id, room_id, [(x, y)], grants, optional=True)
 
 
 def targets(objective: Objective, states) -> set[State]:
@@ -144,8 +164,9 @@ def forward_distances(solver: Solver, starts: list[State]) -> dict[State, int]:
     return distance
 
 
-def plan(world: World) -> list[Objective]:
-    """Objectives in play order: each time the nearest one the current kit can reach."""
+def plan(world: World, extras: bool = True) -> list[Objective]:
+    """Objectives in play order: each time the nearest one the current kit can reach, or first a
+    nearby upgrade (`extras`) within EXTRA_DETOUR steps."""
     abilities: set[str] = set()
     flags: set[str] = set()
     taken: set[str] = set()
@@ -163,6 +184,15 @@ def plan(world: World) -> list[Objective]:
             state = min(reached, key=lambda s: (distance[s], s))
             if best is None or distance[state] < best[0]:
                 best = (distance[state], objective, state)
+        for extra in _extras(world, flags, taken) if extras and best is not None else ():
+            reached = targets(extra, distance)
+            if not reached:
+                continue
+            state = min(reached, key=lambda s: (distance[s], s))
+            if distance[state] <= EXTRA_DETOUR and (
+                not best[1].optional or distance[state] < best[0]
+            ):
+                best = (distance[state], extra, state)
         if best is None:
             break
         steps, objective, state = best
@@ -173,10 +203,10 @@ def plan(world: World) -> list[Objective]:
         if objective.kind == "ending":
             break
         taken.add(objective.target)
-        if objective.kind == "pickup":
-            abilities.add(objective.grants)
-        else:
+        if objective.kind == "boss":
             flags.update(objective.grants.split(","))
+        elif not objective.optional:
+            abilities.add(objective.grants)
         position = [state]
     return order
 
@@ -238,9 +268,9 @@ def key(state: State) -> str:
     return f"{state[0]}:{state[1]}:{state[2]}:{int(state[3])}"
 
 
-def build(out: Path) -> dict:
+def build(out: Path, extras: bool = True) -> dict:
     world = World(load_rooms())
-    order = plan(world)
+    order = plan(world, extras)
     out.mkdir(parents=True, exist_ok=True)
     objectives = []
     for index, objective in enumerate(order):
@@ -258,6 +288,7 @@ def build(out: Path) -> dict:
                 "abilities": objective.abilities,
                 "flags": objective.flags,
                 "steps": objective.steps,
+                "optional": objective.optional,
                 "field": name,
                 "states": len(field_data),
             }
@@ -270,8 +301,9 @@ def build(out: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, required=True, help="directory for route.json")
+    parser.add_argument("--minimum-kit", action="store_true", help="required items only")
     args = parser.parse_args()
-    route = build(args.out)
+    route = build(args.out, not args.minimum_kit)
     for objective in route["objectives"]:
         print(
             f"{objective['index']:2d} {objective['kind']:7s} {objective['target']:26s} "

@@ -7,6 +7,9 @@ extends RefCounted
 
 const Route = preload("res://tools/playtest_route.gd")
 const OBJECTIVE_TIMEOUT := 300.0
+## An optional upgrade on the route (tools/playtest/campaign_route.py) gets less time and is left
+## behind after one timeout (tools/playtest_route.gd `next_index`).
+const OPTIONAL_TIMEOUT := 120.0
 const MAX_TIMEOUTS := 2
 
 ## Index of the objective being played, -1 before the first update.
@@ -41,7 +44,8 @@ func update(now: float, route: Route, telemetry: RefCounted, steps: int, ending:
 	if _open.is_empty():
 		_start(route.objectives[index], telemetry, steps)
 	_track_steps(steps)
-	if now - float(_open["start"]) < OBJECTIVE_TIMEOUT:
+	var optional: bool = route.objectives[index].get("optional", false)
+	if now - float(_open["start"]) < (OPTIONAL_TIMEOUT if optional else OBJECTIVE_TIMEOUT):
 		return ""
 	timeouts[index] = int(timeouts.get(index, 0)) + 1
 	_close("timeout", telemetry)

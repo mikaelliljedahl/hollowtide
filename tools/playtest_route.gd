@@ -17,6 +17,7 @@ const OBJECTIVE_NAMES := {
 	"slipstream": "the Slipstream",
 	"beam": "the Seed Crossbow",
 	"missiles": "a Bolt Quiver",
+	"energy_tank": "an energy tank",
 	"bombs": "the Resonance Pulse",
 	"ice_beam": "the Bubble Snare",
 	"high_jump": "the Updraft Cloak",
@@ -69,8 +70,8 @@ static func is_ready(objective: Dictionary) -> bool:
 
 
 ## Index of the objective to play now: the first in route order that is not done, is ready and
-## not `skipped` (objectives that timed out); then the first skipped one that is ready again; -1
-## when every objective is done.
+## not `skipped` (objectives that timed out); then the first skipped one that is ready again, never
+## an `optional` one (a nearby upgrade); -1 when every objective is done.
 func next_index(ending: bool, skipped: Dictionary) -> int:
 	var fallback := -1
 	for objective in objectives:
@@ -79,7 +80,12 @@ func next_index(ending: bool, skipped: Dictionary) -> int:
 		var index := int(objective["index"])
 		if is_ready(objective) and not skipped.has(index):
 			return index
-		if fallback < 0 and (is_ready(objective) or skipped.has(index)):
+		# An optional upgrade that timed out is left behind for good.
+		if (
+			fallback < 0
+			and not objective.get("optional", false)
+			and (is_ready(objective) or skipped.has(index))
+		):
 			fallback = index
 	return fallback
 

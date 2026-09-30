@@ -39,10 +39,11 @@ to game code.
 | Launch scene | `tools/playtest_agent.gd`, `tools/playtest_agent.tscn` | Parses flags, loads the campaign in one room with a kit, runs the loop, ends the run, writes the report and screenshots. |
 | Loop | `tools/playtest_loop.gd:50` | Once per physics frame, before the player: when the current program is done, export state, build candidates, ask the policy, start the chosen program. |
 | State exporter | `tools/playtest_state.gd:44` | One JSON-safe Dictionary per decision (section 4). |
-| Candidates | `tools/playtest_actions.gd:48` | 6 to 14 labelled macro actions, each a per-frame program of held actions (section 5). |
+| Candidates | `tools/playtest_actions.gd:63` | 5 to 14 labelled macro actions, each a per-frame program of held actions (section 5). |
 | Programs and driver | `tools/playtest_programs.gd:179` | Builds the per-frame programs and plays them as input events. |
 | Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
 | Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
+| Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, and the refill run's jump over a boss (section 20). |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
 | Policies | `tools/playtest_policy.gd:62` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
@@ -69,7 +70,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). Bosses add `stage`, `attack`, `attack_state`, `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -80,13 +81,14 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 ## 5. Candidates
 
 `idle` is always first and the two plain jumps always last; the rest follow a fixed priority and
-the list is cut at 14 (`tools/playtest_actions.gd:48`). The fight options aim at one primary target:
-the nearest visible enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:403`).
+the list is cut at 14 (`tools/playtest_actions.gd:63`). The fight options aim at one primary target:
+the nearest visible enemy the kit can hurt, bosses always included (`tools/playtest_actions.gd:470`).
 
 | Key | Offered when | Program |
 |---|---|---|
-| `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks, it is above (under a low ceiling, first walk out to open sky) or floor lava or fire lies one step ahead; wall-jump when clinging below it. From outside a live boss's arena: walk toward the boss to enter it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one); while the opener is out of sight, steer to its `spot_rel` instead, climbing to it. |
-| `retreat` | An enemy exists; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
+| `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks, it is above (under a low ceiling, first walk out to open sky) or floor lava or fire lies one step ahead; wall-jump when clinging below it. From outside a live boss's arena: walk toward the boss to enter it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one), but no closer than 48 px to the arena's edge; while the opener is out of sight, steer to its `spot_rel` instead, climbing to it. |
+| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20) | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, or standing still. |
+| `retreat` | An enemy within 420 px and no wall 24 px behind the player; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
 | `open_boss:<id>:<aim>` | The player inside the boss's arena, a closed boss with its opening unspent, a Harpoon left, the opener beam owned and equipped, the opener point in sight, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
 | `shoot:<id>:<aim>` | Beam owned, not in ball form, not at a boss from outside its arena, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow, none whose bolt line passes more than 120 px from an ordinary enemy, none at a frost floater the route is freezing; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
 | `jump_shoot:<id>` | Grounded, no standing aim reaches a non-boss target up to 240 px above the crossbow | Jump straight up and fire level on the frame the crossbow reaches its height (`tools/playtest_aim.gd`, Updraft Cloak speed when owned). |
@@ -97,14 +99,19 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | `duck` | Slipstream owned, standing on the ground, and a shot within 300 px that will cross her column 80 to 200 px above the feet | Curl into ball form in place, stay curled 45 frames, stand up. |
 | `dash_through` | Undertow Dash ready, a shot flying at the player within 420 px, and a live boss's arena reaching at least 384 px that way | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
-| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it and is no more than 320 px above the feet | Steer to it, running. |
-| `go_to_ambush` | Armed arena, player not at its trigger | Steer to the trigger centre. |
+| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it and is no more than 320 px above the feet | Steer to it, running; with a live boss standing between on the floor and 240 px of free air above its body, run and jump over it. |
+| `go_to_ambush` | Armed arena, player not at its trigger; in campaign mode only with the trigger within 160 px of her height (the route leads there otherwise) | Steer to the trigger centre. |
 | `pick_up:<id>` | Up to two pickups | Steer to it. |
 | `go_to_exit:<edge:target>` | Up to three ungated exits, none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
 | `jump:left`, `jump:right` | Always | Plain jumps, used to break a stall. |
 
 Stuck detection is positional: 3 s in which the player chose movement but stayed inside a 48 px
-box (`tools/playtest_telemetry.gd:380`).
+box (`tools/playtest_telemetry.gd:380`). `retreat` does not count as movement: backed into a boss
+arena's pocket it holds her there on purpose.
+
+A player still curled when the policy picks a move that needs her standing (approach, retreat, the
+shots, a beam switch, a jump over, a refill run or idle) stands up first: one Slipstream tap and
+the curl's frames (`StandFirst`, `tools/playtest_programs.gd`).
 
 The driver sends `cycle_beam` presses when the physics step ends, after the player has moved
 (`LATE_PRESSES`, `tools/playtest_programs.gd:24`). Measured in the check: a press sent before the
@@ -114,11 +121,11 @@ count is absorbed by the fire cooldowns and the Slipstream curl.
 
 ## 6. Policies
 
-- **heuristic** (`tools/playtest_policy.gd:62`): dash into incoming shots, else duck under them; when stuck, wall-jump or
+- **heuristic** (`tools/playtest_policy.gd:62`): take a boss dodge when one is offered; dash into incoming shots, else duck under them; when stuck, wall-jump or
   alternate jumps; go to a refill when one is offered and no close enemy is winding up (in campaign
   mode only within 512 px, except the Harpoon refill of a live boss's room); fight the
   primary target if it is visible, given up on no longer, or the arena is sealed, else go to the
-  ambush trigger, a pickup or an exit. With a boss (`tools/playtest_policy.gd:227`): jump over or
+  ambush trigger, a pickup or an exit. With a boss (`tools/playtest_policy.gd:231`): walk into its arena while it is disengaged; jump over or
   back off from a close wind-up, fire the opener, harpoon it while open, switch to the opener's
   beam, walk to where the opener lines up, and keep 360 px from a boss nothing hurts (the retreat
   falls back to the approach when the arena edge is behind). Otherwise: harpoon a beam-immune
@@ -359,6 +366,10 @@ local server that ignores it.
   a missing key (error names the variable only, no request, backend disabled), a 401 whose body
   echoes the key (backend disabled, and no written file contains the key), and the Jev findings
   and their aggregate.
+- `tools/check_playtest_dodge.gd` (suite `playtest agent`): a real Stone Guardian forced into a
+  stage 3 Fault Slam, Rockfall and Boulder Volley in the check room; the heuristic loop picks
+  `dodge:<attack>` and takes no damage through real inputs (without the dodge it takes 24 from the
+  slam and the volley); the refill run jumps over the boss under open sky and not under a roof.
 - The refusal without `--test-mode` was run by hand: exit code 2 and the message "refusing to run
   without --test-mode (it would write to the real save)".
 
@@ -480,6 +491,11 @@ stands, `go_to_objective` is not offered, since following the route cannot get p
 is offered, the route's own `go_to_door` plays the same route-following program. An
 objective has 300 game seconds; a timed-out objective is set aside, a second timeout ends the run
 (`tools/playtest_progress.gd:30`). Deaths do not end a campaign run; the 2,700 s cap does.
+Like a player, the route also takes a Bolt Quiver or an energy tank lying within 50 solver steps
+while a boss is still ahead (`EXTRA_DETOUR` in `tools/playtest/campaign_route.py`; on the current
+map the vaults_02 quiver, the kiln_01 energy tank and the kiln_02 quiver, 16 objectives in all).
+Such an objective is `optional`: it gets 120 s and is left behind after one timeout. `run.py
+--minimum-kit` plans the required items only (13 objectives), the question round 1 left open.
 
 Navigation fixes from the first full runs (`tools/playtest_nav.gd`): a jump peaking below a target
 straight overhead steers into the nearer shaft wall so the wall jump the solver planned happens
@@ -514,3 +530,77 @@ refuses it). With the minimum-route kit Jev beat the Tidal Heart in a room probe
 harness defect fixed afterwards: the route's door steered in place above a floor gate, shots
 whose line missed the enemy, and a health refill 600 px straight up; the last fix has checks
 only, no full run.
+
+## 20. Boss dodges (2026-09-29)
+
+Round 3's first full Jev run (`jev-r1`, `/Volumes/Personal/Tools/hollowtide-runs/round3/`) stopped
+at the Stone Guardian with the minimum kit (100 health, 5 Harpoons): 16 attempts, 15 deaths, 12 of
+them in stage 3; damage contact 628, Fault Slam 408, Boulder Volley 316, Rockfall 196. Jev mostly
+chose `retreat`, which only pressed her into the west pocket; the plain jumps it had were labelled
+stall breakers, `jump_over` jumps toward the boss, and a 3 s stall in the pocket made the hint jump
+into the boss.
+
+A dodge probe in the real vaults_03 arena (real player, stage 3 attack forced, 13 responses at 17
+start times each, 0.1 s apart) found an answer to every attack in both places the fight happens:
+
+| Attack | West pocket (feet x 284, boss stopped 192 px away) | Open floor (boss 416 px away) |
+|---|---|---|
+| Fault Slam | jump in place, started 0 to 0.8 s into the telegraph (9/17) | jump in place 0.5 to 1.3 s in (9/17), a short jump 0.2 to 1.4 s in |
+| Boulder Volley | jump 0.1 to 0.7 s in (7/17), roll under the low roof 0 to 0.7 s | run away (17/17), jump 0.6 to 1.3 s in |
+| Rockfall | curl and roll under the low roof (14/17); every step toward the boss is hit | step about 110 px away (13/17) |
+| Shoulder Charge | stand still (17/17): it stops short of the pocket | run away 0 to 0.9 s in (10/17) |
+
+So the fight is fair at 100 health; the agent lacked the answers. `dodge:<attack>`
+(`tools/playtest_dodge.gd:60`) plays them: jumps start 0.45 s before the shockwave or the rock
+reaches her (0.15 to 0.9 s cleared), with a second jump 0.85 s later for the desperation double
+slam; Rockfall and Vent Burst walk to the nearest spot at least 92 px from every locked column and
+140 px from the boss body, or roll under a low roof when none is on her floor; the charge runs into
+the pocket no closer than 60 px to the arena edge. The labels say what the move does and that a
+retreat does not outrun the slam; Jev's rubric asks to prefer it while it is offered.
+
+Also from the same runs: an empty quiver in the west pocket walks through the boss to the arena's
+Quiver Cache (24 contact per trip); under the west platform there is no room to jump the body, so
+the refill run jumps it only where 240 px of air is free above it. The boss approach kept stepping
+out of the 260 px deep east pocket for its 320 px firing range, disengaging the boss each time (a
+Jev probe looped there for 180 s); it now stops 48 px inside the arena.
+
+Room probes, vaults_03 from the west door with the objective-7 kit (100 health, 5 Harpoons), 240 s,
+5 deaths at most (`sg-*` under the round 3 directory):
+
+| Run | Before | After |
+|---|---|---|
+| heuristic | 0 of 5 won, all died in stage 2 (contact 252, slam 2 kills) | won the first attempt in 53.6 s, 96 damage (contact 72 from refill trips) |
+| Jev | 0 of 16 in `jev-r1` | 0 of 5 won, all reached stage 4 (boss 37 to 75 health left); contact from refill trips the main loss |
+| Jev, 10 Harpoons | not run | won the first attempt in 50.0 s, 72 damage |
+
+Later round 3 runs added more:
+
+- `jev-r2` (16-objective route) stopped in vaults_02 on the Updraft Cloak: at 10 health Jev chose
+  `retreat` from a bat 500 px away 1,554 times, pressed into the east wall, and the held intent
+  repeated it for 500 s. `retreat` is now offered only from a threat within 420 px and never with a
+  wall 24 px behind her; a boss pinned too close falls back to `idle`, not `approach`.
+- `jev-r3` stopped in fringe_03 on the first Bolt Quiver: the beam trial aborted, re-armed, and Jev
+  chose `go_to_ambush` 2,900 times from a ledge straight above its trigger, where the straight steer
+  stands still. In campaign mode `go_to_ambush` is offered only on the trigger's floor.
+- Cinder Warden room probes (objective-12 kit: 200 health, 15 Harpoons): a heuristic win, then Jev
+  idling 268 s 28 px outside the arena once the retreat was withheld there (the heuristic now walks
+  into a disengaged boss's arena, and the label says so), then Jev rolling for 110 s in ball form
+  after a missed stand-up tap (fixed by `StandFirst`). A dodge probe at cell 26 found the Ember Fan
+  cleared by curling in place (15/17), the Heat Ring by standing (17/17) and the Scuttle Rush by
+  running away within 0.9 s (10/17); those answers joined the dodge table. Jev then beat the Cinder
+  Warden at the first attempt in 69.1 s (182 damage).
+
+With these fixes `jev-r4` (seed 1, fresh new game, 16-objective route) reached the ending at 754.2
+game s with 10 deaths: Stone Guardian on the second attempt (50.4 s), Cinder Warden on the second
+(75.7 s), Tidal Heart on the first (85.2 s); about $0.10.
+
+Most of that run's damage was in vaults_01/02 (objective 4: 641 damage, 4 deaths in the vaults_01
+ambush, 621 of it from armored guards) while Jev shot the ambush's other enemies. A charge probe on
+the vaults_01 floor (real player, guard 384 px away, 9 start times per response) found the answer:
+a jump toward the guard started 0.05 to 0.3 s into its 0.42 s wind-up cleared 6 of 9; standing or
+curling 0 of 9. So the guard is fair, and a winding-up guard on her floor now gets
+`dodge:<id>` (jump toward it about 0.85 s before the charge would reach her). A Jev vaults_01
+ambush probe afterwards cleared it on the third try with 94 guard damage over three tries; the full
+run was not repeated (all four runs used). The heuristic's full run on the final build before the
+guard dodge stopped at 5 of 16 in vaults_02 (13 deaths, 1,536 damage in the vaults, the floater chain
+at (28, 13) again).

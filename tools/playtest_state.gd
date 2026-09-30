@@ -169,10 +169,19 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		# Surprise enemies name their own states (a spider's twitch); their wind-up glow counts too.
 		var wind_up = enemy.get("_telegraph_remaining")
 		entry["telegraph"] = (shown in WIND_UP_STATES or (wind_up is float and wind_up > 0.0))
+		if wind_up is float and wind_up > 0.0:
+			entry["wind_up_left"] = snappedf(wind_up, 0.01)
 	if is_boss:
 		entry["stage"] = int(enemy.get("stage"))
 		entry["attack"] = String(enemy.get("_attack_id"))
 		entry["attack_state"] = String(enemy.get("_attack_state"))
+		entry["attack_left"] = snappedf(float(enemy.get("_telegraph_remaining")), 0.01)
+		entry["attack_elapsed"] = snappedf(float(enemy.get("_active_elapsed")), 0.01)
+		# Rockfall and Vent Burst lock their floor columns when the telegraph starts; the floor
+		# circles show them to the player.
+		var plan = enemy.get("_attack_plan")
+		var columns: Array = plan.get("columns", []) if plan is Dictionary else []
+		entry["columns_rel"] = columns.map(func(x: float) -> int: return roundi(x - feet.x))
 		entry["engaged"] = enemy.get("_player_engaged") == true
 		entry.merge(Boss.facts(enemy, feet))
 	return entry
