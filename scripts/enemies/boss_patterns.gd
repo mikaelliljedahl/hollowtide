@@ -190,7 +190,7 @@ static func active_seconds(attack: StringName, stage: int) -> float:
 
 static func punish_seconds(attack: StringName, stage: int, boss_id: StringName = &"") -> float:
 	var seconds := float(_timing(attack)["punish"])
-	if is_mini(boss_id) or Mini.has_attack(attack):
+	if is_mini(boss_id) or (not TIMING.has(attack) and Mini.has_attack(attack)):
 		return maxf(seconds, Mini.MIN_PUNISH[clampi(stage, 1, Mini.STAGE_COUNT) - 1])
 	if stage >= DESPERATION_STAGE:
 		return maxf(seconds * DESPERATION_PUNISH_SCALE, DESPERATION_MIN_PUNISH)
