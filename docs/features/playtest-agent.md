@@ -42,8 +42,9 @@ to game code.
 | Candidates | `tools/playtest_actions.gd:63` | 5 to 14 labelled macro actions, each a per-frame program of held actions (section 5). |
 | Programs and driver | `tools/playtest_programs.gd:179` | Builds the per-frame programs and plays them as input events. |
 | Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
+| Crouch shot | `tools/playtest_crouch.gd:66` | What a shot hits on an enemy, whether it is below the standing shot, and the crouched level shot at it (section 23). |
 | Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
-| Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, and the refill run's jump over a boss (section 20). |
+| Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, the refill run's jump over a boss (section 20), and the enemy shot a curl or a dash answers. |
 | Tidal Heart dodges | `tools/playtest_tide.gd` | The Tidal Heart's shot lines for the state and the spot off every line, or the lane jump (section 21). |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
 | Policies | `tools/playtest_policy.gd:62` | `heuristic` and `random`; `external` goes through the bridge. |
@@ -52,7 +53,8 @@ to game code.
 | Report | `tools/playtest_report.gd:10` | Findings, `report.json` and `report.md`. |
 | Runner | `tools/playtest/run.py:70` | Launches Godot per seed, hosts the policy server, aggregates. |
 | Policy server | `tools/playtest/policy_server.py:57` | Serves one game connection with a backend. |
-| Jev backend | `tools/playtest/jev_backend.py:391` | Hosted Jev or any `/v1/systemone` server (section 12). |
+| Jev backend | `tools/playtest/jev_backend.py:156` | Hosted Jev or any `/v1/systemone` server (section 12). |
+| Jev request | `tools/playtest/jev_request.py:282` | Jev's compact state, the legal candidate filter, the rubric and the three questions (section 12). |
 | Jev feedback | `tools/playtest/jev_feedback.py:103` | Confusion hotspots, danger peaks, disagreement (section 12). |
 | Aggregate | `tools/playtest/aggregate.py:28` | Cross-run findings over several seeds or runs. |
 | Jev critic | `tools/playtest/jev_critic.py` | Jev rates each room, arena and boss after a run (section 22). |
@@ -72,7 +74,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -92,9 +94,10 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20); for the Tidal Heart while any of its lines still crosses the floor within 348 px of her | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, standing still, or for the Tidal Heart a step to the nearest spot off every line (standing, else curled) or a jump over a low Crosscurrent lane with a curl under the high one. |
 | `retreat` | An enemy within 420 px and no wall 24 px behind the player; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
 | `open_boss:<id>:<aim>` | The player inside the boss's arena, a closed boss with its opening unspent, a Harpoon left, the opener beam owned and equipped, the opener point in sight, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
-| `shoot:<id>:<aim>` | Beam owned, not in ball form, not at a boss from outside its arena, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow, none whose bolt line passes more than 120 px from an ordinary enemy, none at a frost floater the route is freezing; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
+| `shoot:<id>:<aim>` | Beam owned, not in ball form, not at a boss from outside its arena, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow or at a `low` one, none whose bolt line passes more than 120 px from an ordinary enemy, none at a frost floater the route is freezing; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
 | `jump_shoot:<id>` | Grounded, no standing aim reaches a non-boss target up to 240 px above the crossbow | Jump straight up and fire level on the frame the crossbow reaches its height (`tools/playtest_aim.gd`, Updraft Cloak speed when owned). |
-| `harpoon:<id>:<aim>` | A shot's worth of Harpoons left, an enemy in sight that the Harpoon hurts and that is a boss or immune to the beam, an aim that reaches it, and for a boss the player inside its arena and no Harpoon already flying (one opening takes one) | Same with `fire_missile`. |
+| `harpoon:<id>:<aim>` | A shot's worth of Harpoons left, an enemy in sight that the Harpoon hurts and that is a boss or immune to the beam, an aim that reaches it (none level at a `low` one), and for a boss the player inside its arena and no Harpoon already flying (one opening takes one) | Same with `fire_missile`. |
+| `crouch_shot:<id>:<weapon>` | Standing or crouching on the ground, a `low`, visible, non-boss primary target within 1100 px, and a weapon that hurts it: `bolt` when the equipped bolt damages it, else `harpoon` when a shot's worth is left, else `bolt` when the Snare freezes it | Face it, hold `move_down` 3 frames to crouch, tap the fire action level while crouched, stay down 3 frames. |
 | `pulse:<id>` | Resonance Pulse and Slipstream owned, the pulse hurts the target and the beam does not, target within 400 px and 96 px level, grounded or in ball form | Curl into ball form, roll toward it, drop the pulse (`fire_beam` in ball form), roll back 24 frames, stand up. |
 | `select_beam:<beam>` | Per owned, unequipped beam while a target exists; the label says when it hurts or opens the target | Tap `cycle_beam` as often as the owned order needs. |
 | `jump_over:<id>` | Grounded, target within 420 px, not a boss floating more than 160 px above the feet | Jump toward it, 20 frames held. |
@@ -112,7 +115,7 @@ box (`tools/playtest_telemetry.gd:380`). `retreat` does not count as movement: b
 arena's pocket it holds her there on purpose.
 
 A player still curled when the policy picks a move that needs her standing (approach, retreat, the
-shots, a beam switch, a jump over, a refill run or idle) stands up first: one Slipstream tap and
+shots and the crouch shot, a beam switch, a jump over, a refill run or idle) stands up first: one Slipstream tap and
 the curl's frames (`StandFirst`, `tools/playtest_programs.gd`).
 
 The driver sends `cycle_beam` presses when the physics step ends, after the player has moved
@@ -130,8 +133,8 @@ count is absorbed by the fire cooldowns and the Slipstream curl.
   ambush trigger, a pickup or an exit. With a boss (`tools/playtest_policy.gd:231`): walk into its arena while it is disengaged; jump over or
   back off from a close wind-up, fire the opener, harpoon it while open, switch to the opener's
   beam, walk to where the opener lines up, and keep 360 px from a boss nothing hurts (the retreat
-  falls back to the approach when the arena edge is behind). Otherwise: harpoon a beam-immune
-  enemy, pulse a pulse-only one, switch to a beam that hurts it, shoot or jump-shoot, jump over
+  falls back to the approach when the arena edge is behind). Otherwise: fire crouched at a `low`
+  target, harpoon a beam-immune enemy, pulse a pulse-only one, switch to a beam that hurts it, shoot or jump-shoot, jump over
   rushers closer than 130 px, and walk closer after 2.5 s of shots that do not land (three such
   tries ignore that target for 15 s).
 - **random** (`tools/playtest_policy.gd:57`): a seeded uniform pick; the baseline a smarter policy
@@ -236,19 +239,20 @@ return the hint or let the server's null-key fallback count it.
 
 `--policy external --backend jev` asks TypeSafe's hosted Jev (a System One model) for each decision:
 one `POST {base_url}/v1/systemone` with `Authorization: Bearer <key>`, standard library only, over
-one keep-alive connection opened before the first decision (`tools/playtest/jev_backend.py:349`).
+one keep-alive connection opened before the first decision (`tools/playtest/jev_backend.py:114`).
 The contract comes from `.agent-reports/jev-research.md` section 1.
 
-Request (`tools/playtest/jev_backend.py:294`):
+Request (`tools/playtest/jev_request.py:282`):
 
 - `model`: default `jev-1.13.0`, pinned. On 2026-09-24 the API accepted it, `GET /v1/models` listed
   only the aliases `jev-latest` and `jev-preview`, and `jev-latest` answered as `jev-1.13.0`.
-- `state` (`tools/playtest/jev_backend.py:236`): a compact view of section 4, not the raw export.
+- `state` (`tools/playtest/jev_request.py:221`): a compact view of section 4, not the raw export.
   A `goal` sentence (defeat the boss; start the armed arena by walking in; clear the running arena;
   or explore); `player` with `health_pct`, grounded, on_wall, facing, form, dash_ready and
   harpoons left, the equipped `bolt` and `bolts_owned` by player-facing name; up to 3 `threats` with `dx_tiles`/`dy_tiles`, a `where` phrase (left, right,
   above, below), a `range` word (touching, close, mid range, far), health %, winding up, whether
-  the kit hurts it, `hurt_by_bolt` (the owned bolt that would), line of sight, whether it belongs to
+  the kit hurts it, `hurt_by_bolt` (the owned bolt that would), `below_standing_shot` (the state's
+  `low`), line of sight, whether it belongs to
   the arena, and boss stage, attack and `shell` (open, or closed and what opens it, in words); up to
   3 `incoming_shots` within 6 tiles with `approaching` computed in code; up to 2 `hazards` within 4
   tiles (kind, where, touching, state); `facts` (health word, nearest threat range and direction, any
@@ -258,9 +262,10 @@ Request (`tools/playtest/jev_backend.py:294`):
 - `questions`: `action` (`choice` over the candidate keys, each criterion the game's label plus a
   one-line rubric for its kind), `danger` (`score`: low, medium, high) and `unsure` (`noul`: stuck
   or unclear which action is right).
-- Illegal candidates are removed in code before sending (`tools/playtest/jev_backend.py:143`): a
+- Illegal candidates are removed in code before sending (`tools/playtest/jev_request.py:90`): a
   harpoon without ammo, a shot or jump shot without the crossbow, a pulse without the Resonance
-  Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne. Each new
+  Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne, a crouch
+  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change. Each new
   round 3 kind has its own rubric line and feedback group. The hint always stays. With one option left no request is sent.
 
 The answer's `choice` is played when it is a sent key and its `confidence` is at least
@@ -277,7 +282,7 @@ while it waits, so latency costs wall time only; the runner raises `--timeout-ms
 | `--jev-hz` | 5 | At most this many requests per game second; decisions in between repeat Jev's last answer while it is offered (`held`), else play the hint, and are recorded as `skip:rate`. |
 | `--jev-budget-usd` | none | Estimated spend per run after which the hint is played (`skip:budget`). |
 
-Sources per decision (`tools/playtest/jev_backend.py:532`): `jev`; `skip:rate`,
+Sources per decision (`tools/playtest/jev_backend.py:184`): `jev`; `skip:rate`,
 `skip:single_option`, `skip:no_room`; `fallback:<reason>` with `timeout`, `network`,
 `low_confidence`, `bad_choice`, `bad_response`, `http_<status>`, `cooldown` (after a 429 or 529,
 honouring `retry-after` up to 10 s), `rate_limit` (the 1,200 requests per minute cap, counted in
@@ -329,7 +334,7 @@ local server that ignores it.
 - Jev specifically (the user accepted this outbound edge on 2026-09-24): per request the compact
   state of section 12 (room id, relative tile positions, enemy types, health, arena and boss
   status) and the candidate keys with their labels go to `api.typesafe.ai`. The key is read from
-  `TYPESAFE_API_KEY` inside each request (`tools/playtest/jev_backend.py:361`), never stored,
+  `TYPESAFE_API_KEY` inside each request (`tools/playtest/jev_backend.py:126`), never stored,
   printed, logged, written or passed on a command line; the Authorization header is redacted in
   `jev_request_sample.json`, and server error text is scrubbed of the key.
 - TypeSafe's terms, per `.agent-reports/jev-research.md` section 4: customer requests are not used
@@ -373,7 +378,13 @@ local server that ignores it.
   compact state in tiles), answer parsing, the rate cap, the timeout and low-confidence fallbacks,
   a missing key (error names the variable only, no request, backend disabled), a 401 whose body
   echoes the key (backend disabled, and no written file contains the key), and the Jev findings
-  and their aggregate.
+  and their aggregate. The crouch shot has its rubric line, feedback group and legality (dropped
+  while airborne and, for its Harpoon, at zero bolts), and a low threat reads `below_standing_shot`.
+- `tools/check_playtest_crouch.gd` (suite `playtest agent`): an armored guard held still 256 and
+  448 px ahead on the check room floor is `low`, gets `crouch_shot:<id>:harpoon` and no standing
+  Harpoon, the heuristic picks it, and its loop's crouched Harpoon hits the guard through real
+  inputs (60 to 25); a spitter is not low and keeps its standing shot. On the code before the crouch
+  shot all ten guard checks fail (standing `harpoon:<id>:forward` picked, 60 to 60).
 - `tools/check_playtest_dodge.gd` (suite `playtest agent`): a real Stone Guardian forced into a
   stage 3 Fault Slam, Rockfall and Boulder Volley in the check room; the heuristic loop picks
   `dodge:<attack>` and takes no damage through real inputs (without the dodge it takes 24 from the
@@ -524,7 +535,7 @@ flags, open menu, program, held and pressed actions (`tools/playtest_agent.gd:25
 have been silent for 120 s, or that passes `--wall-limit` (`tools/playtest/run.py:44`). Piped Godot
 output is block-buffered, so the heartbeat file, not stdout, is the liveness signal. The Jev
 backend stops calling after an estimated `--jev-budget-usd` and plays the hint (`skip:budget`,
-`tools/playtest/jev_backend.py:486`). The runner starts Godot with its own HOME and XDG folders
+`tools/playtest/jev_backend.py:220`). The runner starts Godot with its own HOME and XDG folders
 under the run directory (`tools/godot_env.py`), so user:// (settings.cfg, logs) never lands in the
 player's folder, and it leaves the Jev key out of Godot's environment.
 
@@ -731,3 +742,19 @@ so no shot ever flew toward the boss. The cause is not isolated (a probe artifac
 made. `min-jev-c` (`--minimum-kit`, seed 1) stopped at 5 of 13: 300 s in vaults_02 alternating
 `go_to_refill` with the route to the Updraft Cloak (an agent loop, no game change). Estimated Jev
 spend for all rated runs, probes excluded (they use no Jev): $0.49.
+
+## 23. Crouch shot (2026-09-30)
+
+Standing shots pass over the armored guard: its art, and so its projectile hurtbox, reaches 130 px
+above its floor, while the standing crossbow fires 161 px up (the Harpoon's 14 px body leaves a gap
+of about 24 px). The shot visibly flies over the art, so this is not a readability defect; the
+game-feel contract's grounded crouch shot (72 px up) is the answer, and the agent had no program
+for it. Measured in the same pit: a grasshopper (top 132 px up), a crawler (71) and a burrower (73)
+are low too; a spitter (174) and a hopper (origin 90 px up, top 247) are not.
+
+`crouch_shot` (section 5) fixes it. Real-input probe in the vaults_01 pit (guard held still 192 to
+560 px ahead, six distances, the harness's own programs): standing Harpoons hit 0 of 6, crouched
+ones 6 of 6. Heuristic room run of the vaults_01 arena (seeds 1 and 2, 90 s, kit beam, slipstream,
+bombs, missiles, missile_tank:1): before, cleared 0 of 4 fights, the guard never killed and the
+arena's stall abort after 45.2 s; after, cleared 2 of 2 in 8.4 s with 38 damage and the guard
+killed.

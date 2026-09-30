@@ -23,6 +23,7 @@ GROUPS = {
     "shoot": "attack",
     "harpoon": "attack",
     "jump_shoot": "attack",
+    "crouch_shot": "attack",
     "open_boss": "attack",
     "select_beam": "attack",
     "pulse": "attack",

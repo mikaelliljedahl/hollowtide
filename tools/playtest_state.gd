@@ -9,6 +9,7 @@ const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const Hazards = preload("res://tools/playtest_hazards.gd")
 const Boss = preload("res://tools/playtest_boss.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
+const Crouch = preload("res://tools/playtest_crouch.gd")
 const TILE := 64.0
 const MAX_ENEMIES := 6
 const MAX_PROJECTILES := 8
@@ -150,6 +151,7 @@ func enemies(tree: SceneTree, feet: Vector2) -> Array:
 
 func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 	var is_boss := enemy.is_in_group(&"bosses")
+	var span := Crouch.span(enemy, feet)
 	var entry := {
 		"id": label_for(enemy),
 		"type": String(enemy.get("enemy_id")),
@@ -164,6 +166,8 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		"switch_to": switch_to(enemy),
 		"visible": clear_line(enemy, feet + EYE, enemy.global_position),
 		"frozen": enemy.get("is_frozen") == true,
+		"span_rel": span,
+		"low": Crouch.is_low(span),
 	}
 	if enemy.has_method(&"presentation_state"):
 		var shown := StringName(enemy.call(&"presentation_state"))
