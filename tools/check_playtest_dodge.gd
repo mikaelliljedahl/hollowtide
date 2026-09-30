@@ -15,6 +15,8 @@ const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const BOSS_OFFSET := Vector2(416, -92)
 ## The Tidal Heart floats 330 px above her feet and 250 px ahead, as in the depths_02 probe.
 const TIDAL_OFFSET := Vector2(250, -330)
+## The Cinder Warden 240 px ahead on her floor, as at the r6-min-s1b stage 4 Ember Fan hits.
+const WARDEN_OFFSET := Vector2(240, -92)
 const ATTACK_FRAMES := 240
 
 var _host: Node
@@ -37,6 +39,8 @@ func run() -> void:
 	_test_walk_into_arena()
 	await _test_stands_up_first()
 	await _test_guard_charge()
+	await _test_fan_after_vent()
+	await _test_fan_embers_in_recover()
 	for attack in Tide.ATTACKS:
 		await _test_tidal(attack)
 	_test_attacks_landed()
@@ -275,6 +279,111 @@ func _test_guard_charge() -> void:
 	)
 	guard.queue_free()
 	await _frames(20)
+
+
+func _spawn_warden() -> Node2D:
+	var boss := EnemyFactory.create(&"furnace_mother") as Node2D
+	WorldFxTestbed.entities(_root.current_room).add_child(boss)
+	boss.global_position = _player.global_position + WARDEN_OFFSET
+	var room: Node2D = _root.current_room
+	var size: Vector2 = room.call("size_px")
+	boss.call(
+		&"configure_arena", Rect2(room.global_position + Vector2(64, 64), size - Vector2(128, 128))
+	)
+	return boss
+
+
+## Stage 4 chains the Ember Fan straight after Vent Burst. The Vent Burst dodge waits out the
+## pillars, so the loop used to answer the fan only once its telegraph was nearly over, and the
+## embers hit (r6-min-s1b: 5 of 20 fan hits). A new telegraph now ends the running program.
+func _test_fan_after_vent() -> void:
+	_reset_kit()
+	await _frames(30)
+	var boss := _spawn_warden()
+	await _frames(2)
+	boss.call(&"set_test_stage", 4)
+	var chain: Array[StringName] = [&"vent_burst", &"ember_fan"]
+	boss.set("_attack_chain", chain)
+	boss.call(&"_start_telegraph")
+	var loop := Loop.new(_root, _player, Policy.HEURISTIC, 5, [])
+	var health := GameState.health
+	var fan_key := ""
+	var fan_started := -1
+	for frame in ATTACK_FRAMES * 2:
+		loop.physics_step(1.0 / 60.0)
+		if boss.get("_attack_id") == &"ember_fan" and fan_started < 0:
+			fan_started = frame
+		if fan_started >= 0 and fan_key.is_empty():
+			fan_key = String(loop.current.get("key", ""))
+		await _host.get_tree().physics_frame
+		if boss.get("_attack_id") == &"ember_fan" and boss.get("_attack_state") == &"recover":
+			boss.set_physics_process(false)
+			if _host.get_tree().get_nodes_in_group(&"enemy_shot").is_empty():
+				break
+	loop.finish({})
+	_check(
+		fan_key == "dodge:ember_fan",
+		"the fan after a Vent Burst is answered from its telegraph's first frame (%s)" % fan_key
+	)
+	_check(
+		GameState.health == health,
+		(
+			"the Vent Burst then Ember Fan chain takes no damage (%d -> %d)"
+			% [health, GameState.health]
+		)
+	)
+	_clear_boss(boss)
+	await _frames(40)
+
+
+## The embers fly on through the fan's punish window: the curl is still offered while one flies at
+## her, and no longer once they have passed (the window is for the Harpoon).
+func _test_fan_embers_in_recover() -> void:
+	_reset_kit()
+	await _frames(30)
+	var boss := _spawn_warden()
+	boss.global_position = _player.global_position + Vector2(420, -92)
+	await _frames(2)
+	boss.call(&"set_test_stage", 1)
+	var chain: Array[StringName] = [&"ember_fan"]
+	boss.set("_attack_chain", chain)
+	boss.call(&"_start_telegraph")
+	var in_flight := {}
+	var after := {}
+	for _frame in ATTACK_FRAMES:
+		await _host.get_tree().physics_frame
+		if boss.get("_attack_state") != &"recover":
+			continue
+		boss.set_physics_process(false)
+		var entry := _boss_entry()
+		if in_flight.is_empty():
+			in_flight = Dodge.candidate(entry, _player, _player.is_on_floor())
+		if _host.get_tree().get_nodes_in_group(&"enemy_shot").is_empty():
+			after = Dodge.candidate(entry, _player, _player.is_on_floor())
+			break
+	_check(
+		in_flight.get("key") == "dodge:ember_fan",
+		"embers still flying in the punish window offer the curl (%s)" % in_flight.get("key")
+	)
+	_check(after.is_empty(), "no curl once the embers have passed (%s)" % after.get("key"))
+	# She stood still; the curl was never played, so the embers hit her.
+	_clear_boss(boss)
+	GameState.reset_health()
+	await _frames(40)
+
+
+func _boss_entry() -> Dictionary:
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	for enemy: Dictionary in state["enemies"]:
+		if enemy["is_boss"]:
+			return enemy
+	return {}
+
+
+func _clear_boss(boss: Node2D) -> void:
+	boss.queue_free()
+	for shot in _host.get_tree().get_nodes_in_group(&"enemy_shot"):
+		shot.queue_free()
 
 
 ## A real Tidal Heart forced into a desperation `attack`: the state carries its locked lines, and

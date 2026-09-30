@@ -34,6 +34,11 @@ var _policy: Policy
 var _root: Node
 var _player: Player
 var _fallbacks_logged := 0
+## The boss attack plan seen when the running program was chosen. A new telegraph ends the program
+## so the answer to it starts at once: in r6-min-s1b 5 of 20 Ember Fan hits came in stage 4 while
+## a Vent Burst dodge still waited out its pillars, and 5 more while a retreat ran on past the
+## point the fan was aimed at.
+var _seen_plan: Variant = null
 
 
 func _init(root: Node, player: Player, policy: String, seed_value: int, break_specs: Array) -> void:
@@ -61,7 +66,7 @@ func physics_step(delta: float) -> void:
 		current = {}
 		telemetry.tick(delta, false, "")
 		return
-	if driver.done():
+	if driver.done() or _new_telegraph():
 		_decide()
 	driver.step()
 	var kind := String(current.get("kind", ""))
@@ -132,6 +137,7 @@ func _decide() -> void:
 	current = Actions.find(options, key)
 	if current.is_empty():
 		current = options[0]
+	_seen_plan = _boss_plan()
 	if _player.is_ball and current["kind"] in Programs.STANDING_KINDS:
 		driver.start(Programs.StandFirst.new(current["program"]))
 	else:
@@ -158,6 +164,20 @@ func _decide() -> void:
 			_log_file.flush()
 	else:
 		decision_log.append(line)
+
+
+func _boss_plan() -> Variant:
+	var boss := _player.get_tree().get_first_node_in_group(&"bosses")
+	return boss.get("_attack_plan") if boss != null else null
+
+
+func _new_telegraph() -> bool:
+	var boss := _player.get_tree().get_first_node_in_group(&"bosses")
+	return (
+		boss != null
+		and boss.get("_attack_state") == &"telegraph"
+		and not is_same(boss.get("_attack_plan"), _seen_plan)
+	)
 
 
 func _log_fallback(reason: String) -> void:

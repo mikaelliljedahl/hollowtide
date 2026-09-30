@@ -92,7 +92,8 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 	# The Tidal Heart's shots keep flying through its recovery; they are all in `shots_rel`.
 	if StringName(attack) in Tide.ATTACKS:
 		return Tide.candidate(boss, player)
-	if phase not in ["telegraph", "active"]:
+	# The embers keep flying through the fan's punish window.
+	if phase not in ["telegraph", "active"] and not (attack == "ember_fan" and phase == "recover"):
 		return {}
 	var rel := Vector2(float(boss["rel"][0]), float(boss["rel"][1]))
 	var away := -1 if rel.x > 0.0 else 1
@@ -136,6 +137,8 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 			# Curl where she stands and stay curled until the fan (both fans in desperation) passed.
 			var reach := maxf(rel.length() - FAN_ORIGIN, 0.0) / FAN_SPEED
 			var passed := release + reach + FAN_PASS + (FAN_REPEAT if desperate else 0.0)
+			if phase == "recover":
+				passed = embers_left(player)
 			if passed < 0.0:
 				return {}
 			program = Programs.hold([&"slipstream"], 2)
@@ -209,6 +212,21 @@ static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:
 				continue
 			return x
 	return null
+
+
+## Seconds until the last enemy shot still flying at her has passed her column, plus FAN_PASS;
+## negative when none is. The fan's embers fly on through its punish window.
+static func embers_left(player: Player) -> float:
+	var left := -1.0
+	for node in player.get_tree().get_nodes_in_group(&"enemy_shot"):
+		var shot := node as EnemyProjectile
+		if shot == null or shot.is_queued_for_deletion():
+			continue
+		var dx := player.global_position.x - shot.global_position.x
+		var closing := shot.direction.x * shot.speed * signf(dx)
+		if closing > 1.0:
+			left = maxf(left, (absf(dx) - REACH) / closing + FAN_PASS)
+	return left
 
 
 ## Waits until JUMP_LEAD before `arrival` (seconds from now), then jumps in place; with a `gap`,
