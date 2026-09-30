@@ -2,6 +2,51 @@ extends SceneTree
 
 const GameStateScript = preload("res://scripts/autoload/game_state.gd")
 const SaveStoreScript = preload("res://scripts/save/save_store.gd")
+const SIXTEEN_ROOM_IDS: Array[String] = [
+	"fringe_01",
+	"fringe_02",
+	"fringe_03",
+	"fringe_04",
+	"fringe_05",
+	"nexus_01",
+	"nexus_02",
+	"vaults_01",
+	"vaults_02",
+	"vaults_03",
+	"kiln_01",
+	"kiln_02",
+	"kiln_03",
+	"depths_01",
+	"depths_02",
+	"depths_03",
+]
+const SIXTEEN_ROOM_PICKUPS := [
+	["fringe_01.missile_ledge", &"missile_tank"],
+	["fringe_01.missile_03", &"missile_tank"],
+	["fringe_01.energy_01", &"energy_tank"],
+	["fringe_02.slipstream", &"slipstream"],
+	["fringe_03.beam", &"beam"],
+	["fringe_03.missile_01", &"missile_tank"],
+	["fringe_03.energy_02", &"energy_tank"],
+	["fringe_04.bombs", &"bombs"],
+	["fringe_05.long_beam", &"long_beam"],
+	["fringe_05.missile_02", &"missile_tank"],
+	["nexus_02.energy_01", &"energy_tank"],
+	["nexus_02.missile_01", &"missile_tank"],
+	["vaults_01.missile_01", &"missile_tank"],
+	["vaults_02.energy_pillar", &"energy_tank"],
+	["vaults_02.ice_beam", &"ice_beam"],
+	["vaults_02.high_jump", &"high_jump"],
+	["vaults_02.missile_01", &"missile_tank"],
+	["kiln_01.pressure_seal", &"pressure_seal"],
+	["kiln_01.energy_01", &"energy_tank"],
+	["kiln_02.missile_01", &"missile_tank"],
+	["kiln_02.wave_beam", &"wave_beam"],
+	["depths_01.energy_corridor", &"energy_tank"],
+	["depths_01.undertow_dash", &"undertow_dash"],
+	["depths_01.missile_01", &"missile_tank"],
+]
+
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 
 var _failures: Array[String] = []
@@ -261,6 +306,36 @@ func _run_save_tests() -> void:
 	_expect(store.unreadable_slot() == "foreign", "a domain mismatch is reported to the title")
 	_expect(store.save_game() == OK, "domain mismatch does not block new progress")
 	_expect(_take_archive(root, "slot_01.foreign.", mismatch_target), "mismatch kept aside")
+
+	# A slot from the 16-room campaign (before the 48-room world) still loads: the new rooms only add ids.
+	state.reset_progress()
+	for old_pickup in SIXTEEN_ROOM_PICKUPS:
+		state.collect_pickup(old_pickup[0], old_pickup[1])
+	for old_room in SIXTEEN_ROOM_IDS:
+		state.discover_room(old_room)
+	state.set_world_flag("boss:stone_guardian")
+	state.set_world_flag("regional:stone_guardian")
+	_expect(state.set_checkpoint("depths_01", Vector2(640.0, 512.0)), "old checkpoint accepted")
+	var sixteen_snapshot := state.snapshot()
+	var sixteen_file := FileAccess.open(target, FileAccess.WRITE)
+	sixteen_file.store_string(
+		JSON.stringify(
+			{
+				"schema_version": Catalog.SCHEMA_VERSION,
+				"domain": "dev",
+				"snapshot": sixteen_snapshot
+			}
+		)
+	)
+	sixteen_file.close()
+	state.reset_progress()
+	_expect(store.has_save(), "a 16-room slot is still offered as Continue")
+	_expect(store.load_game() == OK, "a 16-room slot still loads in the 48-room world")
+	_expect(
+		state.snapshot() == sixteen_snapshot and state.energy_tanks == Catalog.MAX_ENERGY_TANKS,
+		"a 16-room slot keeps all six Pearls and its progress"
+	)
+	_expect(state.missile_tanks == 9, "a 16-room slot keeps its nine Quivers")
 
 	# A well-formed save from before an id rename fails validation; it must not block new saves.
 	state.reset_progress()

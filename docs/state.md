@@ -54,9 +54,13 @@ Visible runtime text and documentation are English. No tutorial text in the game
 
 ## What is in the game
 
-- **World:** 16-room campaign (`scenes/campaign/layouts/*.txt`, built by
-  `tools/build_campaign_rooms.py`) plus the S0–S10 dev track. Both branch orders (vaults/kiln) work;
-  a graph solver check validates reachability.
+- **World:** 48-room campaign (`scenes/campaign/layouts/*.txt`, built by
+  `tools/build_campaign_rooms.py`; plan in [features/bigger-world.md](features/bigger-world.md)) plus the
+  S0–S10 dev track. Both branch orders (vaults/kiln) work; a graph solver check validates reachability.
+  Integrate notes: the solver treats a blocked bottom-edge exit as a wall; the fringe_01 drop into
+  vaults_08 is closed by a timed lid (vaults_08 row 3, opened from below); the vaults_10/depths_07
+  flag gate sits on vaults_10's first interior row; the 16-room save slot test is in
+  `tools/check_progression.gd`.
 - **Arsenal (D19):** Seed Crossbow base weapon, Harpoon with Bolt Quivers (rock pegs, Harpoon
   Sockets), Bubble Snare (standable bubbles), Echo Shot (ricochet, resonant membranes), Resonance
   Pulse (cracks crystal), Focus Lens, Undertow Dash (replaces the old spin attack), Heart Pearls, Slipstream
