@@ -268,7 +268,7 @@ func _build_stations(parent: VBoxContainer):
 		parent,
 		(
 			(
-				"Arrows · move / aim · Down crouch · Z Slipstream · Left Shift run · B dash\n"
+				"Arrows · move / aim · Down crouch · Z Slipstream · Left Shift run · B or E dash\n"
 				+ "A/Space jump · X shoot or pulse in ball / low shot while crouched\n"
 				+ "C harpoon · V cycle bolt · Q cycle Flux · F activate Flux\n"
 				+ "F toggles Shield/Burst. Echo Scan is one-shot: F spends %d Flux to mark nearby "

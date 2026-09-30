@@ -44,7 +44,7 @@ Default controls (rebindable in settings; the pause/start-menu help shows the li
 
 - arrows: move and aim; Down crouches; Left Shift: hold to run
 - A: jump (Space alternate); Z: Slipstream form
-- X: Seed Crossbow / Resonance Pulse / low shot; C: Harpoon; V: cycle bolt; B: Undertow Dash
+- X: Seed Crossbow / Resonance Pulse / low shot; C: Harpoon; V: cycle bolt; B or E: Undertow Dash
 - Q: cycle Flux module; F: activate/toggle Flux
 - Esc: pause; F1: developer panel (dev mode only)
 - Up on a save shrine: shrine menu (Travel, Tide Sockets); on the map, X places or cycles a pin and
