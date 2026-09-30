@@ -92,6 +92,10 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
     player = state.get("player") or {}
     kit = state.get("kit") or {}
     enemies = {enemy.get("id"): enemy for enemy in state.get("enemies", [])}
+    refill_first = _refill_first(candidates, state)
+    arena = state.get("ambush") or {}
+    running = arena.get("state") in ("sealing", "fighting", "intermission")
+    in_fight = running and bool(arena.get("inside"))
     kept = []
     for candidate in candidates:
         kind = candidate.get("kind", "")
@@ -106,10 +110,33 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
             or (kind in ("duck", "dodge") and not player.get("grounded", False))
             or (kind == "wall_jump" and not player.get("on_wall", False))
             or (kind == "jump_over" and not player.get("grounded", False))
+            or (kind == "approach" and refill_first and bool(target.get("is_boss")))
+            # r6-min-s1: in the fringe_03 beam trial Jev followed the route up to the Bolt Quiver
+            # ledge, shot at hoppers out of sight below for 38 s, and the arena's stall abort reset it.
+            or (kind in ("go_to_objective", "go_to_door", "fast_travel") and in_fight)
         )
         if not blocked or candidate.get("key") == hint:
             kept.append(candidate)
     return kept
+
+
+def _refill_first(candidates: list[dict[str, Any]], state: dict[str, Any]) -> bool:
+    """True while the quiver is empty, a boss is in the room that no bolt hurts, and the refill
+    run to Harpoons is offered: closing in on it then only loses time. t4-min-s1b chose `approach`
+    at a shut Tidal Heart 1,880 times with the missile refill offered (Jev's own pick at 0.65)."""
+    kit = state.get("kit") or {}
+    if int(kit.get("max_missiles", 0)) <= 0 or int(kit.get("missiles", 0)) > 0:
+        return False
+    if not any(e.get("is_boss") and not _bolt_matters(e, kit) for e in state.get("enemies", [])):
+        return False
+    restores = {
+        refill.get("kind"): refill.get("restores", []) for refill in state.get("refills", [])
+    }
+    return any(
+        candidate.get("kind") == "go_to_refill"
+        and "harpoons" in restores.get(candidate.get("key", "").partition(":")[2], [])
+        for candidate in candidates
+    )
 
 
 def _crouch_shot_legal(
@@ -152,6 +179,7 @@ def _threat(enemy: dict[str, Any]) -> dict[str, Any]:
         "arena_enemy": bool(enemy.get("ambush")),
         "frozen": bool(enemy.get("frozen")),
         "below_standing_shot": bool(enemy.get("low")),
+        "route_platform": bool(enemy.get("platform")),
     }
     if enemy.get("switch_to"):
         entry["hurt_by_bolt"] = BEAM_NAMES.get(enemy["switch_to"], enemy["switch_to"])
@@ -256,6 +284,8 @@ def compact_state(state: dict[str, Any], last: dict[str, Any]) -> dict[str, Any]
         facts["boss_stage"] = boss.get("stage")
         facts["boss_attack"] = boss.get("attack") or "none"
         facts["boss_shell"] = shell_text(boss)
+        if int(kit.get("max_missiles", 0)) > 0 and int(kit["missiles"]) <= 0:
+            facts["quiver"] = "empty: refill Harpoons before closing in on the boss"
     compact: dict[str, Any] = {
         "goal": goal_text(state),
         "player": {

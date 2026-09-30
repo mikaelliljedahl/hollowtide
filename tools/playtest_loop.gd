@@ -103,6 +103,7 @@ func _decide() -> void:
 	var route: Array = []
 	if campaign != null:
 		state["goal"] = campaign.goal(state)
+		_mark_platforms(state)
 		route = campaign.candidates(state)
 	var options := Actions.candidates(state, _player, route)
 	var offered := Actions.public(options)
@@ -164,3 +165,14 @@ func _log_fallback(reason: String) -> void:
 		return
 	_fallbacks_logged += 1
 	print("playtest: external policy %s at tick %d; used the heuristic" % [reason, tick])
+
+
+## A frost floater the route stands on is a platform, not a target, frozen or not: r6-min-s1 froze
+## the vaults_02 floaters, then Jev switched to the seed bolt and shot all four down.
+func _mark_platforms(state: Dictionary) -> void:
+	var ids := {}
+	for floater in campaign.platforms():
+		ids[exporter.label_for(floater)] = true
+	for enemy in state["enemies"]:
+		if ids.has(enemy["id"]):
+			enemy["platform"] = true

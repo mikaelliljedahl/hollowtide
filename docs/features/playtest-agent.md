@@ -75,7 +75,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) `platform` (campaign mode: a frost floater an upcoming route hop stands on, frozen or not; it gets no fight options and Jev reads it as `route_platform`) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -266,7 +266,10 @@ Request (`tools/playtest/jev_request.py:282`):
 - Illegal candidates are removed in code before sending (`tools/playtest/jev_request.py:90`): a
   harpoon without ammo, a shot or jump shot without the crossbow, a pulse without the Resonance
   Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne, a crouch
-  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change. Each new
+  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change, and
+  an approach to a boss no bolt hurts while the quiver is empty and the Harpoon refill run is offered
+  (the state's `facts` then say `quiver: empty`), and the route (`go_to_objective`, `go_to_door`,
+  `fast_travel`) while the player is inside a running arena. Each new
   round 3 kind has its own rubric line and feedback group. The hint always stays. With one option left no request is sent.
 
 The answer's `choice` is played when it is a sent key and its `confidence` is at least
@@ -807,3 +810,48 @@ ordinary enemies (`_bolt_matters` in `tools/playtest/jev_request.py`). Room runs
 with that kit, Jev policy and critic, 300 s: before, 0 of 3 attempts won, 2 deaths, rated 0.38
 (too hard, boring); with the spot only, 0 of 2, 1 death, 0.58, 899 body shots; with both, won the
 first attempt in 106.1 s with no death, rated 0.82 (fair, good pacing, fun high).
+
+## 25. Harness round 6 (2026-09-30)
+
+**Empty quiver at a boss.** `t4-min-s1b` (section 24) held the Tidal Heart at stage 1 for 300 s:
+with no Harpoons Jev chose `approach` 1,880 times at depths_02 (24 to 25, 10) while
+`go_to_refill:missilerefill` was offered and was the hint. A room run from (24, 10) with the
+minimum kit (Jev policy, 150 s) reproduced it: of the decisions with the refill run offered, 198
+were `approach`, 100 of them Jev's own answer at about 0.65 confidence and the rest held between
+calls; the boss was unfinished at stage 2. Nothing in Jev's state said that closing in is useless
+with an empty quiver. The Jev backend now drops that approach (`_refill_first` in
+`tools/playtest/jev_request.py`) and the facts carry `quiver: empty`. The same room run afterwards:
+no approach while the refill run was offered (29 refill runs), boss defeated in 99.4 s, no death.
+`test_empty_quiver_at_a_boss_takes_the_refill_run` in `tools/check_playtest_bridge.py` fails on the
+old code.
+
+**Frozen floaters shot down.** The first minimum-kit run of this round (`r6-min-s1`) stopped at 5
+of 13 in vaults_02 (two 300 s timeouts on the Updraft Cloak). After freezing the floater at
+(28, 13) the `freeze` candidate was no longer offered, so the platform guard of section 5 lapsed:
+Jev switched to the seed bolt ("it hurts frost_floater") and shot the frozen floaters, killing all
+four; from then on every route walk west from (31, 14) fell to the hall at row 31 and climbed back,
+for 580 s. The state now marks a floater an upcoming hop stands on as `platform` whether frozen or
+not (`Floaters.platforms`, `tools/playtest_loop.gd`), and such a floater gets no fight options. A
+new case in `_test_shots_that_can_land` (`tools/check_playtest_campaign.gd`) fails on the old code
+(an approach and a shot at the frozen platform floater).
+
+**Route out of a running arena.** In two of four runs (`r6-min-s1`, `r6-full-s3`) the fringe_03
+beam trial aborted after 41.4 s at wave 1 with no damage, the "too long" the critic rated in round 5:
+once the arena sealed, Jev chose `go_to_objective` (0.67 in `r6-full-s3`), the route led up to the
+Bolt Quiver ledge at (16 to 23, 7), and from there it fired 225 and 365 level bolts at hoppers out of
+sight 260 px below until the arena's stall abort reset the fight. The Jev backend now drops the
+route while she is inside a running arena. `r6-min-s1c` cleared the trial in 8.6 s and chose a route
+move in 2 of 239 decisions inside running arenas (the hint, which always stays).
+`test_no_route_out_of_a_running_arena` in `tools/check_playtest_bridge.py` fails on the old code.
+
+**Echo grate behind the muzzle.** `r6-min-s1c` (minimum kit, third run) stopped at 11 of 13: after a
+death at stage 4 the second Tidal Heart attempt sat in stage 3 for 483 s, and at depths_02 (27, 10),
+facing the boss with the Echo equipped and Harpoons left, Jev chose `open_boss:<id>:forward` about
+1,000 times; the shell never opened. The grate hung 46 px ahead of her feet and 96 px up, while a
+standing bolt starts at the muzzle 71 px ahead (`PlayerConfig.STANDING_HORIZONTAL_MUZZLE_OFFSET`),
+so the bolt never crossed it; `Aim.line_up` measured from a point above the feet and lined it up.
+Grate aims now also need the grate ahead of the grounded muzzle (`Aim.ahead_of_muzzle`), for the
+opener, its `visible` and the firing spot. `tools/check_playtest_grate.gd` builds that case with a
+real Tidal Heart and grate: on the old code the state offers `open_boss:<id>:forward` with
+`visible: true` and no spot (2 checks FAIL); through real inputs that shot leaves the shell closed,
+and the same shot at a grate ahead of the muzzle opens it.

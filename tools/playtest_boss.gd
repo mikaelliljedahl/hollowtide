@@ -83,7 +83,9 @@ static func facts(boss: Node2D, feet: Vector2) -> Dictionary:
 	var radius := Aim.GRATE_RADIUS if grate != null else Aim.BOSS_RADIUS
 	opener["visible"] = (
 		_opener_in_sight(boss, feet + Aim.EYE, point, beam, grate)
-		and not Aim.line_up(point - feet, true, radius, Catalog.BEAM_RANGE).is_empty()
+		and not (
+			Aim.line_up(point - feet, true, radius, Catalog.BEAM_RANGE, grate != null).is_empty()
+		)
 	)
 	if not opener["visible"] and opener["owned"] and opener["via"] != "punish":
 		var spot = _firing_spot(boss, feet, point, beam, grate, opener["via"] == "grate")
@@ -133,7 +135,7 @@ static func _firing_spot(
 			var distance := spot.distance_to(feet)
 			if distance >= best_distance or not _stands(space, spot):
 				continue
-			if Aim.line_up(point - spot, true, radius, Catalog.BEAM_RANGE).is_empty():
+			if Aim.line_up(point - spot, true, radius, Catalog.BEAM_RANGE, grate).is_empty():
 				continue
 			if _opener_in_sight(boss, spot + Aim.EYE, point, beam, target):
 				best = spot

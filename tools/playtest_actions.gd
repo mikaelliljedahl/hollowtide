@@ -79,8 +79,13 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var target := primary_target(enemies)
 	# A frost floater the route is about to freeze is a platform, not a target: a bolt kills it
 	# (jev-c2 shot the vaults_02 floaters down instead of freezing them, and stalled there).
+	# Once frozen it is marked `platform` instead (r6-min-s1 shot four frozen ones down).
 	var platform := route.any(func(entry: Dictionary) -> bool: return entry["kind"] == "freeze")
-	if not target.is_empty() and not (platform and target["type"] == "frost_floater"):
+	if (
+		not target.is_empty()
+		and not (platform and target["type"] == "frost_floater")
+		and not bool(target.get("platform", false))
+	):
 		result.append_array(_fight(state, target, player))
 	var shot := Dodge.incoming_projectile(state)
 	if (
@@ -344,7 +349,7 @@ static func _opener(
 		return []
 	var goal := boss_goal(boss)
 	var point: Vector2 = goal[0]
-	var aim := Aim.line_up(point, grounded, goal[1], reach)
+	var aim := Aim.line_up(point, grounded, goal[1], reach, opener["via"] == "grate")
 	if aim.is_empty():
 		return []
 	var through := "through the grate at" if opener["via"] == "grate" else "at"
