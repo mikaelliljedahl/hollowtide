@@ -696,3 +696,26 @@ confidence 0.4 or more. A flag is a lead for a probe in the real room, never a c
 Jev reads numbers, not the screen: "readability" is judged from whether its own danger rating was
 high before a hit, and "fun" is a guess from the same facts. The critic stops at
 `--critic-budget-usd` (default $0.05 per run) and uses the policy's key handling (section 13).
+
+**Rated runs 2026-09-30** (seed 1, fresh new game, 16-objective route, Jev policy and critic;
+`/Volumes/Personal/Tools/hollowtide-runs/critic/`). `full-jev-a` stopped at 11 of 16 objectives:
+it spent 120 s firing the Snare at an already frozen kiln_01 mimic and never took the energy tank,
+then lost all 12 Cinder Warden attempts with 100 health. Critic overall 0.68; worst the Warden
+(0.29: too hard 1.00, pacing boring 0.98, main problem too_hard 0.92). Two harness fixes and one
+game fix followed. The Jev backend drops a crossbow shot at an ordinary enemy that no bolt hurts,
+or at one the equipped Snare has already frozen (`_bolt_matters` in `jev_backend.py`; the heuristic
+never fires these; it also cost 40 s of seed bolts at a vaults_01 armored guard). The critic keeps
+a death that lands a rounding step past a fight's end, and stuck time inside a fight, out of the
+room's numbers (the room had read as navigation_confusing from an arena's stuck time). The Warden's
+patrol now turns at the charge pocket ([boss-rework.md](boss-rework.md#6-cinder-warden)).
+`full-jev-b`, same seed with all three: the first Jev run to reach the ending, 16 of 16 in 974.8
+game seconds, 7 deaths, every boss at the first attempt (Warden 65.7 s). Critic overall 0.68, boss
+group 0.53 to 0.83.
+
+Standing shots pass over the armored guard and often over the stalker: a real-input probe in the
+vaults_01 pit (guard held still 256 to 560 px ahead) hurt it with 0 of 3 standing Harpoons and 1 of
+3 crouched ones, and bolts never (by design). Crouched low fire is the intended answer (game-feel
+contract, grounded crouch shots), and the agent has no crouch-shot program yet, so its slow, costly
+vaults_01 arena and vaults_02 (both rated too hard and too long in `full-jev-b`) are an agent
+limit, not a game change. Adding a crouched shot for targets below the eye line is the next
+harness step.

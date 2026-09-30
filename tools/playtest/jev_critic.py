@@ -127,13 +127,12 @@ def load_run(out: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
 def segments(report: dict[str, Any], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Every boss fight, arena and room of the run in play order, one entry per id."""
     telemetry = report["telemetry"]
-    hits = telemetry.get("hits", [])
     fights: list[dict[str, Any]] = []
     for kind, entries in (("boss", telemetry.get("bosses", [])), ("ambush", telemetry["ambushes"])):
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for entry in entries:
             grouped[entry["id"]].append(entry)
-        fights += [_fight(kind, tries, hits, records) for tries in grouped.values()]
+        fights += [_fight(kind, tries, telemetry, records) for tries in grouped.values()]
     windows = [w for fight in fights for w in fight.pop("windows")]
     rooms = [
         _room(room, seconds, report, windows, records)
@@ -157,7 +156,7 @@ def _in(t: float, windows: list[tuple[float, float]]) -> bool:
 def _fight(
     kind: str,
     tries: list[dict[str, Any]],
-    hits: list[dict[str, Any]],
+    telemetry: dict[str, Any],
     records: list[dict[str, Any]],
 ) -> dict[str, Any]:
     first = tries[0]
@@ -169,6 +168,7 @@ def _fight(
         for e in tries
         if "t" in e
     ]
+    hits = telemetry.get("hits", [])
     fight_hits = [h for h in hits if h["room"] == room and _in(float(h["t"]), windows)]
     facts: dict[str, Any] = {
         "seconds": round(sum(float(e["seconds"]) for e in tries), 1),
@@ -179,6 +179,7 @@ def _fight(
         "damage_taken": sum(_fight_damage(e) for e in tries),
         "damage_by_source": _by_source(fight_hits),
         "hits": len(fight_hits),
+        "stuck_seconds": _stuck(telemetry, room, lambda t: _in(t, windows)),
     }
     if kind == "boss":
         # The boss recorder attributes its own damage; the hit list needs the fight window.
@@ -248,13 +249,17 @@ def _room(
         "damage_taken": sum(h["amount"] for h in outside),
         "damage_by_source": _by_source(outside),
         "hits": len(outside),
-        "stuck_seconds": round(
-            sum(float(s["seconds"]) for s in telemetry.get("stuck", []) if s["room"] == room), 1
-        ),
+        "stuck_seconds": _stuck(telemetry, room, lambda t: not _in(t, fights)),
         "jev_play": _jev_play(records, room, None, outside, exclude=fights),
     }
     first_t = min([float(v["t"]) for v in visits] or [0.0])
     return {"kind": "room", "id": room, "room": room, "first_t": first_t, "facts": facts}
+
+
+def _stuck(telemetry: dict[str, Any], room: str, keep: Any) -> float:
+    """Stuck seconds in `room` whose start `keep` accepts (inside or outside the fights)."""
+    stuck = telemetry.get("stuck", [])
+    return round(sum(float(s["seconds"]) for s in stuck if s["room"] == room and keep(s["t"])), 1)
 
 
 def _by_source(hits: list[dict[str, Any]]) -> dict[str, int]:

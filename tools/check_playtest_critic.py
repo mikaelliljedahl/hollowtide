@@ -44,7 +44,10 @@ def report() -> dict:
             "hits": hits,
             "deaths": [{"t": 72.04, "room": "vaults_03", "killer": "sg:slam"}],
             "room_seconds": {"fringe_03": 50.0, "vaults_03": 70.0},
-            "stuck": [{"room": "fringe_03", "cell": [1, 1], "t": 5.0, "seconds": 4.0}],
+            "stuck": [
+                {"room": "fringe_03", "cell": [1, 1], "t": 5.0, "seconds": 4.0},
+                {"room": "fringe_03", "cell": [2, 1], "t": 26.0, "seconds": 6.0},
+            ],
             "ambushes": [
                 {
                     "id": "fringe_03.ambush.a",
@@ -194,6 +197,7 @@ class SegmentTest(unittest.TestCase):
         self.assertEqual(ambush["damage_by_source"], {"hopper": 12, "bat": 10})
         self.assertEqual(ambush["damage_taken"], 22)
         self.assertEqual(ambush["best_wave_reached"], 2)
+        self.assertEqual(ambush["stuck_seconds"], 6.0)
 
     def test_boss_attacks_seen_against_escaped(self):
         boss = self.cut[("boss", "stone_guardian")]["facts"]
