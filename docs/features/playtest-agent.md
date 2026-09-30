@@ -268,7 +268,8 @@ Request (`tools/playtest/jev_request.py:282`):
   Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne, a crouch
   shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change, and
   an approach to a boss no bolt hurts while the quiver is empty and the Harpoon refill run is offered
-  (the state's `facts` then say `quiver: empty`). Each new
+  (the state's `facts` then say `quiver: empty`), and the route (`go_to_objective`, `go_to_door`,
+  `fast_travel`) while the player is inside a running arena. Each new
   round 3 kind has its own rubric line and feedback group. The hint always stays. With one option left no request is sent.
 
 The answer's `choice` is played when it is a sent key and its `confidence` is at least
@@ -833,3 +834,12 @@ for 580 s. The state now marks a floater an upcoming hop stands on as `platform`
 not (`Floaters.platforms`, `tools/playtest_loop.gd`), and such a floater gets no fight options. A
 new case in `_test_shots_that_can_land` (`tools/check_playtest_campaign.gd`) fails on the old code
 (an approach and a shot at the frozen platform floater).
+
+**Route out of a running arena.** In two of four runs (`r6-min-s1`, `r6-full-s3`) the fringe_03
+beam trial aborted after 41.4 s at wave 1 with no damage, the "too long" the critic rated in round 5:
+once the arena sealed, Jev chose `go_to_objective` (0.67 in `r6-full-s3`), the route led up to the
+Bolt Quiver ledge at (16 to 23, 7), and from there it fired 225 and 365 level bolts at hoppers out of
+sight 260 px below until the arena's stall abort reset the fight. The Jev backend now drops the
+route while she is inside a running arena. `r6-min-s1c` cleared the trial in 8.6 s and chose a route
+move in 2 of 239 decisions inside running arenas (the hint, which always stays).
+`test_no_route_out_of_a_running_arena` in `tools/check_playtest_bridge.py` fails on the old code.

@@ -93,6 +93,9 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
     kit = state.get("kit") or {}
     enemies = {enemy.get("id"): enemy for enemy in state.get("enemies", [])}
     refill_first = _refill_first(candidates, state)
+    arena = state.get("ambush") or {}
+    running = arena.get("state") in ("sealing", "fighting", "intermission")
+    in_fight = running and bool(arena.get("inside"))
     kept = []
     for candidate in candidates:
         kind = candidate.get("kind", "")
@@ -108,6 +111,9 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
             or (kind == "wall_jump" and not player.get("on_wall", False))
             or (kind == "jump_over" and not player.get("grounded", False))
             or (kind == "approach" and refill_first and bool(target.get("is_boss")))
+            # r6-min-s1: in the fringe_03 beam trial Jev followed the route up to the Bolt Quiver
+            # ledge, shot at hoppers out of sight below for 38 s, and the arena's stall abort reset it.
+            or (kind in ("go_to_objective", "go_to_door", "fast_travel") and in_fight)
         )
         if not blocked or candidate.get("key") == hint:
             kept.append(candidate)

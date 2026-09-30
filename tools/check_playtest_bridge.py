@@ -500,6 +500,22 @@ class JevRoundThreeStateTest(unittest.TestCase):
         self.assertEqual(keys, ["approach:e1", "retreat", hint])
         self.assertNotIn("quiver", jev_request.compact_state(state, {})["facts"])
 
+    def test_no_route_out_of_a_running_arena(self):
+        # r6-min-s1: the route led up out of the fringe_03 beam trial and the arena aborted.
+        state = self.state()
+        state["enemies"] = []
+        state["ambush"] = {"state": "fighting", "wave": 1, "waves": 2, "alive": 2, "inside": True}
+        candidates = [
+            {"key": "go_to_objective", "kind": "go_to_objective", "label": "follow the route"},
+            {"key": "go_to_door:west:fringe_02", "kind": "go_to_door", "label": "door"},
+            {"key": "approach:e3", "kind": "approach", "label": "approach enemy e3 (hopper)"},
+        ]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "approach:e3")]
+        self.assertEqual(keys, ["approach:e3"])
+        state["ambush"]["state"] = "cleared"
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "approach:e3")]
+        self.assertEqual(len(keys), 3)
+
     def test_crouch_shot_is_explained_and_legal_on_the_ground(self):
         self.assertIn("crouch_shot", jev_request.RUBRIC)
         self.assertEqual(jev_feedback.GROUPS["crouch_shot"], "attack")
