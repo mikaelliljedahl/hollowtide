@@ -2,26 +2,28 @@ id: fringe_08
 area: fringe
 name: Hopper Pit
 origin: 120 0
-# hopper_pit: the floor between the two doors seals the pit; hoppers first, then divers from the ceiling.
-ambush: 1 1 28 15 wave=hopper,hopper wave2=hopper,ceiling_diver,ceiling_diver trigger=13,9,8,6 spawns=3,2,24,12 id=hopper_pit
+# hopper_pit: Fernmaw (optional mini-boss, flag mini:fernmaw) fights in the whole pit; the Quiver Cache
+# waits in the sealed alcove at the top right, behind the flag gate.
 legend:
   M missilerefill
   v stalactite
   L light
+  B miniboss fernmaw arena=1,1,28,15 return=3,15
+  G flaggate mini:fernmaw
 grid:
 ##############################
 #..........L..v........v.....#
 #............................#
 #............................#
-#.................M..........#
-#...............######.......#
-#............................#
-#........#####..........######
+#.....................########
+#.....................G.....##
+#.....................G..M..##
+#........#####...#############
 #..L.........................#
 #............................#
 #....#####...........#####...#
 #............................#
-#............................#
+#.........B..................#
 ######........#####...........
 #.............................
 #.............................

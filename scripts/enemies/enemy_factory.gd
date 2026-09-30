@@ -22,7 +22,7 @@ static func create(runtime_id: StringName) -> Node2D:
 		if enemy != null:
 			enemy.set(&"runtime_id", runtime_id)
 		return enemy
-	if Catalog.BOSS_IDS.has(runtime_id):
+	if Catalog.BOSS_IDS.has(runtime_id) or Catalog.MINI_BOSS_IDS.has(runtime_id):
 		var boss := BOSS_SCENE.instantiate() as Node2D
 		if boss != null:
 			boss.set(&"runtime_id", runtime_id)

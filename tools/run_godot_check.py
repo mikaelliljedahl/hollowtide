@@ -90,6 +90,7 @@ SUITES = [
     Suite("combat feedback", "tools/check_combat_feedback.tscn", fixed_fps=False),
     Suite("combat presentation", "tools/check_combat_presentation.tscn"),
     Suite("boss rework", "tools/check_boss_rework.tscn", timeout=240.0),
+    Suite("mini bosses", "tools/check_mini_bosses.tscn", timeout=300.0),
     Suite("beam family", "tools/check_beam_family.tscn"),
     Suite("arsenal", "tools/check_arsenal.tscn"),
     Suite("dash deflect", "tools/check_dash_deflect.tscn"),

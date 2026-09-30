@@ -5,6 +5,7 @@ extends RefCounted
 ## Charges carry their lane end in the plan and move the boss body instead of firing.
 
 const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Mini = preload("res://scripts/enemies/mini_boss_patterns.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const BODY_RADIUS := 92.0
 const ARENA_FALLBACK_HALF_WIDTH := 700.0
@@ -106,21 +107,37 @@ static func plan(boss: Node2D, attack: StringName) -> Dictionary:
 		&"maelstrom":
 			marks.append({"kind": &"spiral", "center": core, "arms": 3 if desperate else 2})
 			result["start_angle"] = aim.angle() + PI * 0.5
-		&"shoulder_charge", &"scuttle_rush":
-			var direction := signf(target.x - boss.global_position.x)
-			if is_zero_approx(direction):
-				direction = float(boss.get("_facing"))
-			var end_x := boss.global_position.x
-			var bounds: Rect2 = boss.get("arena_bounds")
-			# Without an arena there is no lane to charge along (test benches only).
-			if bounds.size != Vector2.ZERO:
-				var limit := _first_wall_x(boss, direction, lane.y if direction > 0.0 else lane.x)
-				end_x = limit - direction * (BODY_RADIUS + CHARGE_WALL_POCKET)
-			result["charge_direction"] = direction
-			result["charge_end_x"] = end_x
-			var y := floor_y - 20.0
-			marks.append(_lane_mark(Vector2(boss.global_position.x, y), Vector2(end_x, y)))
+		_:
+			# Charges (main and mini) share one lane plan; other mini attacks plan in their own file.
+			if Patterns.is_charge(attack):
+				_plan_charge(boss, result, target, floor_y, lane)
+			else:
+				Mini.plan(boss, attack, result, target, _helpers())
 	return result
+
+
+static func _plan_charge(
+	boss: Node2D, result: Dictionary, target: Vector2, floor_y: float, lane: Vector2
+) -> void:
+	var marks: Array = result["marks"]
+	var direction := signf(target.x - boss.global_position.x)
+	if is_zero_approx(direction):
+		direction = float(boss.get("_facing"))
+	var end_x := boss.global_position.x
+	var bounds: Rect2 = boss.get("arena_bounds")
+	# Without an arena there is no lane to charge along (test benches only).
+	if bounds.size != Vector2.ZERO:
+		var limit := _first_wall_x(boss, direction, lane.y if direction > 0.0 else lane.x)
+		end_x = limit - direction * (BODY_RADIUS + CHARGE_WALL_POCKET)
+	result["charge_direction"] = direction
+	result["charge_end_x"] = end_x
+	var y := floor_y - 20.0
+	marks.append(_lane_mark(Vector2(boss.global_position.x, y), Vector2(end_x, y)))
+
+
+## This script as an object: mini-boss hooks call its static helpers (`_first_wall_x`, `_shot`).
+static func _helpers() -> GDScript:
+	return load("res://scripts/enemies/boss_attacks.gd") as GDScript
 
 
 static func emissions(boss: Node2D, attack: StringName, locked: Dictionary) -> Array[Dictionary]:
@@ -225,6 +242,8 @@ static func emissions(boss: Node2D, attack: StringName, locked: Dictionary) -> A
 							300.0
 						)
 					)
+	if shots.is_empty() and not Patterns.is_charge(attack):
+		shots = Mini.emissions(boss, attack, locked, _helpers())
 	shots.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["at"] < b["at"])
 	return shots
 
@@ -246,6 +265,8 @@ static func fire(boss: Node2D, shot: Dictionary) -> void:
 
 
 static func charge_speed(attack: StringName) -> float:
+	if Mini.is_charge(attack):
+		return Mini.charge_speed(attack)
 	return float(CHARGE_SPEEDS.get(attack, 600.0))
 
 

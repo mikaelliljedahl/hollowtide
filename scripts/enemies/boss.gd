@@ -15,6 +15,8 @@ const BossVisuals = preload("res://scripts/enemies/effects/boss_visuals.gd")
 const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
 const Attacks = preload("res://scripts/enemies/boss_attacks.gd")
 const Motion = preload("res://scripts/enemies/boss_motion.gd")
+const MiniPatterns = preload("res://scripts/enemies/mini_boss_patterns.gd")
+const MiniVisuals = preload("res://scripts/enemies/effects/mini_visuals.gd")
 const HIT_FLASH_SECONDS := 0.14
 const BLOCK_FLASH_SECONDS := 0.1
 const CORE_BUBBLE_RADIUS := 84.0
@@ -99,7 +101,7 @@ func _ready() -> void:
 	enemy_id = runtime_id
 	max_health = int(_boss_data()["max_health"])
 	health = max_health
-	_opening_damage = Patterns.opening_damage(max_health)
+	_opening_damage = Patterns.opening_damage(max_health, enemy_id)
 	_health_trail = float(max_health)
 	add_to_group(&"enemies")
 	add_to_group(&"damageable")
@@ -152,14 +154,14 @@ func set_test_phase(requested_phase: int) -> void:
 
 ## Dev/test entry into a fight stage without changing health.
 func set_test_stage(requested_stage: int) -> void:
-	if requested_stage < 1 or requested_stage > Patterns.DESPERATION_STAGE:
+	if requested_stage < 1 or requested_stage > Patterns.stage_count(enemy_id):
 		return
 	var changed := stage != requested_stage
 	stage = requested_stage
-	phase = Patterns.protection_phase(stage)
+	phase = Patterns.protection_phase(stage, enemy_id)
 	_branch_open = false
 	_branch_timer = 0.0
-	_opening_damage = Patterns.opening_damage(max_health)
+	_opening_damage = Patterns.opening_damage(max_health, enemy_id)
 	_cancel_attack(0.2)
 	_rotation_index = 0
 	if changed:
@@ -193,13 +195,13 @@ func receive_hit(amount: int, kind: StringName, hit_context := {}) -> HitResult.
 	if outside or not is_vulnerable_to(kind):
 		BossVisuals.spawn_blocked_hit(self, impact, direction)
 		return HitResult.Reaction.BLOCKED
-	var stage_left := health - Patterns.stage_floor(stage, max_health)
+	var stage_left := health - Patterns.stage_floor(stage, max_health, enemy_id)
 	var dealt := mini(mini(amount, _opening_damage), stage_left)
 	_opening_damage -= dealt
 	health -= dealt
 	_health_trail_delay = HEALTH_TRAIL_DELAY
 	if health > 0:
-		var reached := Patterns.stage_for(health, max_health)
+		var reached := Patterns.stage_for(health, max_health, enemy_id)
 		if reached > stage:
 			_enter_stage(reached)
 	if health == 0:
@@ -237,6 +239,11 @@ func is_vulnerable_to(kind: StringName) -> bool:
 			return kind == &"missile" and _branch_open
 		&"tidal_heart":
 			return kind == &"missile" and _branch_open
+	if Patterns.is_mini(enemy_id):
+		# M1: Seed Bolt, Harpoon and Echo Shot hurt during an opening; M2: Harpoon in the window only.
+		if phase == 1:
+			return kind in [&"beam", &"base", &"missile", &"wave"]
+		return kind == &"missile" and _branch_open
 	return false
 
 
@@ -265,7 +272,7 @@ func reset_runtime() -> void:
 	_branch_open = false
 	_branch_timer = 0.0
 	_window_length = OPEN_WINDOW_SECONDS
-	_opening_damage = Patterns.opening_damage(max_health)
+	_opening_damage = Patterns.opening_damage(max_health, enemy_id)
 	_cancel_attack(1.0)
 	_rotation_index = 0
 	_hit_flash_remaining = 0.0
@@ -290,7 +297,7 @@ func reset_runtime() -> void:
 
 func _enter_stage(new_stage: int) -> void:
 	stage = new_stage
-	phase = Patterns.protection_phase(stage)
+	phase = Patterns.protection_phase(stage, enemy_id)
 	# A window never carries into the next stage: the boss is shut until its next punish window,
 	# which comes only after the breather and a full telegraphed attack.
 	_branch_open = false
@@ -328,7 +335,7 @@ func _advance_attack(delta: float) -> void:
 			_recover_remaining -= delta
 			if _recover_remaining <= 0.0:
 				_attack_state = &"idle"
-				_attack_timer = Patterns.idle_seconds(stage)
+				_attack_timer = Patterns.idle_seconds(stage, enemy_id)
 
 
 func _start_telegraph() -> void:
@@ -371,7 +378,7 @@ func _finish_attack() -> void:
 		_start_telegraph()
 		return
 	_attack_state = &"recover"
-	_recover_remaining = Patterns.punish_seconds(_attack_id, stage)
+	_recover_remaining = Patterns.punish_seconds(_attack_id, stage, enemy_id)
 	_open_punish_window(_recover_remaining)
 
 
@@ -389,7 +396,7 @@ func _cancel_attack(idle_delay: float) -> void:
 ## Every punish window is a new opening; B2 armor/overheat also opens for the whole window (B1
 ## bodies are already open, Tidal Heart opens through Snare or Echo).
 func _open_punish_window(seconds: float) -> void:
-	_opening_damage = Patterns.opening_damage(max_health)
+	_opening_damage = Patterns.opening_damage(max_health, enemy_id)
 	if phase != 2 or enemy_id == &"tidal_heart":
 		return
 	_branch_open = true
@@ -401,7 +408,7 @@ func _advance_attack_window() -> void:
 	_branch_timer = OPEN_WINDOW_SECONDS
 	_window_length = OPEN_WINDOW_SECONDS
 	match enemy_id:
-		&"stone_guardian", &"furnace_mother":
+		&"stone_guardian", &"furnace_mother", &"fernmaw", &"tollwing", &"rimeweaver", &"emberkite", &"lanternjaw":
 			# B1 stays open; B2 opens only through a punish window after an attack.
 			_branch_open = phase == 1
 			if phase == 2:
@@ -518,6 +525,8 @@ func presentation_state() -> StringName:
 func weak_point_exposed() -> bool:
 	if _opening_damage <= 0:
 		return false
+	if Patterns.is_mini(enemy_id):
+		return phase == 1 or _branch_open
 	match enemy_id:
 		&"stone_guardian", &"furnace_mother":
 			return phase == 1 or _branch_open
@@ -533,11 +542,25 @@ func window_fraction_left() -> float:
 
 
 func _update_visual_presentation() -> void:
+	if Patterns.is_mini(enemy_id):
+		_face_player()
+		if _overlay != null:
+			_overlay.queue_redraw()
+		return
 	if not _has_art or _sprite == null:
 		return
 	_update_facing()
 	BossVisuals.apply_state_art(self)
 	BossVisuals.apply_presentation(self)
+
+
+## Mini-bosses are code-drawn: they turn toward the player between attacks.
+func _face_player() -> void:
+	if _attack_state != &"idle" or not _player_engaged:
+		return
+	var player := get_tree().get_first_node_in_group(&"player") as Node2D
+	if player != null and absf(player.global_position.x - global_position.x) > 24.0:
+		_facing = signf(player.global_position.x - global_position.x)
 
 
 func _update_facing() -> void:
@@ -599,6 +622,12 @@ func _spawn_phase_burst() -> void:
 
 
 func _draw() -> void:
+	if Patterns.is_mini(enemy_id):
+		if not _dying:
+			MiniVisuals.draw_body(self, self)
+			if _player_engaged:
+				BossVisuals.draw_health_bar(self)
+		return
 	if not _has_art or not _player_engaged:
 		return
 	BossVisuals.draw_health_bar(self)
@@ -614,6 +643,8 @@ func has_state_art() -> bool:
 
 
 func _boss_accent_color() -> Color:
+	if Patterns.is_mini(enemy_id):
+		return MiniPatterns.accent(enemy_id)
 	match enemy_id:
 		&"furnace_mother":
 			return Color(1.0, 0.52, 0.12, 1.0)
