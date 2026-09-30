@@ -1,12 +1,13 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
-[ext_resource type="Script" path="res://scripts/campaign/station.gd" id="4_station"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/timed_door.gd" id="5_timeddoor"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="6_stalactite"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/ambush_arena.gd" id="7_ambush"]
+[ext_resource type="Script" path="res://scripts/campaign/mini_boss_spawn.gd" id="4_miniboss"]
+[ext_resource type="Script" path="res://scripts/campaign/flag_gate.gd" id="5_flaggate"]
+[ext_resource type="Script" path="res://scripts/campaign/station.gd" id="6_station"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/timed_door.gd" id="7_timeddoor"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="8_stalactite"]
 
 [node name="vaults_08" type="Node2D"]
 script = ExtResource("1_room")
@@ -31,14 +32,27 @@ script = ExtResource("3_visuals")
 
 [node name="Entities" type="Node2D" parent="."]
 
+[node name="MiniBoss" type="Marker2D" parent="Entities"]
+position = Vector2(544, 2016)
+script = ExtResource("4_miniboss")
+boss_id = &"rimeweaver"
+arena = Rect2(64, 576, 1792, 1472)
+return_point = Vector2(1440, 704)
+
+[node name="FlagGate01" type="StaticBody2D" parent="Entities"]
+position = Vector2(1760, 1888)
+script = ExtResource("5_flaggate")
+required_flags = PackedStringArray("mini:rimeweaver")
+gate_size = Vector2(192, 64)
+
 [node name="AmmoRefill01" type="Area2D" parent="Entities"]
 position = Vector2(1760, 2010)
-script = ExtResource("4_station")
+script = ExtResource("6_station")
 station_kind = &"missilerefill"
 
 [node name="TimedDoor_fringe_cut" type="Node2D" parent="Entities"]
 position = Vector2(480, 224)
-script = ExtResource("5_timeddoor")
+script = ExtResource("7_timeddoor")
 door_size = Vector2(192, 64)
 seconds = 6
 switch_offsets = PackedVector2Array(0, 192, 256, 192)
@@ -46,19 +60,8 @@ local_id = "fringe_cut"
 
 [node name="Stalactite01" type="Node2D" parent="Entities"]
 position = Vector2(800, 128)
-script = ExtResource("6_stalactite")
+script = ExtResource("8_stalactite")
 
 [node name="Stalactite02" type="Node2D" parent="Entities"]
 position = Vector2(1696, 128)
-script = ExtResource("6_stalactite")
-
-[node name="Ambush_icicle" type="Node2D" parent="Entities"]
-position = Vector2(960, 1088)
-script = ExtResource("7_ambush")
-arena_size = Vector2(1792, 1920)
-wave = PackedStringArray("hopper", "hopper")
-extra_waves = Array[PackedStringArray]([PackedStringArray("armored_guard", "hopper")])
-spawn_offsets = PackedVector2Array(-288, 920, 288, 920, -288, 920, 288, 920)
-door_rects = Array[Rect2]([Rect2(-576, -960, 192, 64), Rect2(-128, 896, 192, 64)])
-trigger_rect = Rect2(64, 576, 768, 384)
-local_id = "icicle"
+script = ExtResource("8_stalactite")
