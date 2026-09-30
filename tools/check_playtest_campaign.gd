@@ -54,6 +54,7 @@ func run() -> void:
 	_test_optional_upgrade_left_behind()
 	_test_heuristic_prefers_the_route()
 	_test_shots_that_can_land()
+	_test_floater_sag()
 	await _test_in_a_real_room()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
@@ -364,6 +365,34 @@ static func _plain_state(goal: Dictionary, enemies: Array) -> Dictionary:
 
 
 # --- real room --------------------------------------------------------------------------------
+
+
+## Standing on a frozen frost floater that sank below its home, the feet sit in the row under the
+## solver's resting cell; that row still reads as the resting cell. heur-r1 (round 3) stood at
+## vaults_02 (28, 13) with its feet 34 px into the row, read "off the route", steered to the spot
+## it stood on and waited until the floater thawed under it, five deaths in a row.
+func _test_floater_sag() -> void:
+	var hop := [[ROOM_ID, 27, 12, 0, 1], [ROOM_ID, 20, 14, 0, 0]]
+	var route := _route(
+		[_objective(0, "pickup", "check.slipstream", "slipstream", [], [])],
+		[{"%s:28:12:0" % ROOM_ID: [26, hop]}]
+	)
+	var nav := Nav.Navigator.new(route)
+	nav.objective = 0
+	var where := {
+		"room": ROOM_ID,
+		"cell": Vector2i(28, 13),
+		"local": Vector2(1833, 13 * 64 + 34),
+		"grounded": true,
+		"ball": false,
+	}
+	var found := nav.rest_entry(where)
+	_check(
+		not found.is_empty() and found[2] == Vector2i(28, 12),
+		"feet 34 px down on a sunk floater rest on the row above (%s)" % [found]
+	)
+	where["local"] = Vector2(1833, 13 * 64 + 64)
+	_check(nav.rest_entry(where).is_empty(), "feet on real ground in the row below do not")
 
 
 func _test_in_a_real_room() -> void:

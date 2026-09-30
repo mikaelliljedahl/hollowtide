@@ -634,3 +634,26 @@ The same probe with the heuristic loop as the response (the agent starting at ea
 times, 8 positions, stages 3 and 4, 1,088 cases): 504 clear with the round 3 harness, 1,007 with
 the dodge; all 81 remaining hits land within 0.3 s of the agent's start, before any answer can
 move her.
+
+**vaults_02 floater chain.** heur-r1 (round 3) died five times at vaults_02 (28, 13): the frozen
+floater it stood on had sunk 34 px below the solver's resting row, the feet cell read one row too
+low, so the route status was `off_field`, the rejoin steer aimed at the spot it already stood on,
+and it waited until the floater thawed under it. The navigator already read feet up to 32 px into
+the next row as the row above (`FLOATER_SAG`); that margin is now 48 px (feet on real ground sit
+64 px into their row), in `tools/playtest_nav.gd`. `tools/check_playtest_campaign.gd` covers it
+(34 px reads as the row above, 64 px does not; the first case fails at 32).
+
+**Heuristic campaign run** (`heur-h1`, seed 1, fresh new game, 16-objective route, both fixes;
+`/Volumes/Personal/Tools/hollowtide-runs/harness2/heur-h1/`): reached the ending at 1,399.9 game
+seconds, 16 of 16 objectives, 16 deaths. heur-r1 had stopped at 5 of 16 on the floater chain.
+Stone Guardian and Cinder Warden fell at the first attempt; the Tidal Heart took 577 s (one 300 s
+timeout, 2 deaths, 700 damage). Deaths: 10 to armored guards in the vaults_01 ambush, 2 falls
+from the floater chain at (24, 15) (it got past both times), 1 each to a stalker and a guard in
+vaults_02, 2 at the Tidal Heart.
+
+Open: in heur-h1 most Tidal Heart damage (28 of 42 hits, credited to Surge Lance) came while a
+`dodge:crosscurrent` program was still running: behind a depths_02 pillar the answer to a lane
+that crosses the whole arena is to stand still for up to 5 s, and the next attack starts before
+that. Ending a dodge when the boss telegraphs its next attack is the likely fix; two check-room
+setups (a stage 4 chain, and a stage 2 rotation behind a pillar) did not reproduce the hit on the
+current code, so it is not in this round.
