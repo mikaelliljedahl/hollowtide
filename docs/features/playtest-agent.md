@@ -107,8 +107,8 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
 | `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it that the steer arrives at: no more than 320 px above the floor under her, not behind rock at crossbow height and at a jump's apex, and no gap on the way whose floor lies more than 320 px below it (section 24) | Steer to it, running; with a live boss standing between on the floor and 240 px of free air above its body, run and jump over it. |
 | `go_to_ambush` | Armed arena, player not at its trigger; in campaign mode only with the trigger within 160 px of her height (the route leads there otherwise) | Steer to the trigger centre. |
-| `pick_up:<id>` | Up to two pickups | Steer to it. |
-| `go_to_exit:<edge:target>` | Up to three ungated exits, none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
+| `pick_up:<id>` | Up to two pickups, each only where the steer arrives (as for `go_to_refill`) | Steer to it. |
+| `go_to_exit:<edge:target>` | Up to three ungated exits the steer arrives at (as for `go_to_refill`), none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
 | `jump:left`, `jump:right` | Always | Plain jumps, used to break a stall. |
 
 Stuck detection is positional: 3 s in which the player chose movement but stayed inside a 48 px
@@ -782,5 +782,7 @@ the frost floaters, a policy that takes any offered refill, 60 game seconds, no 
 of 233 decisions were `go_to_refill`, the route never got closer than 66 steps and the agent ended
 in the shaft; after, none were, and the route reached the floaters at (28, 13), 26 steps from the
 Updraft Cloak, where the floater crossing is the next obstacle. The same straight steer drives
-`pick_up` and room-mode `go_to_exit`, still offered without this reach test: a room-mode probe
-steered 161 of 161 decisions at the vaults_02 energy tank behind the shaft wall.
+`pick_up` and room-mode `go_to_exit`, and a room-mode probe steered 161 of 161 decisions at the
+vaults_02 energy tank behind the shaft wall; both now take the same reach test. The same probe
+afterwards chose neither in 400 decisions (room mode has no route, so she stands). The reach check
+(`tools/check_playtest_reach.gd`) covers all three steers; on the old code it fails six cases.

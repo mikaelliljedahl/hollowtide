@@ -134,7 +134,11 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 				Programs.steer(player, trigger, false)
 			)
 		)
+	# Like the refill run, a pickup and a room-mode exit are straight steers: offered only where
+	# they arrive (a room probe steered 161 of 161 decisions at a vaults_02 tank behind a wall).
 	for pickup in (state["pickups"] as Array).slice(0, 2):
+		if not Reach.arrives(player, _vec(pickup["rel"])):
+			continue
 		result.append(
 			_entry(
 				"pick_up:%s" % pickup["id"],
@@ -154,6 +158,8 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var exits := 0
 	for door in state["exits"]:
 		if boss_alive or bool(door["gated"]) or exits >= MAX_EXITS:
+			continue
+		if not Reach.arrives(player, _vec(door["rel"])):
 			continue
 		exits += 1
 		result.append(

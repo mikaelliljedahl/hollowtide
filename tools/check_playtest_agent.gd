@@ -25,6 +25,7 @@ const Round3 = preload("res://tools/check_playtest_round3.gd")
 const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
 const DodgeCheck = preload("res://tools/check_playtest_dodge.gd")
 const CrouchCheck = preload("res://tools/check_playtest_crouch.gd")
+const ReachCheck = preload("res://tools/check_playtest_reach.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const STATE_KEYS := [
 	"tick",
@@ -169,6 +170,7 @@ func _run() -> void:
 	await DodgeCheck.new(self).run()
 	await CrouchCheck.new(self).run()
 	await CampaignCheck.new(self).run()
+	await ReachCheck.new(self).run()
 	await _test_bridge_round_trip()
 	await _test_timeout_falls_back()
 	await _test_missing_server_falls_back()
@@ -383,7 +385,7 @@ func _test_round_two_candidates() -> void:
 	_check(Actions.aim_for(Vector2(900, 480), true) == "", "no aim at a target far below the feet")
 	_check(Actions.aim_for(Vector2(900, 480), false) != "", "airborne, a diagonal aim reaches it")
 	state["kit"] = {"abilities": ["beam", "missiles"], "beam": "base", "missiles": 5}
-	state["exits"] = [{"id": "west:elsewhere", "rel": [-200, 0], "gated": false, "gate": ""}]
+	state["exits"] = [{"id": "east:elsewhere", "rel": [200, 0], "gated": false, "gate": ""}]
 	var boss := {
 		"id": "e1",
 		"type": "stone_guardian",

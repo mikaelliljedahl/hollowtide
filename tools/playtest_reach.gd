@@ -1,8 +1,9 @@
 extends RefCounted
 ## Where the playtest agent's straight steer (tools/playtest_programs.gd `steer`) arrives: it runs
 ## at a point and jumps what blocks it, with no plan for a climb or a gap. The refill run is that
-## steer, so a refill it cannot arrive at is not offered (docs/features/playtest-agent.md, section
-## 5); otherwise the run fails, the route brings her back in view of the refill, and she loops.
+## steer, and so are a pickup and a room-mode exit, so a goal it cannot arrive at is not offered
+## (docs/features/playtest-agent.md, section 5); otherwise the steer fails, the route brings her
+## back in view of the goal, and she loops.
 
 const Aim = preload("res://tools/playtest_aim.gd")
 ## A point more than this far (px) above the floor under her is out of one jump's reach; the steer
