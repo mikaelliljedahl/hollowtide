@@ -195,6 +195,11 @@ def main() -> int:
     parser.add_argument(
         "--trial", choices=["gauntlet", "boss_rush"], help="play a Trial on its fixed kit"
     )
+    parser.add_argument(
+        "--minimum-kit",
+        action="store_true",
+        help="campaign: plan the required items only, no nearby Bolt Quivers or energy tanks",
+    )
     parser.add_argument("--kit", default="", help="abilities and pickups, kind:count repeats")
     parser.add_argument("--spawn", default="", help="feet cell x,y in room tiles")
     parser.add_argument("--seeds", default="1", help="comma-separated seeds, one run each")
@@ -261,7 +266,7 @@ def main() -> int:
     base = args.out or Path(tempfile.gettempdir()) / "hollowtide-playtest" / stamp
     if args.campaign:
         args.route = base / "route"
-        route = campaign_route.build(args.route)
+        route = campaign_route.build(args.route, not args.minimum_kit)
         print(f"route: {len(route['objectives'])} objectives in {args.route}")
     runs = []
     for seed in (int(seed) for seed in args.seeds.split(",") if seed.strip()):

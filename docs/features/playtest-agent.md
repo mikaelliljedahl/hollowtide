@@ -487,6 +487,11 @@ stands, `go_to_objective` is not offered, since following the route cannot get p
 is offered, the route's own `go_to_door` plays the same route-following program. An
 objective has 300 game seconds; a timed-out objective is set aside, a second timeout ends the run
 (`tools/playtest_progress.gd:30`). Deaths do not end a campaign run; the 2,700 s cap does.
+Like a player, the route also takes a Bolt Quiver or an energy tank lying within 50 solver steps
+while a boss is still ahead (`EXTRA_DETOUR` in `tools/playtest/campaign_route.py`; on the current
+map the vaults_02 quiver, the kiln_01 energy tank and the kiln_02 quiver, 16 objectives in all).
+Such an objective is `optional`: it gets 120 s and is left behind after one timeout. `run.py
+--minimum-kit` plans the required items only (13 objectives), the question round 1 left open.
 
 Navigation fixes from the first full runs (`tools/playtest_nav.gd`): a jump peaking below a target
 straight overhead steers into the nearer shaft wall so the wall jump the solver planned happens

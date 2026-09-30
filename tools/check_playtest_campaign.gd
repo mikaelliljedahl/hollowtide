@@ -51,6 +51,7 @@ func run() -> void:
 	_test_next_objective()
 	_test_door_route()
 	_test_progress_timeout()
+	_test_optional_upgrade_left_behind()
 	_test_heuristic_prefers_the_route()
 	_test_shots_that_can_land()
 	await _test_in_a_real_room()
@@ -210,6 +211,37 @@ func _test_progress_timeout() -> void:
 	_check(
 		record["objectives_done"] == 1 and record["objectives"][1]["attempts"] == 2,
 		"the record counts objectives and attempts (%s)" % [record["objectives"][1]]
+	)
+	GameState.reset_progress()
+
+
+## A nearby upgrade the route added (tools/playtest/campaign_route.py) gets OPTIONAL_TIMEOUT and
+## is left behind after one timeout; it never ends the run.
+func _test_optional_upgrade_left_behind() -> void:
+	var extra := _objective(1, "pickup", "check.quiver2", "missiles", ["slipstream"], [])
+	extra["optional"] = true
+	var route := _route(
+		[
+			_objective(0, "pickup", "check.slipstream", "slipstream", [], []),
+			extra,
+			_objective(2, "ending", "ending", "", ["slipstream"], []),
+		],
+		[]
+	)
+	var telemetry := Telemetry.new()
+	GameState.reset_progress()
+	GameState.collect_pickup("check.slipstream", &"slipstream")
+	var progress := Progress.new()
+	progress.update(0.0, route, telemetry, 30, false)
+	_check(progress.current == 1, "a nearby upgrade is played in route order")
+	var result := progress.update(Progress.OPTIONAL_TIMEOUT + 0.1, route, telemetry, 30, false)
+	_check(
+		result.is_empty() and progress.attempts[-1]["outcome"] == "timeout",
+		"an optional upgrade times out after %.0f s (%s)" % [Progress.OPTIONAL_TIMEOUT, result]
+	)
+	progress.update(Progress.OPTIONAL_TIMEOUT + 0.2, route, telemetry, 30, false)
+	_check(
+		progress.current == 2, "and is left behind for the next objective (%d)" % progress.current
 	)
 	GameState.reset_progress()
 
