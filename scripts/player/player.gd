@@ -357,7 +357,8 @@ func _detect_wall_side() -> int:
 
 func _apply_wall_slide(move_input: float) -> void:
 	_wall_sliding = false
-	if is_ball or _wall_side == 0 or velocity.y <= 0.0:
+	# Gravity is already added this frame, so velocity.y > 0 alone is true standing on the floor.
+	if is_ball or _wall_side == 0 or velocity.y <= 0.0 or is_on_floor():
 		return
 	if signf(move_input) != float(_wall_side):
 		return
