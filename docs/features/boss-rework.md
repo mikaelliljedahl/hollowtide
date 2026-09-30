@@ -177,6 +177,17 @@ Fire projectiles. Vents are read on the floor; the heat ring is escaped through 
 Rotation: stage 1 Fan, Vent; stage 2 Rush, Fan, Vent; stage 3 Fan, Ring, Rush, Vent; stage 4
 Vent then Fan, Rush then Ring, Ring then Vent.
 
+The idle patrol turns where a charge stops: a pocket (body radius plus 128 px) short of the first
+wall, low roof or arena step (`_pocket_room`, `scripts/enemies/boss_motion.gd`), so a player
+waiting out Scuttle Rush in a step pocket is never walked into afterwards. Jev critic run
+2026-09-30 ([playtest-agent.md](playtest-agent.md#22-jev-critic-2026-09-30)): Jev lost all 12
+Warden attempts (rated too hard, main problem too_hard, confidence 0.92), 195 contact damage of
+1100, most of it at the kiln_03 east pocket (cell 48, 14). A real-input probe there (boss idle at
+stage 3 two tiles west of the pocket, 9 responses times 17 start times) hit 151 of 153 responses
+before: the patrol walked flush to the step (x 3044), and standing still was hit every time. After
+the change it turns at x 2916 and 102 of 153 stay unhurt (standing, jumping, climbing the step);
+the hits left are runs and slides into the body.
+
 ## 7. Tidal Heart
 
 Water projectiles. It floats, so its answers are movement and ducking rather than a ground lane.
