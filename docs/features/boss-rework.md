@@ -127,6 +127,20 @@ against the wall (15 of 17 clear), so the slam is unchanged. With the pursuit po
 in 48.2 s through all four stages, and Jev won 1 of 4 attempts in 48.2 s, with contact down to 336 of
 1080 damage and Rockfall (a side-step answer) as the killing blow in both deaths.
 
+A second Quiver Cache stands in the vaults_03 west pocket (cell 5, 14), so the minimum route kit
+(100 health, 5 Harpoons) refills without touching the boss: jumping in place on it or rolling into
+the alcove and back refills. Playtest round 3 (2026-09-30): the arena's only cache sat at cell 12,
+and from the west pocket, where the pursuit stops the body under the platform with no air to jump
+it, every refill trip crossed the boss for 24 contact. A real-input probe (boss held idle, 0 of 5
+Harpoons, 17 start times per response) found 0 of 85 trips unhurt before (walk, run, hop, single
+jump, roll) and 34 of 34 refills unhurt after (jump in place, roll into the alcove); from the east
+pocket, with open air above the body, hopping over it cleared 17 of 17 already. The campaign graph
+check refuses a floor-pursuing boss that can pin the player in a pocket with neither a cache on her
+side nor air to jump it (`tools/campaign_boss_refill.py`). The Cinder Warden patrols and the Tidal
+Heart floats, so neither pins her; the same probe reached their caches unhurt by hopping over the
+Warden (10 of 17 from the kiln_03 west end) and by ball hops over the depths_02 steps under the
+Heart (16 of 17; every standing jump under it touched it), so their arenas are unchanged.
+
 Rotation: stage 1 Volley, Slam; stage 2 Slam, Rockfall, Volley; stage 3 Volley, Charge,
 Rockfall, Slam; stage 4 Slam then Rockfall, Charge then Volley, Rockfall then Charge.
 
@@ -217,6 +231,10 @@ Suite `tools/check_boss_rework.tscn` (registered as `boss rework` in `tools/run_
 | Engagement | With the player outside the arena every boss takes no damage from opened Harpoon hits, and takes damage again once she is inside. Fails on the pre-sweep code. |
 | Cycles | In a walled test arena, for every boss and stage: every attack of the stage is released; every release follows its own telegraph by at least 0.4 s; every projectile appears only while an attack is active; every punish window lasts its table time; B2 armor is open in each punish window and closed during every wind-up; charges carry the body along the lane; desperation chains a telegraph straight after an attack. |
 
+The `campaign graph` suite (`tools/check_campaign_graph.py`) checks the pocket rule of section 5
+for every campaign boss arena; it fails on the pre-2026-09-30 vaults_03 layout ("stone_guardian
+pins the player in its west pocket (stops at x 476)").
+
 Existing suites `combat devmode`, `combat integration`, `combat presentation`, `campaign flow`,
 `playability`, `dev world` and `world persistence` cover the unchanged damage matrix, the Tidal Heart
 openings, reset, defeat and save flags. Telegraph screenshots come from
@@ -228,6 +246,15 @@ seeds with all four stages (9.9 / 12.5 / 11.8 / 15.8 s); depths_02 Tidal Heart d
 with all four stages; vaults_03 Stone Guardian defeated in 48.2 s with all four stages after the pursuit pocket (section
 5); before it, the agent died in stage 4 in all six attempts.
 Before R8 the sweep measured 5.5-13 s fights.
+
+Heuristic agent with the minimum route kit after the vaults_03 pocket cache (2026-09-30, runs under
+`/Volumes/Personal/Tools/hollowtide-runs/gamefix/`): vaults_03 from the west door, 100 health and
+5 Harpoons, seeds 1-3, 240 s: before 0 of 15 attempts won (all 15 deaths in stage 4, contact 1140
+of 1500 damage); after 3 of 3 won on the first attempt, 48 damage each, Harpoons never below 4.
+The remaining 48 is a stage 4 `jump_over` the agent plays under the platform, not a refill trip.
+A `--campaign --minimum-kit` run won the Stone Guardian on the first attempt and stopped at the
+Cinder Warden (0 of 11; vent burst 636, contact 64 of 1070 damage, Harpoons at 0 in 11 % of its
+fight decisions), so the Warden's losses are dodges, not refills.
 
 Not verified: a real-input playthrough of the reworked fights, and the hands-on feel of speeds,
 telegraph lengths and punish windows in the campaign arenas. Jev still loses 2 of 4 Stone Guardian
