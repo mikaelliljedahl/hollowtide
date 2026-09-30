@@ -281,7 +281,8 @@ func _test_boss_harpoon_economy() -> void:
 	)
 	state["goal"] = {"kind": "boss", "target": "tidal_heart", "route_status": "at_goal"}
 	state["kit"]["max_missiles"] = 5
-	state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [-1500, 0]}]
+	# Across the arena, yet inside the check room: a refill behind its wall is not offered at all.
+	state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [1400, 0]}]
 	_check(
 		_pick(state) == "go_to_refill:missilerefill",
 		"an empty quiver walks to the boss room's refill across the arena (%s)" % _pick(state)

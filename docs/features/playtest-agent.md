@@ -44,6 +44,7 @@ to game code.
 | Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
 | Crouch shot | `tools/playtest_crouch.gd:66` | What a shot hits on an enemy, whether it is below the standing shot, and the crouched level shot at it (section 23). |
 | Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
+| Refill reach | `tools/playtest_reach.gd:26` | Whether the straight steer arrives at a point: climb from the floor under her, line of sight, no deep gap on the way (section 24). |
 | Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, the refill run's jump over a boss (section 20), and the enemy shot a curl or a dash answers. |
 | Tidal Heart dodges | `tools/playtest_tide.gd` | The Tidal Heart's shot lines for the state and the spot off every line, or the lane jump (section 21). |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
@@ -104,7 +105,7 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | `duck` | Slipstream owned, standing on the ground, and a shot within 300 px that will cross her column 80 to 200 px above the feet | Curl into ball form in place, stay curled 45 frames, stand up. |
 | `dash_through` | Undertow Dash ready, a shot flying at the player within 420 px, and a live boss's arena reaching at least 384 px that way | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
-| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it and is no more than 320 px above the feet | Steer to it, running; with a live boss standing between on the floor and 240 px of free air above its body, run and jump over it. |
+| `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it that the steer arrives at: no more than 320 px above the floor under her, not behind rock at crossbow height and at a jump's apex, and no gap on the way whose floor lies more than 320 px below it (section 24) | Steer to it, running; with a live boss standing between on the floor and 240 px of free air above its body, run and jump over it. |
 | `go_to_ambush` | Armed arena, player not at its trigger; in campaign mode only with the trigger within 160 px of her height (the route leads there otherwise) | Steer to the trigger centre. |
 | `pick_up:<id>` | Up to two pickups | Steer to it. |
 | `go_to_exit:<edge:target>` | Up to three ungated exits, none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
@@ -758,3 +759,28 @@ ones 6 of 6. Heuristic room run of the vaults_01 arena (seeds 1 and 2, 90 s, kit
 bombs, missiles, missile_tank:1): before, cleared 0 of 4 fights, the guard never killed and the
 arena's stall abort after 45.2 s; after, cleared 2 of 2 in 8.4 s with 38 damage and the guard
 killed.
+
+## 24. Refill reach (2026-09-30)
+
+`min-jev-c` (section 22) stopped in vaults_02 at 12 health with no Harpoons. Its decisions show two
+loops, both the refill run: from t=351 s to the end at 804 s Jev chose `go_to_refill:save` in the
+shaft between the lower hall and the upper floor (cells 36 to 38, rows 20 to 24), wall-jumping
+between its walls toward the save shrine behind the shaft's east wall; earlier it ran from the
+upper floor at (33, 14) toward the upper shrine, fell down the shaft, and the route climbed back.
+The heuristic never chose these runs (its campaign limit of 512 px kept them out); Jev did (0.71 at
+t=352.8 s). The cause is in the harness, not the game: the run is a straight steer that runs and
+jumps what blocks it, yet it was offered for any refill no more than 320 px above the feet,
+measured from feet in the air, through walls and across gaps.
+
+`tools/playtest_reach.gd` now offers it only where that steer arrives: the climb is measured from
+the floor under her, a line at crossbow height or at a jump's apex must be free of rock, and no
+floor sample on the way may lie more than 320 px below the refill. The refill check covers each
+case in a built room (wall, gap, mid-air above the floor) and a block a jump clears.
+
+Real-input probe in vaults_02 (min-jev-c kit and route, 12 health, no Harpoons, enemies removed but
+the frost floaters, a policy that takes any offered refill, 60 game seconds, no Jev): before, 230
+of 233 decisions were `go_to_refill`, the route never got closer than 66 steps and the agent ended
+in the shaft; after, none were, and the route reached the floaters at (28, 13), 26 steps from the
+Updraft Cloak, where the floater crossing is the next obstacle. The same straight steer drives
+`pick_up` and room-mode `go_to_exit`, still offered without this reach test: a room-mode probe
+steered 161 of 161 decisions at the vaults_02 energy tank behind the shaft wall.

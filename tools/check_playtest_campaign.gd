@@ -4,7 +4,9 @@ extends RefCounted
 ## over the real room index picks a valid path and respects gates, an objective that times out is
 ## set aside and a second timeout ends the run, the heuristic prefers the route's gate and
 ## objective over far enemies and far refills, and in a real room the navigator follows a flow
-## field onto a ledge and the gate candidate opens a real harpoon socket, all through inputs.
+## field onto a ledge and the gate candidate opens a real harpoon socket, all through inputs, and
+## no refill run is offered at a refill behind a wall no jump clears, out of a jump's reach from
+## the floor under her or across a deep gap.
 
 const Route = preload("res://tools/playtest_route.gd")
 const Nav = preload("res://tools/playtest_nav.gd")
@@ -30,6 +32,32 @@ const GRID := [
 	"#...........#####............#",
 	"#...........#####............#",
 	"##############################",
+]
+## A wall from floor to ceiling, higher than any jump.
+const WALL_GRID := [
+	"####################",
+	"#.........#........#",
+	"#.........#........#",
+	"#.........#........#",
+	"#.........#........#",
+	"#.........#........#",
+	"####################",
+]
+## An upper floor with a three-tile gap over a deep hall.
+const GAP_GRID := [
+	"####################",
+	"#..................#",
+	"#..................#",
+	"#..................#",
+	"#..................#",
+	"#..................#",
+	"######...###########",
+	"#..................#",
+	"#..................#",
+	"#..................#",
+	"#..................#",
+	"#..................#",
+	"####################",
 ]
 const START := Vector2i(4, 8)
 const BLOCK_TOP := Vector2i(14, 5)
@@ -405,13 +433,54 @@ func _test_in_a_real_room() -> void:
 	_root.set("current_room_id", ROOM_ID)
 	await _test_navigator_climbs(room)
 	await _test_gate_is_opened(room)
+	_check(
+		_refill_offered(room, Vector2i(20, 8), START),
+		"a health refill beyond the block a jump clears"
+	)
 	room.queue_free()
+	await _frames(2)
+	var walled := WorldFxTestbed.build_room(_root, &"fringe", WALL_GRID, ROOM_ID)
+	_root.set("current_room", walled)
+	await _frames(2)
+	_check(_refill_offered(walled, Vector2i(8, 5)), "a health refill on this side of the wall")
+	_check(
+		not _refill_offered(walled, Vector2i(15, 5)),
+		"no refill run at a shrine behind a wall no jump clears (min-jev-c vaults_02)"
+	)
+	walled.queue_free()
+	await _frames(2)
+	var gap := WorldFxTestbed.build_room(_root, &"fringe", GAP_GRID, ROOM_ID)
+	_root.set("current_room", gap)
+	await _frames(2)
+	_check(
+		not _refill_offered(gap, Vector2i(14, 5), Vector2i(2, 5)),
+		"none across a gap she would fall into (min-jev-c vaults_02 upper floor)"
+	)
+	_check(
+		not _refill_offered(gap, Vector2i(3, 5), Vector2i(7, 5)),
+		"none level with her in the air, 384 px above the floor (min-jev-c vaults_02 shaft)"
+	)
+	gap.queue_free()
 	await _frames(2)
 	_root.add_child(old_room)
 	_root.set("current_room", old_room)
 	_root.set("current_room_id", old_id)
 	_player.reset_for_spawn(old_feet)
 	await _frames(10)
+
+
+## Whether a player with 12 health and her feet in `from` is offered a health refill at `cell`.
+func _refill_offered(room: CampaignRoom, cell: Vector2i, from := Vector2i(4, 5)) -> bool:
+	GameState.reset_progress()
+	GameState.unlock_ability(&"beam")
+	_player.reset_for_spawn(WorldFxTestbed.feet(room, from))
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	state["player"]["health"] = 12
+	var rel := WorldFxTestbed.feet(room, cell) - _player.global_position
+	state["refills"] = [{"kind": "save", "restores": ["health"], "rel": [rel.x, rel.y]}]
+	return Actions.candidates(state, _player).any(
+		func(entry: Dictionary) -> bool: return entry["key"] == "go_to_refill:save"
+	)
 
 
 ## A hand-made flow field in the solver's format: walk right to the block, rise three rows

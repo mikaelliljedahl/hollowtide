@@ -8,6 +8,7 @@ const Programs = preload("res://tools/playtest_programs.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
 const Crouch = preload("res://tools/playtest_crouch.gd")
+const Reach = preload("res://tools/playtest_reach.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
@@ -39,9 +40,6 @@ const DASH_REACH := 384.0
 const AMBUSH_FLOOR := 160.0
 ## The boss approach stops this far (px) inside the arena's edge.
 const ARENA_MARGIN := 48.0
-## A refill more than this far (px) above the feet is out of one jump's reach; the steer would
-## only jump in place under it (jev-c3 did that below a vaults_02 shrine 600 px up for 320 s).
-const REFILL_CLIMB := 320.0
 ## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
 ## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
 const ENEMY_RADIUS := 120.0
@@ -394,7 +392,7 @@ static func _opener_spot(boss: Dictionary) -> Array:
 
 
 ## `go_to_refill:<kind>` toward the nearest refill that restores what is short: Harpoons when
-## none are left, health below a third; none that is out of a jump's reach above.
+## none are left, health below a third; only one the straight steer arrives at (Reach).
 static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var me: Dictionary = state["player"]
 	var kit: Dictionary = state["kit"]
@@ -408,7 +406,7 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 		var wanted := short.filter(func(need: String) -> bool: return restores.has(need))
 		if wanted.is_empty() or _near(_vec(refill["rel"])):
 			continue
-		if float(refill["rel"][1]) < -REFILL_CLIMB:
+		if not Reach.arrives(player, _vec(refill["rel"])):
 			continue
 		var label := "go to the %s refill to restore %s" % [refill["kind"], " and ".join(wanted)]
 		var program: Variant = Programs.steer(player, _vec(refill["rel"]), true)
