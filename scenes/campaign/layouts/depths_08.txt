@@ -2,28 +2,31 @@ id: depths_08
 area: depths
 name: Undertow Run
 origin: 180 119
-# run: the push current drags the fight toward the entry; the cache behind it refills the quiver.
-ambush: 1 2 43 12 wave=energy_parasite,energy_parasite wave2=shard_turret,energy_parasite,energy_parasite trigger=1,9,8,5 spawns=12,3,30,8 id=undertow_run
+# run: the push current drags the fight toward the entry; Lanternjaw (optional mini-boss, flag
+# mini:lanternjaw) fights in the whole run; the Quiver Cache waits in the sealed alcove at the right,
+# behind the flag gate.
 current: 1 2 43 12 dir=left strength=140 kind=water
 legend:
   r missilerefill
   L light
   v stalactite
+  B miniboss lanternjaw arena=1,1,43,15 return=3,13
+  G flaggate mini:lanternjaw
 grid:
 #############################################
 #############################################
 #.......v...................v...............#
 #...........................................#
-#.....................................L.....#
-#...........................................#
+#.....................L.....................#
+#..................................B........#
 #...........................................#
 #.......................L...................#
 #...................######..................#
 #.........#####................#####........#
 #...........................................#
-............................................#
-......L.....................................#
-........................................r...#
+.....................................########
+......L..............................G......#
+.....................................G..r...#
 #############################################
 #############################################
 #############################################
