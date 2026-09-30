@@ -67,12 +67,15 @@ static func plan(
 				side = float(boss.get("_facing"))
 			var start_x := lane.y if side > 0.0 else lane.x
 			var y := floor_y - 40.0
-			marks.append(
-				{
-					"kind": &"lane",
-					"from": Vector2(start_x, y),
-					"to": Vector2(boss.global_position.x, y),
-				}
+			(
+				marks
+				. append(
+					{
+						"kind": &"lane",
+						"from": Vector2(start_x, y),
+						"to": Vector2(boss.global_position.x, y),
+					}
+				)
 			)
 			result["pull_from_x"] = start_x
 			result["pull_floor_y"] = floor_y

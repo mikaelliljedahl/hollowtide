@@ -60,14 +60,17 @@ static func plan(
 			result["columns"] = columns
 		&"frost_ring":
 			var aim: Vector2 = result["aim"]
-			marks.append(
-				{
-					"kind": &"ring",
-					"center": result["core"],
-					"gap": aim.angle(),
-					"gap_width": RING_GAP,
-					"count": RING_DOTS,
-				}
+			(
+				marks
+				. append(
+					{
+						"kind": &"ring",
+						"center": result["core"],
+						"gap": aim.angle(),
+						"gap_width": RING_GAP,
+						"count": RING_DOTS,
+					}
+				)
 			)
 
 

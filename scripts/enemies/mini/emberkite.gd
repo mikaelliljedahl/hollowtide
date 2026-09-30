@@ -80,15 +80,18 @@ static func emissions(
 	var index := 0
 	for x: float in locked["columns"]:
 		for bead in 3:
-			shots.append(
-				{
-					"at": 0.06 * float(index) + 0.1 * float(bead),
-					"origin": Vector2(x, floor_y - RAIN_DROP_HEIGHT),
-					"direction": Vector2.DOWN,
-					"speed": 620.0,
-					"scale": 1.8,
-					"lifetime": 1.1,
-				}
+			(
+				shots
+				. append(
+					{
+						"at": 0.06 * float(index) + 0.1 * float(bead),
+						"origin": Vector2(x, floor_y - RAIN_DROP_HEIGHT),
+						"direction": Vector2.DOWN,
+						"speed": 620.0,
+						"scale": 1.8,
+						"lifetime": 1.1,
+					}
+				)
 			)
 		index += 1
 	return shots

@@ -54,7 +54,11 @@ static func draw_body(boss: Node2D, canvas: CanvasItem) -> void:
 			var along := (foot - knee).normalized()
 			canvas.draw_colored_polygon(
 				PackedVector2Array(
-					[foot + along.orthogonal() * 6.0, foot + along * 26.0, foot - along.orthogonal() * 6.0]
+					[
+						foot + along.orthogonal() * 6.0,
+						foot + along * 26.0,
+						foot - along.orthogonal() * 6.0
+					]
 				),
 				ICE
 			)

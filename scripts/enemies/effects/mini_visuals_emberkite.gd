@@ -37,7 +37,11 @@ static func draw_body(boss: Node2D, canvas: CanvasItem) -> void:
 		canvas.draw_colored_polygon(plume, Color(EMBER, 0.55))
 		canvas.draw_colored_polygon(
 			PackedVector2Array(
-				[Vector2(-50.0, y - 3.0), Vector2(-50.0 - length * 0.55, y + 4.0), Vector2(-50.0, y + 5.0)]
+				[
+					Vector2(-50.0, y - 3.0),
+					Vector2(-50.0 - length * 0.55, y + 4.0),
+					Vector2(-50.0, y + 5.0)
+				]
 			),
 			Color(1.0, 0.86, 0.4, 0.8)
 		)
@@ -58,7 +62,8 @@ static func draw_body(boss: Node2D, canvas: CanvasItem) -> void:
 		BASALT_LIGHT.lerp(Color.WHITE, flash * 0.5)
 	)
 	canvas.draw_colored_polygon(
-		PackedVector2Array([Vector2(96, 4), Vector2(118, 26), Vector2(78, 18)]), Color(0.75, 0.55, 0.3)
+		PackedVector2Array([Vector2(96, 4), Vector2(118, 26), Vector2(78, 18)]),
+		Color(0.75, 0.55, 0.3)
 	)
 	# Glowing keel along the belly: dim while armoured, hot while telegraphing or open.
 	var heat := 0.3 + 0.7 * p if telegraphing else (0.85 if exposed else 0.25)

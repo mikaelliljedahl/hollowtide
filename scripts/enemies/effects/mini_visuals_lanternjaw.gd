@@ -133,9 +133,7 @@ static func draw_body(boss: Node2D, canvas: CanvasItem) -> void:
 	var stalk := PackedVector2Array()
 	for step in 9:
 		var t := float(step) / 8.0
-		stalk.append(
-			Vector2(lerpf(30.0, tip.x, t), lerpf(-58.0, tip.y, t) - 40.0 * sin(t * PI))
-		)
+		stalk.append(Vector2(lerpf(30.0, tip.x, t), lerpf(-58.0, tip.y, t) - 40.0 * sin(t * PI)))
 	canvas.draw_polyline(stalk, SKIN_LIGHT, 5.0, true)
 	var radius := 16.0 * swell
 	canvas.draw_circle(tip, radius * 2.4, Color(accent, 0.12 + 0.12 * p))
