@@ -32,6 +32,7 @@ func run() -> void:
 	await _test_retreat_reach()
 	_test_walk_into_arena()
 	await _test_stands_up_first()
+	await _test_guard_charge()
 
 
 func _check(condition: bool, label: String) -> void:
@@ -236,3 +237,34 @@ func _test_stands_up_first() -> void:
 		await _host.get_tree().physics_frame
 	loop.finish({})
 	_check(not _player.is_ball, "the agent stands her up before its next move (%s)" % loop.current)
+
+
+## An armored guard 384 px away winds up its charge: the loop, deciding from the wind-up on,
+## jumps over it through real inputs (standing or curling is hit, 9 of 9 in the vaults_01 probe).
+func _test_guard_charge() -> void:
+	_reset_kit()
+	await _frames(20)
+	var guard := EnemyFactory.create(&"armored_guard") as Node2D
+	WorldFxTestbed.entities(_root.current_room).add_child(guard)
+	guard.global_position = _player.global_position + Vector2(384, -40)
+	var loop := Loop.new(_root, _player, Policy.HEURISTIC, 5, [])
+	var health := GameState.health
+	var first := ""
+	var winding := false
+	for _frame in 300:
+		winding = winding or guard.get("_special_state") == &"windup"
+		if winding:
+			loop.physics_step(1.0 / 60.0)
+			if first.is_empty():
+				first = String(loop.current.get("key", ""))
+		await _host.get_tree().physics_frame
+		if winding and guard.get("_special_state") == &"recover":
+			break
+	loop.finish({})
+	_check(first.begins_with("dodge:"), "a winding-up guard is answered with a dodge (%s)" % first)
+	_check(
+		GameState.health == health,
+		"the jump over the guard's charge takes no damage (%d -> %d)" % [health, GameState.health]
+	)
+	guard.queue_free()
+	await _frames(20)

@@ -169,6 +169,8 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		# Surprise enemies name their own states (a spider's twitch); their wind-up glow counts too.
 		var wind_up = enemy.get("_telegraph_remaining")
 		entry["telegraph"] = (shown in WIND_UP_STATES or (wind_up is float and wind_up > 0.0))
+		if wind_up is float and wind_up > 0.0:
+			entry["wind_up_left"] = snappedf(wind_up, 0.01)
 	if is_boss:
 		entry["stage"] = int(enemy.get("stage"))
 		entry["attack"] = String(enemy.get("_attack_id"))

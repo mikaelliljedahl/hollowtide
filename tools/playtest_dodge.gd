@@ -39,6 +39,12 @@ const FAN_PASS := 0.35
 ## Seconds after release a player standing still waits while the Heat Ring passes her.
 const RING_PASS := 1.0
 const DESPERATION_STAGE := 4
+## Armored guard (scripts/enemies/enemy_ai.gd): sight, charge speed, and the seconds before the
+## charge reaches her at which the jump toward it starts (the probe cleared 0.72 to 0.97 s).
+const GUARD_SIGHT := 520.0
+const GUARD_LEVEL := 150.0
+const GUARD_SPEED := 540.0
+const GUARD_LEAD := 0.85
 ## Half the body width plus a shot's radius: a shot this close to the body's centre line hits.
 const REACH := 40.0
 ## The chest, where an aimed rock meets a standing body.
@@ -144,6 +150,28 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 	if program.is_empty():
 		return {}
 	return _entry(attack, label, program)
+
+
+## `dodge:<id>` for an armored guard winding up its charge on her floor: jump toward it so the
+## charge runs under her. Guard probe on the vaults_01 floor (guard 384 px away, 9 start times):
+## a jump toward it started 0.05 to 0.3 s into the 0.42 s wind-up cleared 6 of 9, standing or
+## curling 0 of 9. Jev round 3 took 621 damage from guards in vaults_01/02 while it shot other
+## ambush enemies.
+static func guard_candidate(enemy: Dictionary, grounded: bool) -> Dictionary:
+	if enemy["type"] != "armored_guard" or not grounded or not enemy.has("wind_up_left"):
+		return {}
+	var rel := Vector2(float(enemy["rel"][0]), float(enemy["rel"][1]))
+	if absf(rel.x) > GUARD_SIGHT or absf(rel.y) > GUARD_LEVEL:
+		return {}
+	var arrival := float(enemy["wind_up_left"]) + maxf(absf(rel.x) - REACH, 0.0) / GUARD_SPEED
+	var frames := Programs.hold([], maxi(roundi((arrival - GUARD_LEAD) * FPS), 0))
+	frames.append_array(Programs.jump(-1 if rel.x < 0.0 else 1, JUMP_HOLD))
+	return {
+		"key": "dodge:%s" % enemy["id"],
+		"kind": "dodge",
+		"label": "jump over the armored guard's charge (%s)" % enemy["id"],
+		"program": frames,
+	}
 
 
 static func _entry(attack: String, label: String, program: Variant) -> Dictionary:

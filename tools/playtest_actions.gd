@@ -73,6 +73,11 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var abilities: Array = state["kit"]["abilities"]
 	var enemies: Array = state["enemies"]
 	for enemy in enemies:
+		var guard := Dodge.guard_candidate(enemy, bool(me["grounded"]))
+		if not guard.is_empty() and me["form"] != "ball":
+			result.append(guard)
+			break
+	for enemy in enemies:
 		if enemy["is_boss"] and bool(enemy.get("engaged", true)):
 			var dodge := Dodge.candidate(enemy, player, bool(me["grounded"]))
 			if not dodge.is_empty():
