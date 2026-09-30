@@ -44,6 +44,7 @@ to game code.
 | Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
 | Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
 | Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, and the refill run's jump over a boss (section 20). |
+| Tidal Heart dodges | `tools/playtest_tide.gd` | The Tidal Heart's shot lines for the state and the spot off every line, or the lane jump (section 21). |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
 | Policies | `tools/playtest_policy.gd:62` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
@@ -70,7 +71,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -87,7 +88,7 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | Key | Offered when | Program |
 |---|---|---|
 | `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks, it is above (under a low ceiling, first walk out to open sky) or floor lava or fire lies one step ahead; wall-jump when clinging below it. From outside a live boss's arena: walk toward the boss to enter it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one), but no closer than 48 px to the arena's edge; while the opener is out of sight, steer to its `spot_rel` instead, climbing to it. |
-| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20) | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, or standing still. |
+| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20); for the Tidal Heart while any of its lines still crosses the floor within 348 px of her | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, standing still, or for the Tidal Heart a step to the nearest spot off every line (standing, else curled) or a jump over a low Crosscurrent lane with a curl under the high one. |
 | `retreat` | An enemy within 420 px and no wall 24 px behind the player; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
 | `open_boss:<id>:<aim>` | The player inside the boss's arena, a closed boss with its opening unspent, a Harpoon left, the opener beam owned and equipped, the opener point in sight, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
 | `shoot:<id>:<aim>` | Beam owned, not in ball form, not at a boss from outside its arena, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow, none whose bolt line passes more than 120 px from an ordinary enemy, none at a frost floater the route is freezing; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
@@ -370,6 +371,10 @@ local server that ignores it.
   stage 3 Fault Slam, Rockfall and Boulder Volley in the check room; the heuristic loop picks
   `dodge:<attack>` and takes no damage through real inputs (without the dodge it takes 24 from the
   slam and the volley); the refill run jumps over the boss under open sky and not under a roof.
+- Harness round 4 (`tools/check_playtest_dodge.gd`): a real Tidal Heart forced into each
+  desperation attack exports its lines, and the heuristic loop answers with `dodge:<attack>` and
+  takes no damage; against the round 3 dodge it picks `approach` all four times and the
+  Crosscurrent hits it.
 - The refusal without `--test-mode` was run by hand: exit code 2 and the message "refusing to run
   without --test-mode (it would write to the real save)".
 
@@ -604,3 +609,28 @@ ambush probe afterwards cleared it on the third try with 94 guard damage over th
 run was not repeated (all four runs used). The heuristic's full run on the final build before the
 guard dodge stopped at 5 of 16 in vaults_02 (13 deaths, 1,536 damage in the vaults, the floater chain
 at (28, 13) again).
+
+## 21. Harness round 4 (2026-09-30)
+
+**Tidal Heart dodges.** Round 3 left the Tidal Heart without answers. A dodge probe in the real
+depths_02 arena (real player, attack forced at stage 3 and 4, 14 scripted responses at 17 start
+times 0.1 s apart, six player and boss positions; outputs under
+`/Volumes/Personal/Tools/hollowtide-runs/harness2/probe/`) found:
+
+| Attack | What clears it |
+|---|---|
+| Tide Ring | standing or curling in place wherever she is off the radial lines (17/17 at most spots) |
+| Surge Lance | leaving the locked line: a step, a run or a roll away (9 to 17 of 17); standing or curling in place never |
+| Crosscurrent | curling in place under a lane that passes above the ball (17/17); a low lane on a flat floor needs a jump as the beads arrive; the pillars block the low lane for most floor spots |
+| Maelstrom | curling in place under a boss above her (17/17); with the boss 600 px away only running or rolling away (17/17) |
+
+Every Tidal Heart shot is a point on a straight line (`scripts/combat/enemy_projectile.gd` hits by
+raycast), and the plan locks each line at the telegraph, so the answer is geometry, not a table:
+`tools/playtest_tide.gd` takes `shots_rel` and picks the spot nearest her feet (up to 320 px, never
+past or under a low body) where no line reaches the standing body before rock stops it, else the
+curled one, and holds there until the last line has passed; with no such spot, a low horizontal
+lane is jumped 0.2 s before its first bead and a high lane after it is curled under on landing.
+The same probe with the heuristic loop as the response (the agent starting at each of the 17
+times, 8 positions, stages 3 and 4, 1,088 cases): 504 clear with the round 3 harness, 1,007 with
+the dodge; all 81 remaining hits land within 0.3 s of the agent's start, before any answer can
+move her.
