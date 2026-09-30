@@ -53,6 +53,7 @@ MOVING_KINDS = (
 )
 MAX_HAZARDS = 2
 HAZARD_ALERT_TILES = 4.0
+BOLT_KINDS = ("beam", "ice", "wave")  # hurt_by kinds the crossbow fires (playtest_policy.gd)
 BEAM_NAMES = {"base": "seed bolt", "ice": "Snare (ice)", "wave": "Echo (wave)"}
 # One line of guidance per candidate kind, appended to the game's own label.
 RUBRIC = {
@@ -164,11 +165,14 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
     """Drops candidates the current state makes impossible; the hint always stays."""
     player = state.get("player") or {}
     kit = state.get("kit") or {}
+    enemies = {enemy.get("id"): enemy for enemy in state.get("enemies", [])}
     kept = []
     for candidate in candidates:
         kind = candidate.get("kind", "")
+        target = enemies.get((candidate.get("key", "").split(":") + [""])[1]) or {}
         blocked = (
             (kind == "harpoon" and int(kit.get("missiles", 0)) <= 0)
+            or (kind in ("shoot", "jump_shoot") and not _bolt_matters(target, kit))
             or (kind in ("shoot", "jump_shoot") and "beam" not in kit.get("abilities", []))
             or (kind == "pulse" and "bombs" not in kit.get("abilities", []))
             or (kind == "dash_through" and not player.get("dash_ready", False))
@@ -179,6 +183,18 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
         if not blocked or candidate.get("key") == hint:
             kept.append(candidate)
     return kept
+
+
+def _bolt_matters(target: dict[str, Any], kit: dict[str, Any]) -> bool:
+    """False for a shot that cannot change an ordinary enemy: no bolt hurts it, or the Snare at
+    one already frozen. The heuristic never fires those; Jev did for minutes (full-jev-a: 40 s of
+    seed bolts at a vaults_01 armored guard until the arena's stall abort, 120 s of Snare shots at
+    a frozen kiln_01 mimic with the energy tank never taken). Bosses keep every shot (openers)."""
+    if not target or target.get("is_boss"):
+        return True
+    if not any(kind in BOLT_KINDS for kind in target.get("hurt_by", [])):
+        return False
+    return not (kit.get("beam") == "ice" and target.get("frozen"))
 
 
 def _threat(enemy: dict[str, Any]) -> dict[str, Any]:

@@ -8,6 +8,7 @@ const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const Hazards = preload("res://tools/playtest_hazards.gd")
 const Boss = preload("res://tools/playtest_boss.gd")
+const Tide = preload("res://tools/playtest_tide.gd")
 const TILE := 64.0
 const MAX_ENEMIES := 6
 const MAX_PROJECTILES := 8
@@ -182,6 +183,8 @@ func _enemy(enemy: Node2D, feet: Vector2) -> Dictionary:
 		var plan = enemy.get("_attack_plan")
 		var columns: Array = plan.get("columns", []) if plan is Dictionary else []
 		entry["columns_rel"] = columns.map(func(x: float) -> int: return roundi(x - feet.x))
+		# Every Tidal Heart shot flies a line locked with the telegraph (tools/playtest_tide.gd).
+		entry["shots_rel"] = Tide.shots(enemy, feet)
 		entry["engaged"] = enemy.get("_player_engaged") == true
 		entry.merge(Boss.facts(enemy, feet))
 	return entry

@@ -44,6 +44,7 @@ to game code.
 | Aim | `tools/playtest_aim.gd:50` | Which aim lines a bolt up with a point, where to stand for it, when a jump shot fires. |
 | Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
 | Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, and the refill run's jump over a boss (section 20). |
+| Tidal Heart dodges | `tools/playtest_tide.gd` | The Tidal Heart's shot lines for the state and the spot off every line, or the lane jump (section 21). |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
 | Policies | `tools/playtest_policy.gd:62` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
@@ -54,6 +55,7 @@ to game code.
 | Jev backend | `tools/playtest/jev_backend.py:391` | Hosted Jev or any `/v1/systemone` server (section 12). |
 | Jev feedback | `tools/playtest/jev_feedback.py:103` | Confusion hotspots, danger peaks, disagreement (section 12). |
 | Aggregate | `tools/playtest/aggregate.py:28` | Cross-run findings over several seeds or runs. |
+| Jev critic | `tools/playtest/jev_critic.py` | Jev rates each room, arena and boss after a run (section 22). |
 
 Decisions happen when the current program ends, at most every 6 physics frames (10 Hz at 60 Hz).
 A jump is committed for 28 frames, so the effective rate is 3 to 10 Hz. While the tree is paused
@@ -70,7 +72,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -87,7 +89,7 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | Key | Offered when | Program |
 |---|---|---|
 | `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks, it is above (under a low ceiling, first walk out to open sky) or floor lava or fire lies one step ahead; wall-jump when clinging below it. From outside a live boss's arena: walk toward the boss to enter it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one), but no closer than 48 px to the arena's edge; while the opener is out of sight, steer to its `spot_rel` instead, climbing to it. |
-| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20) | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, or standing still. |
+| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20); for the Tidal Heart while any of its lines still crosses the floor within 348 px of her | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, standing still, or for the Tidal Heart a step to the nearest spot off every line (standing, else curled) or a jump over a low Crosscurrent lane with a curl under the high one. |
 | `retreat` | An enemy within 420 px and no wall 24 px behind the player; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
 | `open_boss:<id>:<aim>` | The player inside the boss's arena, a closed boss with its opening unspent, a Harpoon left, the opener beam owned and equipped, the opener point in sight, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
 | `shoot:<id>:<aim>` | Beam owned, not in ball form, not at a boss from outside its arena, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow, none whose bolt line passes more than 120 px from an ordinary enemy, none at a frost floater the route is freezing; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
@@ -340,6 +342,12 @@ local server that ignores it.
 
 ## 14. Tests
 
+- `tools/check_playtest_critic.py` (suite `playtest critic`): the Jev critic against a local stub
+  `/v1/systemone` (no network): segments cut from a report (a room leaves its arena and boss
+  windows out, a boss's attacks seen against landed, retries, foreseen hits), the request's five
+  Scores and one Choice, answers parsed into named levels, goodness and flags, a bad answer or a
+  401 recorded per segment, the budget stop, a missing key, and no key in any written file.
+  `tools/check_playtest_dodge.gd` covers the boss recorder's `attacks_landed`.
 - `tools/check_playtest_agent.gd` (suite `playtest agent`): option parsing and refusals, state keys
   and JSON round trip, candidate count, unique keys and real input actions only, the heuristic kills
   a hopper in a small real room built with `tools/worldfx_testbed.gd` through inputs only, telemetry
@@ -370,6 +378,10 @@ local server that ignores it.
   stage 3 Fault Slam, Rockfall and Boulder Volley in the check room; the heuristic loop picks
   `dodge:<attack>` and takes no damage through real inputs (without the dodge it takes 24 from the
   slam and the volley); the refill run jumps over the boss under open sky and not under a roof.
+- Harness round 4 (`tools/check_playtest_dodge.gd`): a real Tidal Heart forced into each
+  desperation attack exports its lines, and the heuristic loop answers with `dodge:<attack>` and
+  takes no damage; against the round 3 dodge it picks `approach` all four times and the
+  Crosscurrent hits it.
 - The refusal without `--test-mode` was run by hand: exit code 2 and the message "refusing to run
   without --test-mode (it would write to the real save)".
 
@@ -604,3 +616,118 @@ ambush probe afterwards cleared it on the third try with 94 guard damage over th
 run was not repeated (all four runs used). The heuristic's full run on the final build before the
 guard dodge stopped at 5 of 16 in vaults_02 (13 deaths, 1,536 damage in the vaults, the floater chain
 at (28, 13) again).
+
+## 21. Harness round 4 (2026-09-30)
+
+**Tidal Heart dodges.** Round 3 left the Tidal Heart without answers. A dodge probe in the real
+depths_02 arena (real player, attack forced at stage 3 and 4, 14 scripted responses at 17 start
+times 0.1 s apart, six player and boss positions; outputs under
+`/Volumes/Personal/Tools/hollowtide-runs/harness2/probe/`) found:
+
+| Attack | What clears it |
+|---|---|
+| Tide Ring | standing or curling in place wherever she is off the radial lines (17/17 at most spots) |
+| Surge Lance | leaving the locked line: a step, a run or a roll away (9 to 17 of 17); standing or curling in place never |
+| Crosscurrent | curling in place under a lane that passes above the ball (17/17); a low lane on a flat floor needs a jump as the beads arrive; the pillars block the low lane for most floor spots |
+| Maelstrom | curling in place under a boss above her (17/17); with the boss 600 px away only running or rolling away (17/17) |
+
+Every Tidal Heart shot is a point on a straight line (`scripts/combat/enemy_projectile.gd` hits by
+raycast), and the plan locks each line at the telegraph, so the answer is geometry, not a table:
+`tools/playtest_tide.gd` takes `shots_rel` and picks the spot nearest her feet (up to 320 px, never
+past or under a low body) where no line reaches the standing body before rock stops it, else the
+curled one, and holds there until the last line has passed; with no such spot, a low horizontal
+lane is jumped 0.2 s before its first bead and a high lane after it is curled under on landing.
+The same probe with the heuristic loop as the response (the agent starting at each of the 17
+times, 8 positions, stages 3 and 4, 1,088 cases): 504 clear with the round 3 harness, 1,007 with
+the dodge; all 81 remaining hits land within 0.3 s of the agent's start, before any answer can
+move her.
+
+**vaults_02 floater chain.** heur-r1 (round 3) died five times at vaults_02 (28, 13): the frozen
+floater it stood on had sunk 34 px below the solver's resting row, the feet cell read one row too
+low, so the route status was `off_field`, the rejoin steer aimed at the spot it already stood on,
+and it waited until the floater thawed under it. The navigator already read feet up to 32 px into
+the next row as the row above (`FLOATER_SAG`); that margin is now 48 px (feet on real ground sit
+64 px into their row), in `tools/playtest_nav.gd`. `tools/check_playtest_campaign.gd` covers it
+(34 px reads as the row above, 64 px does not; the first case fails at 32).
+
+**Heuristic campaign run** (`heur-h1`, seed 1, fresh new game, 16-objective route, both fixes;
+`/Volumes/Personal/Tools/hollowtide-runs/harness2/heur-h1/`): reached the ending at 1,399.9 game
+seconds, 16 of 16 objectives, 16 deaths. heur-r1 had stopped at 5 of 16 on the floater chain.
+Stone Guardian and Cinder Warden fell at the first attempt; the Tidal Heart took 577 s (one 300 s
+timeout, 2 deaths, 700 damage). Deaths: 10 to armored guards in the vaults_01 ambush, 2 falls
+from the floater chain at (24, 15) (it got past both times), 1 each to a stalker and a guard in
+vaults_02, 2 at the Tidal Heart.
+
+Open: in heur-h1 most Tidal Heart damage (28 of 42 hits, credited to Surge Lance) came while a
+`dodge:crosscurrent` program was still running: behind a depths_02 pillar the answer to a lane
+that crosses the whole arena is to stand still for up to 5 s, and the next attack starts before
+that. Ending a dodge when the boss telegraphs its next attack is the likely fix; two check-room
+setups (a stage 4 chain, and a stage 2 rotation behind a pillar) did not reproduce the hit on the
+current code, so it is not in this round.
+
+## 22. Jev critic (2026-09-30)
+
+`--critic` on `tools/playtest/run.py` (or `python3 tools/playtest/jev_critic.py <run dir>...` on a
+finished run) asks Jev to rate every segment of the run: each room's traversal, each arena and
+each boss fight, one entry per id in play order. It runs after the game has ended, from the run's
+`report.json` and `decisions.jsonl`, so no rating request competes with the policy's real-time
+decisions; the summary is the same one a live hook would send.
+
+Per segment, code builds the state: seconds (a room's time minus its fights), attempts and
+retries (a room counts its failed objective attempts), deaths, damage by source, hits, stuck
+seconds, the arena's best wave or the boss's best stage, per boss attack how often it was seen,
+landed and escaped (a landed attack is one that dealt damage, counted once however many hits it
+dealt; `attacks_landed` in the boss telemetry), the run's median time for the same kind of
+segment, and Jev's own play there (`jev_play`: decisions, mean confidence, low-confidence share,
+mean danger and high-danger share, and hits foreseen or not, as in the danger peaks of section 12).
+
+One POST per segment asks five Scores with three described levels each, difficulty (too easy,
+fair, too hard), fairness (were the hits avoidable: no, partly, yes), readability (unclear, some
+unclear, clear), pacing (boring, good, hectic) and fun (low, medium, high), and one Choice for the
+main problem over none, unfair_hit, unclear_warning, too_long, too_short, navigation_confusing,
+too_hard and too_easy. Every probability and confidence is kept in `ratings.json`; `ratings.md`
+has one row per segment and the scorecard. Composite scoring happens in code: a dimension's
+goodness in 0..1 is P(fair) for difficulty, P(good) for pacing and score / 2 for the others, and
+the overall is weighted 0.25 difficulty, 0.25 fairness, 0.2 readability, 0.15 pacing, 0.15 fun.
+A segment is flagged when Jev puts at least 0.4 on too hard, unfair (no), unclear or boring, or
+its main problem is unfair_hit, unclear_warning, too_long, too_hard or navigation_confusing with
+confidence 0.4 or more. A flag is a lead for a probe in the real room, never a change on its own.
+
+Jev reads numbers, not the screen: "readability" is judged from whether its own danger rating was
+high before a hit, and "fun" is a guess from the same facts. The critic stops at
+`--critic-budget-usd` (default $0.05 per run) and uses the policy's key handling (section 13).
+
+**Rated runs 2026-09-30** (seed 1, fresh new game, 16-objective route, Jev policy and critic;
+`/Volumes/Personal/Tools/hollowtide-runs/critic/`). `full-jev-a` stopped at 11 of 16 objectives:
+it spent 120 s firing the Snare at an already frozen kiln_01 mimic and never took the energy tank,
+then lost all 12 Cinder Warden attempts with 100 health. Critic overall 0.68; worst the Warden
+(0.29: too hard 1.00, pacing boring 0.98, main problem too_hard 0.92). Two harness fixes and one
+game fix followed. The Jev backend drops a crossbow shot at an ordinary enemy that no bolt hurts,
+or at one the equipped Snare has already frozen (`_bolt_matters` in `jev_backend.py`; the heuristic
+never fires these; it also cost 40 s of seed bolts at a vaults_01 armored guard). The critic keeps
+a death that lands a rounding step past a fight's end, and stuck time inside a fight, out of the
+room's numbers (the room had read as navigation_confusing from an arena's stuck time). The Warden's
+patrol now turns at the charge pocket ([boss-rework.md](boss-rework.md#6-cinder-warden)).
+`full-jev-b`, same seed with all three: the first Jev run to reach the ending, 16 of 16 in 974.8
+game seconds, 7 deaths, every boss at the first attempt (Warden 65.7 s). Critic overall 0.68, boss
+group 0.53 to 0.83.
+
+Standing shots pass over the armored guard and often over the stalker: a real-input probe in the
+vaults_01 pit (guard held still 256 to 560 px ahead) hurt it with 0 of 3 standing Harpoons and 1 of
+3 crouched ones, and bolts never (by design). Crouched low fire is the intended answer (game-feel
+contract, grounded crouch shots), and the agent has no crouch-shot program yet, so its slow, costly
+vaults_01 arena and vaults_02 (both rated too hard and too long in `full-jev-b`) are an agent
+limit, not a game change. Adding a crouched shot for targets below the eye line is the next
+harness step.
+
+`full-jev-d` (seed 2, all fixes) reached 14 of 16: Stone Guardian and Cinder Warden fell at the
+first attempt, then the Tidal Heart objective timed out after 582.6 s in stage 2 with no death
+(critic: too_long, boring). For 570 s the agent stood at depths_02 cell (27, 10) facing left with
+the boss 160 px to its right, choosing `open_boss` (a Snare shot forward) 1,127 times; the shot
+program presses `move_right` for two frames first, yet the state never showed her facing right.
+Two real-input probes in that room (boss held at stage 2, 15 offsets) could not turn her either,
+so no shot ever flew toward the boss. The cause is not isolated (a probe artifact after
+`reset_for_spawn` is not ruled out); it is the first item for the next round, with no change
+made. `min-jev-c` (`--minimum-kit`, seed 1) stopped at 5 of 13: 300 s in vaults_02 alternating
+`go_to_refill` with the route to the Updraft Cloak (an agent loop, no game change). Estimated Jev
+spend for all rated runs, probes excluded (they use no Jev): $0.49.

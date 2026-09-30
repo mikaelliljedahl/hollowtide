@@ -344,8 +344,14 @@ func _charges_leave_wall_pocket() -> void:
 ## Sweep 2026-09-28: both playtest agents died in all 12 stage 4 attempts at the vaults_03 west
 ## end, walked into by the pursuing Stone Guardian under a roof too low to jump its body. Pursuit
 ## stops the same pocket short of a wall, low roof or step as a charge, so a player backed against
-## it is never touched.
+## it is never touched. The Cinder Warden's patrol turns there too (Jev critic 2026-09-30: it
+## walked into the kiln_03 east pocket, 151 of 153 probe responses hit).
 func _pursuit_leaves_wall_pocket() -> void:
+	for boss_id: StringName in [&"stone_guardian", &"furnace_mother"]:
+		await _walk_leaves_wall_pocket(boss_id)
+
+
+func _walk_leaves_wall_pocket(boss_id: StringName) -> void:
 	var obstacles := {
 		"low roof": [Vector2(1850.0, 775.0), Vector2(300.0, 150.0)],
 		"step": [Vector2(1850.0, FLOOR_Y - 64.0), Vector2(300.0, 128.0)],
@@ -353,27 +359,29 @@ func _pursuit_leaves_wall_pocket() -> void:
 	for obstacle: String in obstacles:
 		var piece: Array = obstacles[obstacle]
 		var wall := _static_box(piece[0], piece[1])
-		var boss := _spawn_in_arena(&"stone_guardian")
+		var boss := _spawn_in_arena(boss_id)
 		boss.global_position.x = 1100.0
 		_probe.global_position = Vector2(1700.0 - 30.0, FLOOR_Y - 88.0)
 		await _frames(2)
 		boss.set_test_stage(Patterns.DESPERATION_STAGE)
+		boss.set("_movement_direction", 1.0)
 		_probe.hits.clear()
+		var reach := boss.global_position.x
 		for _frame in int(4.0 * PHYSICS_HZ):
-			# Keep it walking: no attack starts, so only the pursuit decides the case.
+			# Keep it walking toward the face: no attack starts and the patrol timer never
+			# turns it, so only the walk decides the case.
 			boss.set("_attack_timer", 10.0)
+			boss.set("_movement_timer", 10.0)
 			await _frames(1)
+			reach = maxf(reach, boss.global_position.x)
 		var stop := 1700.0 - Attacks.BODY_RADIUS - Attacks.CHARGE_WALL_POCKET
 		_check(
-			boss.global_position.x > 1300.0 and boss.global_position.x <= stop + 4.0,
-			(
-				"stone guardian pursues to the pocket at a %s (x %.0f)"
-				% [obstacle, boss.global_position.x]
-			)
+			reach > 1300.0 and reach <= stop + 4.0,
+			"%s walks to the pocket at a %s (x %.0f)" % [boss_id, obstacle, reach]
 		)
 		_check(
 			_probe.hits.is_empty(),
-			"stone guardian pursuit leaves a player backed against a %s unhurt" % obstacle
+			"%s walk leaves a player backed against a %s unhurt" % [boss_id, obstacle]
 		)
 		_despawn(boss)
 		wall.queue_free()

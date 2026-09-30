@@ -104,9 +104,14 @@ func has_save() -> bool
 
 Domain is not changed at runtime. Paths `user://saves/<domain>/slot_01.json`, `.bak`, `.tmp`.
 Snapshot is encapsulated by schema version and domain. Validation before state change; atomic file replacement,
-valid backup is preserved, corrupt/unknown version is not automatically overwritten. Never fall back again in
-the other domain. Tests must use isolated temporary path or own test project/user directory;
-tests must never write real user save files.
+valid backup is preserved. A corrupt, unknown-version, stale or wrong-domain slot without a valid
+backup is never overwritten or deleted: the next save renames it to
+`slot_01.<kind>.<pid>.<usec>.json` and writes a new slot; the title explains why Continue is missing
+(amended 2026-09-28 by PR #5, see
+[implementation-decisions.md](implementation-decisions.md#accepted-save-slot-safety-amendment)).
+Never fall back again in the other domain. Tests must use isolated temporary path or own test
+project/user directory; tests must never write real user save files, and every automated Godot run
+gets its own HOME (`tools/godot_env.py`), since Godot on macOS ignores XDG.
 
 ## Player — new public interfaces
 

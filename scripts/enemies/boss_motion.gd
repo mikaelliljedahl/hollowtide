@@ -31,12 +31,16 @@ static func move(boss: CharacterBody2D, delta: float, player: Node2D) -> void:
 				boss.velocity.x = _pursuit_velocity(boss, player, speed, delta)
 				_fall_and_slide(boss, delta)
 			&"furnace_mother":
+				# The patrol turns at the charge pocket too: Jev critic 2026-09-30, the Warden
+				# walked into a player waiting out Scuttle Rush in the kiln_03 east pocket.
 				boss._movement_timer -= delta
 				var x := boss.global_position.x
-				if boss._movement_timer <= 0.0 or x <= left or x >= right:
+				var room := _pocket_room(boss, boss._movement_direction)
+				if boss._movement_timer <= 0.0 or x <= left or x >= right or room <= 0.5:
 					boss._movement_direction *= -1.0
 					boss._movement_timer = 1.15 if boss.phase == 2 else 1.55
-				boss.velocity.x = boss._movement_direction * speed
+					room = _pocket_room(boss, boss._movement_direction)
+				boss.velocity.x = boss._movement_direction * clampf(room / delta, 0.0, speed)
 				_fall_and_slide(boss, delta)
 			&"tidal_heart":
 				var home: Vector2 = boss._home_position
@@ -81,11 +85,15 @@ static func _pursuit_velocity(
 	var direction := signf(player.global_position.x - boss.global_position.x)
 	if is_zero_approx(direction):
 		return 0.0
+	return direction * clampf(_pocket_room(boss, direction) / delta, 0.0, speed)
+
+
+## Floor left in `direction` before the pocket short of the first wall, low roof or step.
+static func _pocket_room(boss: CharacterBody2D, direction: float) -> float:
 	var lane := Attacks._lane(boss)
 	var wall := Attacks._first_wall_x(boss, direction, lane.y if direction > 0.0 else lane.x)
 	var stop := wall - direction * (Attacks.BODY_RADIUS + Attacks.CHARGE_WALL_POCKET)
-	var room := (stop - boss.global_position.x) * direction
-	return direction * clampf(room / delta, 0.0, speed)
+	return (stop - boss.global_position.x) * direction
 
 
 ## Telegraph and punish poses hold still; Tidal Heart sinks toward its home height instead.

@@ -12,9 +12,10 @@ const TILE := 64.0
 const CENTER_PX := 10.0
 ## Steering dead zone while a grounded hop drops to a lower cell.
 const DROP_PX := 1.0
-## A frost floater bobs up to 28 px below its home; feet that far into the next row still stand
-## on the home cell's row.
-const FLOATER_SAG := 32.0
+## A frozen frost floater can hold her feet up to 34 px into the row below the solver's resting
+## row (heur-r1 stood still at vaults_02 (28, 13) with her feet 34 px in, read off the route,
+## until the floater thawed under her, five times). Feet on real ground sit 64 px into their row.
+const FLOATER_SAG := 48.0
 ## Half the body's width: feet this close to a column edge can stand on the neighbour column.
 const HALF_BODY := 28.0
 ## Wall jumps are pressed once the rise has slowed to this (px/s, negative is up).

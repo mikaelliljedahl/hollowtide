@@ -12,6 +12,7 @@ const HOLD_SECONDS := 0.5
 const SINK_SECONDS := 0.3
 const COOLDOWN_SECONDS := 1.5
 const ART_SCALE := 1.1
+const TELL_RIM_WIDTH := 2.0
 ## Where the body leaves the liquid (x) in the 256 px art, and the head relative to it.
 const EMERGE_X_IN_ART := 95.0
 const HEAD_IN_ART := Vector2(55.0, -226.0)
@@ -21,6 +22,7 @@ const HEAD_IN_ART := Vector2(55.0, -226.0)
 var _surface := Vector2.ZERO
 var _rise := 0.0
 var _exposed := true
+var _shade: Node2D
 
 
 func _surprise_ready() -> void:
@@ -28,6 +30,15 @@ func _surprise_ready() -> void:
 	collision_mask = 0
 	_surface = global_position
 	_set_exposed(false)
+	_shade = Node2D.new()
+	_shade.name = "TellShade"
+	var unshaded := CanvasItemMaterial.new()
+	unshaded.light_mode = CanvasItemMaterial.LIGHT_MODE_UNSHADED
+	_shade.material = unshaded
+	_shade.z_index = 1
+	add_child(_shade)
+	move_child(_shade, _tell.get_index())
+	_shade.draw.connect(_draw_shade)
 
 
 func configure_arena(bounds: Rect2) -> void:
@@ -181,6 +192,13 @@ func _surface_color() -> Color:
 	return Color(1.0, 0.55, 0.18) if _liquid() == &"lava" else Color(0.45, 0.85, 0.95)
 
 
+## The bubbling tell's colours: a bright core over a dark rim, so one of them stands out on bright
+## lava and on dark water (tools/check_surprise_enemies.gd measures it).
+func tell_colors() -> Dictionary:
+	var rim := Color(0.12, 0.03, 0.01) if _liquid() == &"lava" else Color(0.01, 0.05, 0.09)
+	return {"core": _surface_color().lerp(Color.WHITE, 0.45), "rim": rim}
+
+
 func _draw_extra(canvas: CanvasItem) -> void:
 	var local_surface := to_local(_surface)
 	var tint := _surface_color()
@@ -198,39 +216,65 @@ func _draw_extra(canvas: CanvasItem) -> void:
 			true
 		)
 	elif _special_state == &"bubble":
-		# Boiling tell: a glowing welling spot, fat rising bubbles and expanding rings.
+		# Boiling tell: fat rising bubbles and expanding rings around a glowing welling spot. This
+		# additive layer draws their bright cores; _draw_shade puts a dark rim under each.
+		var bright: Color = tell_colors()["core"]
 		var strength := clampf(_state_age / BUBBLE_SECONDS, 0.0, 1.0)
-		var bright := tint.lerp(Color.WHITE, 0.45)
 		canvas.draw_set_transform(local_surface, 0.0, Vector2(1.0, 0.35))
-		canvas.draw_circle(Vector2.ZERO, 30.0 + 40.0 * strength, Color(tint, 0.22 * strength))
 		canvas.draw_circle(Vector2.ZERO, 14.0 + 20.0 * strength, Color(bright, 0.3 * strength))
 		canvas.draw_set_transform(Vector2.ZERO)
-		for i in 12:
-			var seed_x := sin(float(i) * 12.9898) * 43758.5453
-			var x := (seed_x - floorf(seed_x) - 0.5) * 130.0
-			var rise := fmod(_age * (1.3 + float(i) * 0.13) + float(i) * 0.37, 1.0)
-			canvas.draw_circle(
-				local_surface + Vector2(x, -rise * 70.0),
-				3.0 + 6.0 * (1.0 - rise) * strength,
-				Color(bright, 0.85 * strength * (1.0 - rise))
-			)
-		for ring_index in 3:
-			var ring := fmod(_age * 1.6 + float(ring_index) / 3.0, 1.0)
-			canvas.draw_set_transform(local_surface, 0.0, Vector2(1.0, 0.3))
-			canvas.draw_arc(
-				Vector2.ZERO,
-				16.0 + ring * 90.0,
-				0.0,
-				TAU,
-				28,
-				Color(bright, 0.7 * strength * (1.0 - ring)),
-				3.5,
-				true
-			)
-			canvas.draw_set_transform(Vector2.ZERO)
+		_draw_bubbling(canvas, bright, 0.0, 0.7)
 	elif _rise > 0.0:
 		# Churned surface where the body breaks through.
 		canvas.draw_arc(local_surface, 34.0, PI, TAU, 18, Color(tint, 0.55), 3.0, true)
+
+
+func _draw() -> void:
+	super._draw()
+	if _shade != null:
+		_shade.queue_redraw()
+
+
+## The dark half of the bubbling tell, on a normal-blend layer under the additive one (an additive
+## layer cannot darken). Playtest round 2: the bright-only rings were low in contrast on lava.
+func _draw_shade() -> void:
+	if _special_state != &"bubble" or _dying:
+		return
+	var rim: Color = tell_colors()["rim"]
+	var strength := clampf(_state_age / BUBBLE_SECONDS, 0.0, 1.0)
+	_shade.draw_set_transform(to_local(_surface), 0.0, Vector2(1.0, 0.35))
+	_shade.draw_circle(Vector2.ZERO, 30.0 + 40.0 * strength, Color(rim, 0.5 * strength))
+	_shade.draw_set_transform(Vector2.ZERO)
+	_draw_bubbling(_shade, rim, TELL_RIM_WIDTH, 0.85)
+
+
+## Rising bubbles and expanding rings of the bubbling tell; `grow` widens each shape for a rim.
+func _draw_bubbling(canvas: CanvasItem, color: Color, grow: float, ring_alpha: float) -> void:
+	var local_surface := to_local(_surface)
+	var strength := clampf(_state_age / BUBBLE_SECONDS, 0.0, 1.0)
+	for i in 12:
+		var seed_x := sin(float(i) * 12.9898) * 43758.5453
+		var x := (seed_x - floorf(seed_x) - 0.5) * 130.0
+		var rise := fmod(_age * (1.3 + float(i) * 0.13) + float(i) * 0.37, 1.0)
+		canvas.draw_circle(
+			local_surface + Vector2(x, -rise * 70.0),
+			3.0 + 6.0 * (1.0 - rise) * strength + grow,
+			Color(color, 0.85 * strength * (1.0 - rise))
+		)
+	for ring_index in 3:
+		var ring := fmod(_age * 1.6 + float(ring_index) / 3.0, 1.0)
+		canvas.draw_set_transform(local_surface, 0.0, Vector2(1.0, 0.3))
+		canvas.draw_arc(
+			Vector2.ZERO,
+			16.0 + ring * 90.0,
+			0.0,
+			TAU,
+			28,
+			Color(color, ring_alpha * strength * (1.0 - ring)),
+			3.5 + grow * 2.0,
+			true
+		)
+		canvas.draw_set_transform(Vector2.ZERO)
 
 
 func _draw_placeholder() -> void:

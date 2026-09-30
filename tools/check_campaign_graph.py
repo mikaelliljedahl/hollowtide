@@ -4,7 +4,8 @@
 
 Checks: layouts parse, rooms do not overlap, every boundary opening has an exactly mirrored
 opening in the neighbouring room, pickup IDs are unique, generated scenes are up to date, every
-boss room has a guaranteed missile refill, walking straight in through a side door never drops into
+boss room has a guaranteed missile refill that a floor-pursuing boss cannot cut off from either end
+of its lane (tools/campaign_boss_refill.py), walking straight in through a side door never drops into
 lava and no flyer patrols above it (tools/campaign_walk_in.py), a cell-level solver can finish the
 campaign (vaults-first, kiln-first, and without optional tanks/Long Beam). The solver also proves
 that every position reachable at every progression stage can still walk back to a save shrine
@@ -34,6 +35,7 @@ from collections import deque
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 
+from campaign_boss_refill import pursuit_refill_errors  # noqa: E402
 from campaign_breaks import break_edges, break_errors  # noqa: E402
 from campaign_layout import (  # noqa: E402
     LayoutError,
@@ -523,6 +525,7 @@ def static_errors(rooms: dict[str, Room]) -> list[str]:
     doors, door_errors = link_doors(rooms)
     errors += door_errors
     errors += lava_errors(rooms)
+    errors += pursuit_refill_errors(rooms)
     for door in doors:
         if door.target is None or door.edge in ("north", "south"):
             continue

@@ -34,6 +34,7 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 | [docs/features/sequence-breaks.md](docs/features/sequence-breaks.md) | Feature design for three intended sequence breaks; routes, solver model and tests. |
 | [docs/features/tide-modules.md](docs/features/tide-modules.md) | Feature design for Tide Sockets and Tide Glyphs; catalogue, save key and binding legal constraints. |
 | [docs/features/trials.md](docs/features/trials.md) | Feature design for the post-ending Trials (Gauntlet, Boss Rush); rules, flow, save key and tests. |
+| [docs/features/playtest-agent.md](docs/features/playtest-agent.md) | Dev-tool design for the AI playtest agent and its campaign mode; Jev backend, data boundary and results. |
 | [docs/epics/E01-rorelse-game-feel.md](docs/epics/E01-rorelse-game-feel.md) | PRD for completed movement base. |
 | [docs/epics/E02-slipstream-forsta-scen.md](docs/epics/E02-slipstream-forsta-scen.md) | PRD for finished slipstream and first ability port. |
 | [docs/epics/E03-grafikpipeline.md](docs/epics/E03-grafikpipeline.md) | PRD for finished graphics pipeline. |

@@ -1,16 +1,20 @@
 extends RefCounted
 ## Boss dodge cases of the playtest agent check (tools/check_playtest_agent.gd runs them in its
-## room): a real Stone Guardian is forced into one stage 3 attack and the heuristic loop answers
-## through real inputs. Jev round 3 (jev-r1) lost 15 Stone Guardian attempts with the minimum
-## kit, taking 408 damage from Fault Slam and 196 from Rockfall while it retreated into the wall;
-## without `dodge` the same loop is hit here.
+## room): a real Stone Guardian is forced into one stage 3 attack, and a real Tidal Heart into one
+## stage 4 attack, and the heuristic loop answers through real inputs. Jev round 3 (jev-r1) lost
+## 15 Stone Guardian attempts with the minimum kit, taking 408 damage from Fault Slam and 196 from
+## Rockfall while it retreated into the wall; without `dodge` the same loop is hit here.
 
 const Loop = preload("res://tools/playtest_loop.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
 const Actions = preload("res://tools/playtest_actions.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
+const Tide = preload("res://tools/playtest_tide.gd")
 const State = preload("res://tools/playtest_state.gd")
+const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const BOSS_OFFSET := Vector2(416, -92)
+## The Tidal Heart floats 330 px above her feet and 250 px ahead, as in the depths_02 probe.
+const TIDAL_OFFSET := Vector2(250, -330)
 const ATTACK_FRAMES := 240
 
 var _host: Node
@@ -33,6 +37,9 @@ func run() -> void:
 	_test_walk_into_arena()
 	await _test_stands_up_first()
 	await _test_guard_charge()
+	for attack in Tide.ATTACKS:
+		await _test_tidal(attack)
+	_test_attacks_landed()
 
 
 func _check(condition: bool, label: String) -> void:
@@ -268,3 +275,89 @@ func _test_guard_charge() -> void:
 	)
 	guard.queue_free()
 	await _frames(20)
+
+
+## A real Tidal Heart forced into a desperation `attack`: the state carries its locked lines, and
+## the heuristic loop answers with its dodge and takes no damage through real inputs (curling under
+## the lines, stepping off the lance, jumping the low Crosscurrent lane). Without the dodge the loop
+## is hit by every one of them here.
+func _test_tidal(attack: StringName) -> void:
+	_reset_kit()
+	# The previous case may end with her still curled under its lines.
+	if _player.is_ball:
+		Input.action_press(&"slipstream")
+		await _frames(2)
+		Input.action_release(&"slipstream")
+	await _frames(30)
+	var boss := EnemyFactory.create(&"tidal_heart") as Node2D
+	WorldFxTestbed.entities(_root.current_room).add_child(boss)
+	boss.global_position = _player.global_position + TIDAL_OFFSET
+	var room: Node2D = _root.current_room
+	var size: Vector2 = room.call("size_px")
+	boss.call(
+		&"configure_arena", Rect2(room.global_position + Vector2(64, 64), size - Vector2(128, 128))
+	)
+	await _frames(2)
+	boss.call(&"set_test_stage", 4)
+	var chain: Array[StringName] = [attack]
+	boss.set("_attack_chain", chain)
+	boss.call(&"_start_telegraph")
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	var lines: Array = []
+	for enemy: Dictionary in state["enemies"]:
+		if enemy["is_boss"]:
+			lines = enemy.get("shots_rel", [])
+	_check(
+		not lines.is_empty(), "a telegraphing %s exports its lines (%d)" % [attack, lines.size()]
+	)
+	var loop := Loop.new(_root, _player, Policy.HEURISTIC, 5, [])
+	var health := GameState.health
+	var first := ""
+	for _frame in ATTACK_FRAMES * 3:
+		loop.physics_step(1.0 / 60.0)
+		if first.is_empty():
+			first = String(loop.current.get("key", ""))
+		await _host.get_tree().physics_frame
+		if boss.get("_attack_state") == &"recover":
+			boss.set_physics_process(false)
+			if _host.get_tree().get_nodes_in_group(&"enemy_shot").is_empty():
+				break
+	loop.finish({})
+	_check(
+		first == "dodge:%s" % attack,
+		"a Tidal Heart %s is answered with its dodge (%s)" % [attack, first]
+	)
+	_check(
+		GameState.health == health,
+		(
+			"the %s dodge through real inputs takes no damage (%d -> %d)"
+			% [attack, health, GameState.health]
+		)
+	)
+	boss.queue_free()
+	for shot in _host.get_tree().get_nodes_in_group(&"enemy_shot"):
+		shot.queue_free()
+	await _frames(40)
+
+
+## The Jev critic's "attacks seen vs escaped": an attack that hits twice lands once, the next one
+## counts again, and an attack started before this fight counts nothing.
+func _test_attacks_landed() -> void:
+	var telemetry := Telemetry.new()
+	var boss := Node.new()
+	telemetry.set(
+		"_boss", {"start": 10.0, "attacks_landed": {}, "attack_landed": false, "node": boss}
+	)
+	var attacks: Dictionary = telemetry.get("_boss_attacks")
+	attacks[boss.get_instance_id()] = {"attack": "rockfall", "t": 4.0}
+	telemetry.call("_note_boss_attack_landed")
+	var landed: Dictionary = telemetry.get("_boss")["attacks_landed"]
+	_check(landed.is_empty(), "an attack from before the fight is not counted (%s)" % landed)
+	attacks[boss.get_instance_id()] = {"attack": "fault_slam", "t": 12.0}
+	telemetry.call("_note_boss_attack_landed")
+	telemetry.call("_note_boss_attack_landed")
+	_check(landed.get("fault_slam") == 1, "two hits of one attack land once (%s)" % landed)
+	telemetry.get("_boss")["attack_landed"] = false
+	telemetry.call("_note_boss_attack_landed")
+	_check(landed.get("fault_slam") == 2, "the next attack counts again (%s)" % landed)
+	boss.free()

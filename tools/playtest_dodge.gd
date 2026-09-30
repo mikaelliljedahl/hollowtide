@@ -9,9 +9,11 @@ extends RefCounted
 ## by rolling under the roof and the charge by standing still (it stops short of the pocket). The
 ## Cinder Warden probe in kiln_03 (player at cell 26, boss 6 tiles east, stage 3): curling in place
 ## clears the Ember Fan at any start (15/17), standing still clears the Heat Ring (17/17), running
-## away clears the Scuttle Rush when started within 0.9 s (10/17).
+## away clears the Scuttle Rush when started within 0.9 s (10/17). The Tidal Heart's answers are
+## in tools/playtest_tide.gd.
 
 const Programs = preload("res://tools/playtest_programs.gd")
+const Tide = preload("res://tools/playtest_tide.gd")
 ## Shot speeds and origins of scripts/enemies/boss_attacks.gd (`emissions`).
 const SLAM_SPEED := 430.0
 const SLAM_ORIGIN := 70.0
@@ -77,7 +79,12 @@ const JUMP_OVER_LIMIT := 180
 static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dictionary:
 	var attack := String(boss.get("attack", ""))
 	var phase := String(boss.get("attack_state", ""))
-	if phase not in ["telegraph", "active"] or not grounded or player.is_ball:
+	if not grounded or player.is_ball:
+		return {}
+	# The Tidal Heart's shots keep flying through its recovery; they are all in `shots_rel`.
+	if StringName(attack) in Tide.ATTACKS:
+		return Tide.candidate(boss, player)
+	if phase not in ["telegraph", "active"]:
 		return {}
 	var rel := Vector2(float(boss["rel"][0]), float(boss["rel"][1]))
 	var away := -1 if rel.x > 0.0 else 1

@@ -67,6 +67,7 @@ func _run() -> void:
 	await _test_mimic_contact_windows()
 	await _test_drop_spider()
 	await _test_surface_eel()
+	await _test_surface_eel_tell()
 	await _test_stalker()
 	await _test_chasm_sniper()
 	await _test_stalker_follower()
@@ -266,6 +267,68 @@ func _test_surface_eel() -> void:
 	eel.receive_hit(35, &"missile")
 	_check(eel._dying, "eel dies")
 	await _frames(2)
+
+
+## Playtest round 2: the bubbling tell's bright-only rings read poorly on bright lava. Its rings and
+## bubbles are a bright core over a dark rim now; one of the two must stand out at least 3:1 (WCAG
+## contrast) from the liquid's surface band, in the kiln's lava and in the depths' water.
+func _test_surface_eel_tell() -> void:
+	for liquid: StringName in [&"lava", &"water"]:
+		var eel := EnemyFactory.create(&"surface_eel")
+		eel.set("liquid", liquid)
+		_world.add_child(eel)
+		var colors: Dictionary = eel.call("tell_colors") if eel.has_method("tell_colors") else {}
+		# The telegraph layer blends additively and cannot darken, so the rim needs its own layer.
+		var shade := eel.get_node_or_null("TellShade") as CanvasItem
+		var blend := CanvasItemMaterial.BLEND_MODE_ADD
+		if shade != null:
+			var material := shade.material as CanvasItemMaterial
+			blend = CanvasItemMaterial.BLEND_MODE_MIX if material == null else material.blend_mode
+		_check(
+			blend == CanvasItemMaterial.BLEND_MODE_MIX,
+			"%s eel tell draws its dark rim on a normal-blend layer" % liquid
+		)
+		eel.queue_free()
+		_check(
+			colors.has("rim") and colors.has("core"), "%s eel tell has a core and a rim" % liquid
+		)
+		if not colors.has("rim") or not colors.has("core"):
+			continue
+		var kit := EnvironmentKit.load_for(&"kiln" if liquid == &"lava" else &"depths")
+		var surface := _mean_band(kit.texture(&"fluid").get_image(), int(kit.fluid_surface_y), 40)
+		var rim := _contrast(colors["rim"], surface)
+		var core := _contrast(colors["core"], surface)
+		_check(
+			maxf(rim, core) >= 3.0,
+			(
+				"%s eel tell stands out 3:1 from the surface (rim %.1f, core %.1f)"
+				% [liquid, rim, core]
+			)
+		)
+	await _frames(2)
+
+
+func _mean_band(image: Image, top: int, height: int) -> Color:
+	var sum := Color(0, 0, 0, 0)
+	var count := 0
+	for y in range(maxi(top, 0), mini(top + height, image.get_height())):
+		for x in range(0, image.get_width(), 4):
+			var pixel := image.get_pixel(x, y)
+			if pixel.a > 0.8:
+				sum += pixel
+				count += 1
+	return Color(sum.r / count, sum.g / count, sum.b / count) if count > 0 else Color.BLACK
+
+
+func _contrast(a: Color, b: Color) -> float:
+	var la := _luminance(a)
+	var lb := _luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func _luminance(color: Color) -> float:
+	var linear := color.srgb_to_linear()
+	return 0.2126 * linear.r + 0.7152 * linear.g + 0.0722 * linear.b
 
 
 func _test_stalker() -> void:
