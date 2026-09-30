@@ -349,7 +349,7 @@ static func _opener(
 		return []
 	var goal := boss_goal(boss)
 	var point: Vector2 = goal[0]
-	var aim := Aim.line_up(point, grounded, goal[1], reach)
+	var aim := Aim.line_up(point, grounded, goal[1], reach, opener["via"] == "grate")
 	if aim.is_empty():
 		return []
 	var through := "through the grate at" if opener["via"] == "grate" else "at"

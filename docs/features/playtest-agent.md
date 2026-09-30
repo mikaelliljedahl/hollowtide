@@ -843,3 +843,15 @@ sight 260 px below until the arena's stall abort reset the fight. The Jev backen
 route while she is inside a running arena. `r6-min-s1c` cleared the trial in 8.6 s and chose a route
 move in 2 of 239 decisions inside running arenas (the hint, which always stays).
 `test_no_route_out_of_a_running_arena` in `tools/check_playtest_bridge.py` fails on the old code.
+
+**Echo grate behind the muzzle.** `r6-min-s1c` (minimum kit, third run) stopped at 11 of 13: after a
+death at stage 4 the second Tidal Heart attempt sat in stage 3 for 483 s, and at depths_02 (27, 10),
+facing the boss with the Echo equipped and Harpoons left, Jev chose `open_boss:<id>:forward` about
+1,000 times; the shell never opened. The grate hung 46 px ahead of her feet and 96 px up, while a
+standing bolt starts at the muzzle 71 px ahead (`PlayerConfig.STANDING_HORIZONTAL_MUZZLE_OFFSET`),
+so the bolt never crossed it; `Aim.line_up` measured from a point above the feet and lined it up.
+Grate aims now also need the grate ahead of the grounded muzzle (`Aim.ahead_of_muzzle`), for the
+opener, its `visible` and the firing spot. `tools/check_playtest_grate.gd` builds that case with a
+real Tidal Heart and grate: on the old code the state offers `open_boss:<id>:forward` with
+`visible: true` and no spot (2 checks FAIL); through real inputs that shot leaves the shell closed,
+and the same shot at a grate ahead of the muzzle opens it.
