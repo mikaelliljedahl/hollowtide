@@ -122,44 +122,53 @@ class Navigator:
 		status = "on_field"
 		return status
 
-	## True when the feet cell is one the hop being followed still passes through.
+	## True when the feet cell (or the row above it on a sagging floater) is one the hop being
+	## followed still passes through.
 	func _on_hop(where: Dictionary) -> bool:
-		var cell: Vector2i = where["cell"]
-		for index in range(maxi(progress - 1, 0), hop.size()):
-			var step: Array = hop[index]
-			if (
-				step[0] == where["room"]
-				and int(step[1]) == cell.x
-				and int(step[2]) == cell.y
-				and bool(step[3]) == bool(where["ball"])
-			):
-				return true
+		for cell in _rest_rows(where):
+			for index in range(maxi(progress - 1, 0), hop.size()):
+				var step: Array = hop[index]
+				if (
+					step[0] == where["room"]
+					and int(step[1]) == cell.x
+					and int(step[2]) == cell.y
+					and bool(step[3]) == bool(where["ball"])
+				):
+					return true
 		return false
+
+	## The feet cell, then the row above it while the feet sit less than FLOATER_SAG into their
+	## row: on a frozen floater caught below its home cell the feet sit just under the solver's row.
+	static func _rest_rows(where: Dictionary) -> Array:
+		var cell: Vector2i = where["cell"]
+		if float(where["local"].y) - cell.y * TILE < FLOATER_SAG:
+			return [cell, cell + Vector2i.UP]
+		return [cell]
 
 	## The field entry for the spot the player rests on, [steps, hop, cell]: her feet cell, else a
 	## neighbour column her body overlaps (standing on a ledge's lip); [] when neither is known.
+	## A sagging floater's row above counts as hers for both (t4-full-s1 walked to the lip of the
+	## vaults_02 floater at (28, 13) for its running takeoff, read off the route and turned back,
+	## for 450 s).
 	func rest_entry(where: Dictionary) -> Array:
-		var cell: Vector2i = where["cell"]
 		var room := String(where["room"])
 		var ball := bool(where["ball"])
-		var found := route.entry(objective, room, cell, ball)
-		if not found.is_empty():
-			return [found[0], found[1], cell]
-		# On a frozen floater caught below its home cell the feet sit just under the solver's row.
-		var feet_y := float(where["local"].y)
-		if feet_y - cell.y * TILE < FLOATER_SAG:
-			found = route.entry(objective, room, cell + Vector2i.UP, ball)
+		var rows := _rest_rows(where)
+		for cell in rows:
+			var found := route.entry(objective, room, cell, ball)
 			if not found.is_empty():
-				return [found[0], found[1], cell + Vector2i.UP]
+				return [found[0], found[1], cell]
 		var x := float(where["local"].x)
-		var lean := -1 if x - cell.x * TILE < (cell.x + 1) * TILE - x else 1
-		for side in [lean, -lean]:
-			var edge := cell.x * TILE if side < 0 else (cell.x + 1) * TILE
-			if absf(x - edge) < HALF_BODY:
-				var probe := cell + Vector2i(side, 0)
-				found = route.entry(objective, room, probe, ball)
-				if not found.is_empty():
-					return [found[0], found[1], probe]
+		var column: int = (where["cell"] as Vector2i).x
+		var lean := -1 if x - column * TILE < (column + 1) * TILE - x else 1
+		for cell in rows:
+			for side in [lean, -lean]:
+				var edge := column * TILE if side < 0 else (column + 1) * TILE
+				if absf(x - edge) < HALF_BODY:
+					var probe: Vector2i = cell + Vector2i(side, 0)
+					var found := route.entry(objective, room, probe, ball)
+					if not found.is_empty():
+						return [found[0], found[1], probe]
 		return []
 
 	## Held actions for this frame along the hop.

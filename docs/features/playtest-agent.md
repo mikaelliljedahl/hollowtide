@@ -786,3 +786,13 @@ Updraft Cloak, where the floater crossing is the next obstacle. The same straigh
 vaults_02 energy tank behind the shaft wall; both now take the same reach test. The same probe
 afterwards chose neither in 400 decisions (room mode has no route, so she stands). The reach check
 (`tools/check_playtest_reach.gd`) covers all three steers; on the old code it fails six cases.
+
+The rated run `t4-full-s1` (seed 1, round 5) then stopped at 5 of 16 in vaults_02 on the same
+floater crossing: for 450 s the agent froze the floater at (28, 13), stood on it with its feet
+6 to 34 px into the row below the solver's resting row, and walked west for the hop's running
+takeoff. At the next column the feet cell (27, 13) was neither a field entry nor on the hop, since
+only the feet cell itself was read one row up (section 21), so the program ended off the route, she
+turned back, and the floater thawed and dropped her into the hall. The lip probe and the hop check
+now read the row above too (`_rest_rows` in `tools/playtest_nav.gd`). Real-input probe from
+(33, 14) with that run's route and kit, enemies removed but the floaters, four floater phases:
+before, the Updraft Cloak took 118.1, 119.1, 116.6 and 26.4 s; after, 27.9, 26.9, 25.4 and 5.3 s.
