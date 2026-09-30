@@ -173,6 +173,7 @@ def _threat(enemy: dict[str, Any]) -> dict[str, Any]:
         "arena_enemy": bool(enemy.get("ambush")),
         "frozen": bool(enemy.get("frozen")),
         "below_standing_shot": bool(enemy.get("low")),
+        "route_platform": bool(enemy.get("platform")),
     }
     if enemy.get("switch_to"):
         entry["hurt_by_bolt"] = BEAM_NAMES.get(enemy["switch_to"], enemy["switch_to"])
