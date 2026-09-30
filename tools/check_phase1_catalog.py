@@ -58,6 +58,8 @@ ENEMIES = (
     "lava_monster",
 )
 BOSSES = ("stone_guardian", "furnace_mother", "tidal_heart")
+# Optional mini-bosses (docs/features/mini-bosses.md) share BOSS_DATA but are not main bosses.
+MINI_BOSSES = ("fernmaw", "tollwing", "rimeweaver", "emberkite", "lanternjaw")
 REFILLS = ("energy_refill", "missile_refill", "flux_refill")
 PHYSICAL_ABILITY_KINDS = (
     "beam",
@@ -248,7 +250,7 @@ def _check_catalog(errors: list[str]):
         errors.append(f"capacity content IDs are duplicated: {_duplicates(all_capacity_ids)}")
 
     _expect_set(errors, "enemy data", _dict_name_keys(source, "ENEMY_DATA"), ENEMIES)
-    _expect_set(errors, "boss data", _dict_name_keys(source, "BOSS_DATA"), BOSSES)
+    _expect_set(errors, "boss data", _dict_name_keys(source, "BOSS_DATA"), (*BOSSES, *MINI_BOSSES))
     _expect_set(
         errors, "pickup icon mapping", dict(_dict_pairs(source, "PICKUP_ICON_PATHS")), PICKUP_KINDS
     )
