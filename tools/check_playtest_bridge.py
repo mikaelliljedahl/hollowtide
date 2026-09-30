@@ -29,37 +29,10 @@ import jev_feedback  # noqa: E402
 import jev_request  # noqa: E402
 import run  # noqa: E402
 from check_playtest_campaign import CampaignRouteTest, JevObjectiveTest  # noqa: E402, F401
+from check_playtest_feedback import JevFeedbackTest, report  # noqa: E402, F401
 from policy_server import HeuristicPassthrough, PolicyServer  # noqa: E402
 
 CANDIDATES = [{"key": "idle", "kind": "idle", "label": "stand still"}]
-
-
-def report(boss_outcome: str, stage: int, killer: str, ambush_seconds: float) -> dict:
-    return {
-        "meta": {"end_reason": "time"},
-        "telemetry": {
-            "deaths": [{"killer": killer}] if boss_outcome == "died" else [],
-            "damage_by_source": {killer: 40},
-            "stuck": [{"room": "fringe_03", "cell": [30, 14], "seconds": 6.0}],
-            "decisions": {"external": {"fallbacks": {"timeout": 2}}},
-            "bosses": [
-                {
-                    "id": "stone_guardian",
-                    "outcome": boss_outcome,
-                    "stage_reached": stage,
-                    "damage_by_source": {killer: 40},
-                }
-            ],
-            "ambushes": [
-                {
-                    "id": "fringe_03.ambush.beam_trial",
-                    "outcome": "cleared",
-                    "seconds": ambush_seconds,
-                    "damage_taken": 10,
-                }
-            ],
-        },
-    }
 
 
 class Broken(HeuristicPassthrough):
@@ -507,6 +480,26 @@ class JevRoundThreeStateTest(unittest.TestCase):
         keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
         self.assertEqual(keys, ["shoot:e63:up", "go_to_objective"])
 
+    def test_empty_quiver_at_a_boss_takes_the_refill_run(self):
+        # t4-min-s1b: 1,880 approaches at a shut Tidal Heart with the Harpoon refill offered.
+        state = self.state()
+        candidates = [
+            {"key": "approach:e1", "kind": "approach", "label": "move to firing range"},
+            {"key": "retreat", "kind": "retreat", "label": "run away from tidal_heart"},
+            {"key": "go_to_refill:missilerefill", "kind": "go_to_refill", "label": "refill"},
+        ]
+        hint = "go_to_refill:missilerefill"
+        keys = [c["key"] for c in jev_request.legal(candidates, state, hint)]
+        self.assertEqual(keys, ["retreat", hint])
+        self.assertIn("empty", jev_request.compact_state(state, {})["facts"]["quiver"])
+        # No refill run offered, or Harpoons left: the approach stays.
+        keys = [c["key"] for c in jev_request.legal(candidates[:2], state, "retreat")]
+        self.assertEqual(keys, ["approach:e1", "retreat"])
+        state["kit"]["missiles"] = 5
+        keys = [c["key"] for c in jev_request.legal(candidates, state, hint)]
+        self.assertEqual(keys, ["approach:e1", "retreat", hint])
+        self.assertNotIn("quiver", jev_request.compact_state(state, {})["facts"])
+
     def test_crouch_shot_is_explained_and_legal_on_the_ground(self):
         self.assertIn("crouch_shot", jev_request.RUBRIC)
         self.assertEqual(jev_feedback.GROUPS["crouch_shot"], "attack")
@@ -529,57 +522,6 @@ class JevRoundThreeStateTest(unittest.TestCase):
         state["player"]["grounded"] = False
         keys = [c["key"] for c in jev_request.legal(candidates, state, "approach:e7")]
         self.assertEqual(keys, ["approach:e7"])
-
-
-class JevFeedbackTest(unittest.TestCase):
-    def record(self, t, cell, probabilities, confidence, danger, hint="shoot:e1:forward"):
-        choice = max(probabilities, key=probabilities.get)
-        return {
-            "tick": int(t * 10),
-            "t": t,
-            "room": "vaults_03",
-            "cell": cell,
-            "hint": hint,
-            "threat": "stone_guardian",
-            "boss_attack": "boulder_volley",
-            "source": "jev" if confidence >= 0.35 else "fallback:low_confidence",
-            "choice": choice,
-            "key": choice,
-            "confidence": confidence,
-            "probabilities": probabilities,
-            "danger": danger,
-            "latency_ms": 200.0,
-            "input_tokens": 1000,
-        }
-
-    def test_findings_are_design_actionable(self):
-        split = {"retreat": 0.4, "harpoon:e1:forward": 0.35, "idle": 0.25}
-        records = [
-            self.record(1.0, [12, 9], split, 0.3, 0.2),
-            self.record(1.5, [13, 10], split, 0.3, 0.3),
-            self.record(4.0, [20, 9], {"shoot:e1:forward": 0.9, "idle": 0.1}, 0.9, 1.9),
-            self.record(6.0, [20, 9], {"shoot:e1:forward": 0.9, "idle": 0.1}, 0.9, 1.8),
-        ]
-        hits = [{"t": 2.0, "source": "stone_guardian:boulder_volley", "amount": 12}]
-        summary = jev_feedback.stats(records)
-        analysis = jev_feedback.analyze(records, hits, 0.35)
-        text = "\n".join(jev_feedback.describe(summary, analysis))
-        self.assertIn("Confusion hotspot vaults_03 around cell (13, 10): 2 of 2", text)
-        self.assertIn("harpoon vs retreat (2x)", text)
-        self.assertIn("Unreadable hits from stone_guardian:boulder_volley: 1 of 1", text)
-        self.assertIn("rated danger high 2 times and 2 passed without damage", text)
-        self.assertIn("disagreed with the heuristic in 2 of 4", text)
-        extra = jev_feedback.derived(summary)
-        self.assertEqual((extra["fallback_rate"], extra["mean_latency_ms"]), (0.5, 200.0))
-        self.assertAlmostEqual(extra["cost_usd_estimate"], 0.00017)
-        merged = aggregate.aggregate(
-            [
-                dict(report("defeated", 4, "x", 7.0), jev={"stats": summary, "analysis": analysis}),
-                dict(report("defeated", 4, "x", 7.0), jev={"stats": summary, "analysis": analysis}),
-            ]
-        )
-        self.assertIn("4 of 4 Jev decisions", "\n".join(merged["jev"]["findings"]))
-        self.assertIn("## Jev policy (2 runs)", aggregate.to_markdown(merged))
 
 
 if __name__ == "__main__":

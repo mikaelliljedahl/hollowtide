@@ -266,7 +266,9 @@ Request (`tools/playtest/jev_request.py:282`):
 - Illegal candidates are removed in code before sending (`tools/playtest/jev_request.py:90`): a
   harpoon without ammo, a shot or jump shot without the crossbow, a pulse without the Resonance
   Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne, a crouch
-  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change. Each new
+  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change, and
+  an approach to a boss no bolt hurts while the quiver is empty and the Harpoon refill run is offered
+  (the state's `facts` then say `quiver: empty`). Each new
   round 3 kind has its own rubric line and feedback group. The hint always stays. With one option left no request is sent.
 
 The answer's `choice` is played when it is a sent key and its `confidence` is at least
@@ -807,3 +809,17 @@ ordinary enemies (`_bolt_matters` in `tools/playtest/jev_request.py`). Room runs
 with that kit, Jev policy and critic, 300 s: before, 0 of 3 attempts won, 2 deaths, rated 0.38
 (too hard, boring); with the spot only, 0 of 2, 1 death, 0.58, 899 body shots; with both, won the
 first attempt in 106.1 s with no death, rated 0.82 (fair, good pacing, fun high).
+
+## 25. Harness round 6 (2026-09-30)
+
+**Empty quiver at a boss.** `t4-min-s1b` (section 24) held the Tidal Heart at stage 1 for 300 s:
+with no Harpoons Jev chose `approach` 1,880 times at depths_02 (24 to 25, 10) while
+`go_to_refill:missilerefill` was offered and was the hint. A room run from (24, 10) with the
+minimum kit (Jev policy, 150 s) reproduced it: of the decisions with the refill run offered, 198
+were `approach`, 100 of them Jev's own answer at about 0.65 confidence and the rest held between
+calls; the boss was unfinished at stage 2. Nothing in Jev's state said that closing in is useless
+with an empty quiver. The Jev backend now drops that approach (`_refill_first` in
+`tools/playtest/jev_request.py`) and the facts carry `quiver: empty`. The same room run afterwards:
+no approach while the refill run was offered (29 refill runs), boss defeated in 99.4 s, no death.
+`test_empty_quiver_at_a_boss_takes_the_refill_run` in `tools/check_playtest_bridge.py` fails on the
+old code.
