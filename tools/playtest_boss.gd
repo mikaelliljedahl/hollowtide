@@ -77,7 +77,14 @@ static func facts(boss: Node2D, feet: Vector2) -> Dictionary:
 		else:
 			point = grate.global_position
 	opener["point_rel"] = [roundi(point.x - feet.x), roundi(point.y - feet.y)]
-	opener["visible"] = _opener_in_sight(boss, feet + Aim.EYE, point, beam, grate)
+	# In sight is not enough: with no grounded aim lining up from here the opener is never offered,
+	# so she needs the firing spot (t4-min-s1 fired 2,605 useless bolts up at the closed Tidal
+	# Heart from depths_02 (39, 14), its grate in sight 740 px across and 352 px up).
+	var radius := Aim.GRATE_RADIUS if grate != null else Aim.BOSS_RADIUS
+	opener["visible"] = (
+		_opener_in_sight(boss, feet + Aim.EYE, point, beam, grate)
+		and not Aim.line_up(point - feet, true, radius, Catalog.BEAM_RANGE).is_empty()
+	)
 	if not opener["visible"] and opener["owned"] and opener["via"] != "punish":
 		var spot = _firing_spot(boss, feet, point, beam, grate, opener["via"] == "grate")
 		if spot is Vector2:

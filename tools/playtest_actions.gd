@@ -7,10 +7,11 @@ const Aim = preload("res://tools/playtest_aim.gd")
 const Programs = preload("res://tools/playtest_programs.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
+const Crouch = preload("res://tools/playtest_crouch.gd")
+const Reach = preload("res://tools/playtest_reach.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
-const PROJECTILE_ALERT := 420.0
 const MAX_EXITS := 3
 ## A grounded player cannot aim down: a target whose origin is more than this far below the feet
 ## is under every aim the crossbow has, so no shot is offered at it.
@@ -39,17 +40,9 @@ const DASH_REACH := 384.0
 const AMBUSH_FLOOR := 160.0
 ## The boss approach stops this far (px) inside the arena's edge.
 const ARENA_MARGIN := 48.0
-## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
-## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
-const DUCK_RANGE := 300.0
-## A refill more than this far (px) above the feet is out of one jump's reach; the steer would
-## only jump in place under it (jev-c3 did that below a vaults_02 shrine 600 px up for 320 s).
-const REFILL_CLIMB := 320.0
 ## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
 ## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
 const ENEMY_RADIUS := 120.0
-const DUCK_CLEAR := 80.0
-const DUCK_REACH := 200.0
 ## A boss whose centre is this far above the feet floats: jumping toward it lands in its body.
 const FLOATING_ABOVE := 160.0
 ## A Resonance Pulse is offered at an enemy this close and this level with the player.
@@ -89,7 +82,7 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var platform := route.any(func(entry: Dictionary) -> bool: return entry["kind"] == "freeze")
 	if not target.is_empty() and not (platform and target["type"] == "frost_floater"):
 		result.append_array(_fight(state, target, player))
-	var shot := incoming_projectile(state)
+	var shot := Dodge.incoming_projectile(state)
 	if (
 		not shot.is_empty()
 		and abilities.has("undertow_dash")
@@ -104,7 +97,7 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 				Programs.dash(_sign(float(shot["rel"][0])))
 			)
 		)
-	var low := duck_shot(state)
+	var low := Dodge.duck_shot(state)
 	if not low.is_empty():
 		result.append(
 			_entry(
@@ -141,7 +134,11 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 				Programs.steer(player, trigger, false)
 			)
 		)
+	# Like the refill run, a pickup and a room-mode exit are straight steers: offered only where
+	# they arrive (a room probe steered 161 of 161 decisions at a vaults_02 tank behind a wall).
 	for pickup in (state["pickups"] as Array).slice(0, 2):
+		if not Reach.arrives(player, _vec(pickup["rel"])):
+			continue
 		result.append(
 			_entry(
 				"pick_up:%s" % pickup["id"],
@@ -161,6 +158,8 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var exits := 0
 	for door in state["exits"]:
 		if boss_alive or bool(door["gated"]) or exits >= MAX_EXITS:
+			continue
+		if not Reach.arrives(player, _vec(door["rel"])):
 			continue
 		exits += 1
 		result.append(
@@ -182,8 +181,8 @@ static func _jumps() -> Array:
 	]
 
 
-## Fight options against `target`: approach, retreat, the boss opener, shots, pulse, beam switches
-## and the jump over it.
+## Fight options against `target`: approach, retreat, the boss opener, shots, the crouch shot,
+## pulse, beam switches and the jump over it.
 static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Array:
 	var me: Dictionary = state["player"]
 	var kit: Dictionary = state["kit"]
@@ -293,6 +292,9 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 					Programs.shoot(_sign(hrel.x), haim, &"fire_missile", int(me["facing"]))
 				)
 			)
+	var crouch := Crouch.candidate(state, target)
+	if not crouch.is_empty():
+		result.append(crouch)
 	var kinds: Array = target["hurt_by"]
 	if (
 		kinds.has("bomb")
@@ -396,7 +398,7 @@ static func _opener_spot(boss: Dictionary) -> Array:
 
 
 ## `go_to_refill:<kind>` toward the nearest refill that restores what is short: Harpoons when
-## none are left, health below a third; none that is out of a jump's reach above.
+## none are left, health below a third; only one the straight steer arrives at (Reach).
 static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var me: Dictionary = state["player"]
 	var kit: Dictionary = state["kit"]
@@ -410,7 +412,7 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 		var wanted := short.filter(func(need: String) -> bool: return restores.has(need))
 		if wanted.is_empty() or _near(_vec(refill["rel"])):
 			continue
-		if float(refill["rel"][1]) < -REFILL_CLIMB:
+		if not Reach.arrives(player, _vec(refill["rel"])):
 			continue
 		var label := "go to the %s refill to restore %s" % [refill["kind"], " and ".join(wanted)]
 		var program: Variant = Programs.steer(player, _vec(refill["rel"]), true)
@@ -458,15 +460,19 @@ static func _boss_arenas_keep(enemies: Array, direction: int, reach: float) -> b
 
 
 ## Aim at `target`: a boss needs a bolt line within its body radius; other enemies use the
-## quantised aim, minus a level shot that would fly under a target well above the crossbow, and
-## minus any aim whose bolt line passes more than ENEMY_RADIUS from it (jev-c2 fired straight up
-## 1,200 times at a vaults_01 ceiling diver 185 px to the side).
+## quantised aim, minus a level shot that would fly under a target well above the crossbow or over
+## a low one (`crouch_shot` answers that), and minus any aim whose bolt line passes more than
+## ENEMY_RADIUS from it (jev-c2 fired straight up 1,200 times at a vaults_01 ceiling diver 185 px
+## to the side).
 static func target_aim(target: Dictionary, grounded: bool, reach: float) -> String:
 	var rel := _vec(target["rel"])
 	if bool(target["is_boss"]):
 		return Aim.line_up(rel, grounded, Aim.BOSS_RADIUS, reach)
 	var aim := aim_for(rel, grounded)
-	if aim == "forward" and (rel - Aim.EYE).y < -Aim.LEVEL_TOLERANCE:
+	if (
+		aim == "forward"
+		and (bool(target.get("low", false)) or (rel - Aim.EYE).y < -Aim.LEVEL_TOLERANCE)
+	):
 		return ""
 	if aim.is_empty() or Aim.miss(rel, aim, SHOT_RANGE) > ENEMY_RADIUS:
 		return ""
@@ -503,37 +509,6 @@ static func find(candidates_list: Array, key: String) -> Dictionary:
 	for entry in candidates_list:
 		if entry["key"] == key:
 			return entry
-	return {}
-
-
-## The nearest shot about to cross the player's column at body height but above a curled ball,
-## while Slipstream can curl a standing, grounded player; {} otherwise. Probe 2026-09-28
-## (kiln_03, stage 3 Ember Fan from 10 tiles): curling in place cleared 17 of 17 start times,
-## every jump or run 0 to 2 of 17, because the five-way fan leaves no gap a standing body fits.
-static func duck_shot(state: Dictionary) -> Dictionary:
-	var me: Dictionary = state["player"]
-	if not (state["kit"]["abilities"] as Array).has("slipstream"):
-		return {}
-	if not bool(me["grounded"]) or me["form"] != "standing":
-		return {}
-	for shot in state.get("projectiles", []):
-		var rel := _vec(shot["rel"])
-		var velocity := _vec(shot["vel"])
-		if rel.length() > DUCK_RANGE or absf(velocity.x) < 1.0 or rel.x * velocity.x >= 0.0:
-			continue
-		var height := -(rel.y + velocity.y * (-rel.x / velocity.x))
-		if height >= DUCK_CLEAR and height <= DUCK_REACH:
-			return shot
-	return {}
-
-
-## Nearest enemy shot flying at the player, or {}.
-static func incoming_projectile(state: Dictionary) -> Dictionary:
-	for shot in state.get("projectiles", []):
-		var rel := _vec(shot["rel"]) + Vector2(0, 90)
-		var velocity := _vec(shot["vel"])
-		if rel.length() <= PROJECTILE_ALERT and velocity.dot(-rel) > 0.0:
-			return shot
 	return {}
 
 

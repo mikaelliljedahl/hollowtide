@@ -5,6 +5,7 @@ extends RefCounted
 ## lives in playtest_bridge.gd and falls back to `heuristic`.
 
 const Actions = preload("res://tools/playtest_actions.gd")
+const Dodge = preload("res://tools/playtest_dodge.gd")
 const HEURISTIC := "heuristic"
 const RANDOM := "random"
 const EXTERNAL := "external"
@@ -105,7 +106,7 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 func _dodge(state: Dictionary) -> String:
 	if not state.has("goal") or not bool(state["player"]["grounded"]):
 		return ""
-	var shot := Actions.incoming_projectile(state)
+	var shot := Dodge.incoming_projectile(state)
 	if shot.is_empty() or Vector2(shot["rel"][0], shot["rel"][1]).length() > DODGE_DISTANCE:
 		return ""
 	return "jump:left" if float(shot["rel"][0]) < 0.0 else "jump:right"
@@ -211,6 +212,9 @@ func _fight_move(state: Dictionary, target: Dictionary, keys: Dictionary) -> Str
 		_close_in_until = now + CLOSE_IN_SECONDS
 		_progress_at = now
 		return keys["approach"]
+	# A target too low for a standing shot (an armored guard) is fought crouched.
+	if keys.has("crouch_shot"):
+		return keys["crouch_shot"]
 	if keys.has("harpoon"):
 		return keys["harpoon"]
 	var switch := "select_beam:%s" % target.get("switch_to", "")

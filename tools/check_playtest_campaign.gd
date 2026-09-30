@@ -393,6 +393,21 @@ func _test_floater_sag() -> void:
 	)
 	where["local"] = Vector2(1833, 13 * 64 + 64)
 	_check(nav.rest_entry(where).is_empty(), "feet on real ground in the row below do not")
+	# The hop's running takeoff walks her west over the sunk floater's lip (t4-full-s1, 450 s).
+	where["local"] = Vector2(1833, 13 * 64 + 6)
+	var first := nav.refresh(where, 0)
+	where["cell"] = Vector2i(27, 13)
+	where["local"] = Vector2(1780, 13 * 64 + 6)
+	var lip := nav.refresh(where, 0)
+	where["local"] = Vector2(1740, 13 * 64 + 6)
+	var past := nav.refresh(where, 0)
+	_check(
+		first == "on_field" and lip == "on_field" and past == "airborne",
+		(
+			"walking the sunk floater toward the takeoff stays on the route (%s, %s, %s)"
+			% [first, lip, past]
+		)
+	)
 
 
 func _test_in_a_real_room() -> void:

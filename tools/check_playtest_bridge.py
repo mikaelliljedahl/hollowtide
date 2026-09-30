@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "playtest"))
 import aggregate  # noqa: E402
 import jev_backend  # noqa: E402
 import jev_feedback  # noqa: E402
+import jev_request  # noqa: E402
 import run  # noqa: E402
 from check_playtest_campaign import CampaignRouteTest, JevObjectiveTest  # noqa: E402, F401
 from policy_server import HeuristicPassthrough, PolicyServer  # noqa: E402
@@ -434,7 +435,7 @@ class JevRoundThreeStateTest(unittest.TestCase):
         return state
 
     def test_compact_state_carries_shell_bolts_hazards_and_refills(self):
-        compact = jev_backend.compact_state(self.state(), {})
+        compact = jev_request.compact_state(self.state(), {})
         threat = compact["threats"][0]
         self.assertEqual(
             threat["shell"], "closed; an Echo (wave) shot through the grate in front of it opens it"
@@ -451,7 +452,7 @@ class JevRoundThreeStateTest(unittest.TestCase):
         state = self.state()
         state["enemies"][0]["opening"] = False
         self.assertEqual(
-            jev_backend.compact_state(state, {})["threats"][0]["shell"],
+            jev_request.compact_state(state, {})["threats"][0]["shell"],
             "closed; nothing hurts it until it recovers after its next attack",
         )
 
@@ -465,16 +466,16 @@ class JevRoundThreeStateTest(unittest.TestCase):
             "duck",
             "dodge",
         ):
-            self.assertIn(kind, jev_backend.RUBRIC)
+            self.assertIn(kind, jev_request.RUBRIC)
             self.assertIn(kind, jev_feedback.GROUPS)
         candidates = [
             {"key": "idle", "kind": "idle", "label": "stand still"},
             {"key": "pulse:e1", "kind": "pulse", "label": "roll in and drop a pulse"},
             {"key": "select_beam:wave", "kind": "select_beam", "label": "switch to Echo"},
         ]
-        kept = jev_backend.legal(candidates, self.state(), "idle")
+        kept = jev_request.legal(candidates, self.state(), "idle")
         self.assertEqual([c["key"] for c in kept], ["idle", "select_beam:wave"])
-        request = jev_backend.build_request("jev-test", self.state(), kept, {})
+        request = jev_request.build_request("jev-test", self.state(), kept, {})
         self.assertIn(
             "equipped bolt", request["questions"]["action"]["criteria"]["select_beam:wave"]
         )
@@ -488,16 +489,46 @@ class JevRoundThreeStateTest(unittest.TestCase):
             {"key": "shoot:e63:up", "kind": "shoot", "label": "fire the crossbow up at mimic"},
             {"key": "go_to_objective", "kind": "go_to_objective", "label": "follow the route"},
         ]
-        keys = [c["key"] for c in jev_backend.legal(candidates, state, "go_to_objective")]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
         self.assertEqual(keys, ["go_to_objective"])
         mimic["frozen"] = False
-        keys = [c["key"] for c in jev_backend.legal(candidates, state, "go_to_objective")]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
         self.assertEqual(keys, ["shoot:e63:up", "go_to_objective"])
         # An armored guard only the Resonance Pulse hurts: no bolt shot at it.
         mimic.update(type="armored_guard", hurt_by=["bomb"], frozen=False)
         state["kit"]["beam"] = "base"
-        keys = [c["key"] for c in jev_backend.legal(candidates, state, "go_to_objective")]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
         self.assertEqual(keys, ["go_to_objective"])
+        # A closed boss no bolt hurts (its opener is open_boss): no body shot; an open one keeps it.
+        mimic.update(type="tidal_heart", is_boss=True, hurt_by=[])
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["go_to_objective"])
+        mimic["hurt_by"] = ["beam", "missile"]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["shoot:e63:up", "go_to_objective"])
+
+    def test_crouch_shot_is_explained_and_legal_on_the_ground(self):
+        self.assertIn("crouch_shot", jev_request.RUBRIC)
+        self.assertEqual(jev_feedback.GROUPS["crouch_shot"], "attack")
+        state = self.state()
+        guard = dict(state["enemies"][0], id="e7", type="armored_guard", is_boss=False, low=True)
+        guard["hurt_by"] = ["missile", "bomb"]
+        state["enemies"] = [guard]
+        state["kit"].update(beam="base", missiles=5)
+        self.assertTrue(jev_request.compact_state(state, {})["threats"][0]["below_standing_shot"])
+        candidates = [
+            {"key": "crouch_shot:e7:harpoon", "kind": "crouch_shot", "label": "crouch and fire"},
+            {"key": "approach:e7", "kind": "approach", "label": "approach enemy e7"},
+        ]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "approach:e7")]
+        self.assertEqual(keys, ["crouch_shot:e7:harpoon", "approach:e7"])
+        state["kit"]["missiles"] = 0
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "approach:e7")]
+        self.assertEqual(keys, ["approach:e7"])
+        state["kit"]["missiles"] = 5
+        state["player"]["grounded"] = False
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "approach:e7")]
+        self.assertEqual(keys, ["approach:e7"])
 
 
 class JevFeedbackTest(unittest.TestCase):

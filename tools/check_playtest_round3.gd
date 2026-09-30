@@ -33,6 +33,7 @@ func run() -> void:
 	await _test_real_boss_facts()
 	await _test_boss_harpoon_economy()
 	await _test_hidden_opener()
+	await _test_steep_opener()
 	await _test_pulse()
 	await _test_ammo_truth_and_refill()
 	await _test_hazards()
@@ -281,7 +282,8 @@ func _test_boss_harpoon_economy() -> void:
 	)
 	state["goal"] = {"kind": "boss", "target": "tidal_heart", "route_status": "at_goal"}
 	state["kit"]["max_missiles"] = 5
-	state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [-1500, 0]}]
+	# Across the arena, yet inside the check room: a refill behind its wall is not offered at all.
+	state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [1400, 0]}]
 	_check(
 		_pick(state) == "go_to_refill:missilerefill",
 		"an empty quiver walks to the boss room's refill across the arena (%s)" % _pick(state)
@@ -346,6 +348,35 @@ func _test_hidden_opener() -> void:
 		"under the ledge the approach walks out instead of jumping (%s)" % [program.slice(0, 2)]
 	)
 	for node in [ledge, real, grate]:
+		node.queue_free()
+	await _frames(2)
+
+
+## A grate in sight that no grounded aim lines up with (740 px across and 352 px up in t4-min-s1,
+## 2,605 bolts at the closed Tidal Heart) counts as out of sight: the state names a firing spot.
+func _test_steep_opener() -> void:
+	_reset_kit([&"beam", &"wave_beam", &"missiles"])
+	GameState.collect_pickup("round3.steep_quiver", &"missile_tank")
+	await _frames(30)
+	var entities := WorldFxTestbed.entities(_root.current_room)
+	var feet := _player.global_position
+	var real := EnemyFactory.create(&"tidal_heart") as Node2D
+	entities.add_child(real)
+	real.global_position = feet + Vector2(1100, -300)
+	real.call(&"configure_arena", Rect2(feet.x - 256, feet.y - 448, 1728, 448))
+	real.call(&"set_test_phase", 2)
+	var grate := WaveGrate.new()
+	entities.add_child(grate)
+	grate.global_position = feet + Vector2(700, -352)
+	grate.set_relay(real)
+	await _frames(2)
+	var found: Array = _state()["enemies"].filter(func(e: Dictionary) -> bool: return e["is_boss"])
+	var opener: Dictionary = found[0]["opener"] if not found.is_empty() else {}
+	_check(
+		opener.get("visible") == false and (opener.get("spot_rel", []) as Array).size() == 2,
+		"a grate no aim lines up with gets a firing spot (%s)" % opener
+	)
+	for node in [real, grate]:
 		node.queue_free()
 	await _frames(2)
 

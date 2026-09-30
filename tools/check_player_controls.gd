@@ -28,6 +28,7 @@ func _run() -> void:
 	await _test_crouch_muzzle_both_facings()
 	await _test_stand_clearance_and_transitions()
 	await _test_ball_jump_and_timing()
+	await _test_grounded_wall_push_faces_wall()
 	_test_presentation_animations()
 	_release_inputs()
 	await _clear_world()
@@ -293,6 +294,35 @@ func _test_ball_jump_and_timing() -> void:
 	GameState.reset_health()
 	_player.take_damage(100)
 	_check(_player._jump_buffer_timer == 0.0, "death clears buffered ball jump")
+
+
+## Walking into a wall on the ground faces the wall; only a fall against it is a wall slide. In
+## Round 5 the player stood against the Tidal Heart's grate, and every press toward the boss
+## turned her away from it, so no shot could fly its way.
+func _test_grounded_wall_push_faces_wall() -> void:
+	GameState.reset_progress()
+	var edge := 300.0 + PlayerConfig.STANDING_WIDTH * 0.5 + 1.0
+	_add_static_rect(Vector2(edge + 16.0, FLOOR_Y - 250.0), Vector2(32.0, 500.0))
+	_player.reset_for_spawn(Vector2(300.0, FLOOR_Y))
+	await _settle_player()
+	Input.action_press("move_right")
+	for frame in 4:
+		await get_tree().physics_frame
+	_check(_player.facing == 1, "grounded push into a right wall faces the wall")
+	_check(not _player.get("_wall_sliding"), "grounded push into a wall is no wall slide")
+	Input.action_release("move_right")
+	_player.reset_for_spawn(Vector2(300.0, FLOOR_Y - 400.0))
+	await _settle_player()
+	Input.action_press("move_right")
+	for frame in 4:
+		await get_tree().physics_frame
+	_check(_player.get("_wall_sliding"), "falling push into a right wall still wall-slides")
+	_check(_player.facing == -1, "a right wall slide still faces away from the wall")
+	_release_inputs()
+	_world.get_child(_world.get_child_count() - 1).queue_free()
+	await get_tree().physics_frame
+	_player.reset_for_spawn(Vector2(300.0, FLOOR_Y))
+	await _settle_player()
 
 
 func _test_presentation_animations() -> void:

@@ -10,7 +10,8 @@ extends RefCounted
 ## Cinder Warden probe in kiln_03 (player at cell 26, boss 6 tiles east, stage 3): curling in place
 ## clears the Ember Fan at any start (15/17), standing still clears the Heat Ring (17/17), running
 ## away clears the Scuttle Rush when started within 0.9 s (10/17). The Tidal Heart's answers are
-## in tools/playtest_tide.gd.
+## in tools/playtest_tide.gd. Enemy shots flying at her are dodged too: `duck_shot` and
+## `incoming_projectile` find the shot a curl or a dash answers.
 
 const Programs = preload("res://tools/playtest_programs.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
@@ -73,6 +74,13 @@ const JUMP_OVER_ROOM := 240.0
 const JUMP_OVER_TAKEOFF := 230.0
 const JUMP_OVER_HOLD := 40
 const JUMP_OVER_LIMIT := 180
+## An enemy shot this close (px) and flying at her is incoming (`dash_through`).
+const PROJECTILE_ALERT := 420.0
+## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
+## px above the feet flies over a curled ball (56 px tall) and would hit the standing body (176).
+const DUCK_RANGE := 300.0
+const DUCK_CLEAR := 80.0
+const DUCK_REACH := 200.0
 
 
 ## The dodge candidate for the boss's current attack, or {} when none is known or it is too late.
@@ -236,6 +244,41 @@ static func headroom(player: Player, rel: Vector2) -> bool:
 	var top := player.global_position + rel - Vector2(0, BODY_RADIUS)
 	var query := PhysicsRayQueryParameters2D.create(top, top - Vector2(0, JUMP_OVER_ROOM), 1)
 	return player.get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+
+
+## The nearest shot about to cross the player's column at body height but above a curled ball,
+## while Slipstream can curl a standing, grounded player; {} otherwise. Probe 2026-09-28
+## (kiln_03, stage 3 Ember Fan from 10 tiles): curling in place cleared 17 of 17 start times,
+## every jump or run 0 to 2 of 17, because the five-way fan leaves no gap a standing body fits.
+static func duck_shot(state: Dictionary) -> Dictionary:
+	var me: Dictionary = state["player"]
+	if not (state["kit"]["abilities"] as Array).has("slipstream"):
+		return {}
+	if not bool(me["grounded"]) or me["form"] != "standing":
+		return {}
+	for shot in state.get("projectiles", []):
+		var rel := _vec2(shot["rel"])
+		var velocity := _vec2(shot["vel"])
+		if rel.length() > DUCK_RANGE or absf(velocity.x) < 1.0 or rel.x * velocity.x >= 0.0:
+			continue
+		var height := -(rel.y + velocity.y * (-rel.x / velocity.x))
+		if height >= DUCK_CLEAR and height <= DUCK_REACH:
+			return shot
+	return {}
+
+
+## Nearest enemy shot flying at the player, or {}.
+static func incoming_projectile(state: Dictionary) -> Dictionary:
+	for shot in state.get("projectiles", []):
+		var rel := _vec2(shot["rel"]) + Vector2(0, 90)
+		var velocity := _vec2(shot["vel"])
+		if rel.length() <= PROJECTILE_ALERT and velocity.dot(-rel) > 0.0:
+			return shot
+	return {}
+
+
+static func _vec2(value: Array) -> Vector2:
+	return Vector2(float(value[0]), float(value[1]))
 
 
 ## Runs toward `goal` (relative to the feet when built) and, once the boss body at `boss` is

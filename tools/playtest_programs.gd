@@ -33,6 +33,7 @@ const STANDING_KINDS := [
 	"retreat",
 	"shoot",
 	"jump_shoot",
+	"crouch_shot",
 	"harpoon",
 	"open_boss",
 	"select_beam",

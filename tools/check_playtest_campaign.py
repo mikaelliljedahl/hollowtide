@@ -19,8 +19,8 @@ sys.path.insert(0, str(TOOLS / "playtest"))
 
 import campaign_route  # noqa: E402
 import check_campaign_graph as graph  # noqa: E402
-import jev_backend  # noqa: E402
 import jev_feedback  # noqa: E402
+import jev_request  # noqa: E402
 import run  # noqa: E402
 from campaign_layout import load_rooms  # noqa: E402
 
@@ -202,7 +202,7 @@ class JevObjectiveTest(unittest.TestCase):
             "ambush": None,
             "goal": goal,
         }
-        compact = jev_backend.compact_state(state, {})
+        compact = jev_request.compact_state(state, {})
         self.assertIn("collect the Slipstream", compact["goal"])
         facts = compact["objective"]
         self.assertEqual(facts["progress"], "0 of 13 objectives done")
@@ -210,7 +210,7 @@ class JevObjectiveTest(unittest.TestCase):
         self.assertEqual(facts["minutes_on_it"], 1.5)
         self.assertIn("harpoon socket", facts["gate_ahead"])
         for kind in ("go_to_objective", "go_to_door", "open_gate", "freeze", "fast_travel"):
-            self.assertIn(kind, jev_backend.RUBRIC)
+            self.assertIn(kind, jev_request.RUBRIC)
             self.assertIn(kind, jev_feedback.GROUPS)
 
 
