@@ -719,3 +719,15 @@ contract, grounded crouch shots), and the agent has no crouch-shot program yet, 
 vaults_01 arena and vaults_02 (both rated too hard and too long in `full-jev-b`) are an agent
 limit, not a game change. Adding a crouched shot for targets below the eye line is the next
 harness step.
+
+`full-jev-d` (seed 2, all fixes) reached 14 of 16: Stone Guardian and Cinder Warden fell at the
+first attempt, then the Tidal Heart objective timed out after 582.6 s in stage 2 with no death
+(critic: too_long, boring). For 570 s the agent stood at depths_02 cell (27, 10) facing left with
+the boss 160 px to its right, choosing `open_boss` (a Snare shot forward) 1,127 times; the shot
+program presses `move_right` for two frames first, yet the state never showed her facing right.
+Two real-input probes in that room (boss held at stage 2, 15 offsets) could not turn her either,
+so no shot ever flew toward the boss. The cause is not isolated (a probe artifact after
+`reset_for_spawn` is not ruled out); it is the first item for the next round, with no change
+made. `min-jev-c` (`--minimum-kit`, seed 1) stopped at 5 of 13: 300 s in vaults_02 alternating
+`go_to_refill` with the route to the Updraft Cloak (an agent loop, no game change). Estimated Jev
+spend for all rated runs, probes excluded (they use no Jev): $0.49.
