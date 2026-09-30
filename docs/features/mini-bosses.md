@@ -1,6 +1,6 @@
 # Feature design: mini-bosses
 
-Status: proposal for [plan-next.md](../plan-next.md) section 4 ("one mid-boss per area"). Not a
+Status: implemented (all five, automated suite green), not hand-tested or balance-tuned. Originally a proposal for [plan-next.md](../plan-next.md) section 4 ("one mid-boss per area"). Not a
 normative contract; it asks for no change to `docs/` contracts except the two small additions in
 section 9. Read [boss-rework.md](boss-rework.md) (the framework this reuses),
 [bigger-world.md](bigger-world.md) (the rooms) and [content-catalog.md](../content-catalog.md) first.

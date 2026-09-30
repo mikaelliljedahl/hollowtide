@@ -49,8 +49,8 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 - Visible runtime UI should be in English. The project's documentation is in English.
 - Normal boot runs with `make run`; development start runs with `make dev`. Help in start menu/pause is
   approved text outside the game world; don't put tutorial text in the game world.
-- Phase 1 is done. Phase 2's 16-room mini-campaign is playable (beaten by the user); next is a bigger
-  world, harder bosses and a release export. Player-visible names follow D19; internal IDs are unchanged except four renamed ones (see `docs/state.md`).
+- Phase 1 is done. Phase 2's 16-room mini-campaign was playable and beaten by the user; the world is now 48 rooms
+  with five optional mini-bosses (implemented, not hand-tested); next is hand-testing it, harder bosses and a release export. Player-visible names follow D19; internal IDs are unchanged except four renamed ones (see `docs/state.md`).
 
 ## Absolute work rules
 - Read relevant normative contracts before code or graphics work; never guess dimensions, paths or interfaces.

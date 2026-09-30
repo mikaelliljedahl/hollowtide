@@ -3,8 +3,8 @@
 ## Aggregate status
 
 **Phase 1 (dev track S0–S10) is done. Phase 2's compact mini-campaign is playable and the user has
-beaten it.** The campaign has 16 connected rooms across five areas (fringe 5, nexus 2, vaults 3,
-kiln 3, depths 3) with save/continue, a full map with unexplored-exit markers, a minimap, per-area art
+beaten it.** The original campaign had 16 connected rooms; it has since grown to 48 rooms across five
+areas plus five optional mini-bosses (see "Bigger world and mini-bosses" below) with save/continue, a full map with unexplored-exit markers, a minimap, per-area art
 and music, three bosses and an ending with credits. `make check` passes.
 
 Round 2 (D19–D21) replaced the genre-default arsenal with an original one, added surprise enemies
@@ -31,6 +31,23 @@ grants, 754.2 game seconds, 16 of 16 objectives (13 required plus 3 optional pic
 (Stone Guardian and Cinder Warden on the second attempt, Tidal Heart on the first). The full gate
 is 62 suites. Accepted amendments: [implementation-decisions.md](implementation-decisions.md)
 (boss pacing, save-slot safety, campaign playtest mode).
+
+## Bigger world and mini-bosses
+
+The world is 48 rooms (plan: [features/bigger-world.md](features/bigger-world.md)) and each area has
+one optional two-stage mini-boss ([features/mini-bosses.md](features/mini-bosses.md)): Fernmaw
+(fringe_08), Tollwing (nexus_09), Rimeweaver (vaults_08), Emberkite (kiln_08) and Lanternjaw
+(depths_08). Flag `mini:<id>`; they guard optional Bolt Quivers. The reward budget is 6 Heart Pearls
+and 12 Bolt Quivers; the dash also accepts key E. The graph solver, the mini-boss suite (perfect
+Harpoon play takes about 22-28 s each) and the rest of the gate pass, but **none of this is
+hand-balanced or playtested with Jev yet**. The graph solver treats `mini:*` flag gates as closed
+except when it checks that every pickup is reachable once the fights are won.
+
+Up-current climbs that need hand-play (the solver models them, nobody has climbed them with real
+input): depths_01 (35,29), depths_05 (36,0), depths_07 (4,2), depths_10 (29,0), kiln_01 (14,0),
+kiln_02 (2,0), kiln_04 (2,11) and (13,0), and the shafts in kiln_05, kiln_06, kiln_07, kiln_08,
+kiln_09 and kiln_10. The vaults_08 to fringe_01 shortcut is effectively one-way. Visuals of the new
+rooms and mini-bosses have never been viewed.
 
 ## Start and controls
 
