@@ -200,6 +200,7 @@ func _check_screens() -> void:
 		)
 	_check(plate == null or not plate.visible, "minimap hides behind the map")
 	_check(float(map.call("map_scale")) > 1.0, "map has a usable scale")
+	await _check_pan(map)
 	map.call("close")
 	for frame in 3:
 		await get_tree().process_frame
@@ -209,6 +210,19 @@ func _check_screens() -> void:
 	_check(plate == null or not plate.visible, "minimap can be switched off in code")
 	root.queue_free()
 	await get_tree().process_frame
+
+
+## The map pans with the move actions, not only the physical arrow keys.
+func _check_pan(map: CanvasLayer) -> void:
+	var moved := false
+	for action in [&"move_left", &"move_right", &"move_up", &"move_down"]:
+		var before := map.get("_center") as Vector2
+		Input.action_press(action)
+		for frame in 6:
+			await get_tree().process_frame
+		Input.action_release(action)
+		moved = moved or (map.get("_center") as Vector2) != before
+	_check(moved, "map pans with the move actions")
 
 
 func _exit_to(discovered: Array, target: String) -> Dictionary:
