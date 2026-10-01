@@ -9,6 +9,7 @@ const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
 const Crouch = preload("res://tools/playtest_crouch.gd")
 const Reach = preload("res://tools/playtest_reach.gd")
+const Clearance = preload("res://tools/playtest_clearance.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
@@ -163,7 +164,7 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 			result.append_array(
 				route.filter(func(entry: Dictionary) -> bool: return entry["kind"] == "go_to_door")
 			)
-		return result.slice(0, MAX_CANDIDATES - 2) + _jumps()
+		return Clearance.keep_clear(result.slice(0, MAX_CANDIDATES - 2) + _jumps(), state, player)
 	var exits := 0
 	for door in state["exits"]:
 		if boss_alive or bool(door["gated"]) or exits >= MAX_EXITS:
@@ -180,7 +181,9 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 			)
 		)
 	var jumps := _jumps()
-	return result.slice(0, MAX_CANDIDATES - jumps.size()) + jumps
+	return Clearance.keep_clear(
+		result.slice(0, MAX_CANDIDATES - jumps.size()) + jumps, state, player
+	)
 
 
 static func _jumps() -> Array:
@@ -219,7 +222,8 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 			var high := float(arena[2]) - ARENA_MARGIN
 			if low <= high:
 				step.x = clampf(step.x, low, high)
-		step.x = Reach.standing_step(player, step.x, _sign(rel.x))
+		var level := maxf(rel.y + Dodge.BODY_RADIUS, 0.0)
+		step.x = Reach.standing_step(player, step.x, _sign(rel.x), level)
 		var spot := _opener_spot(target)
 		if not engaged:
 			step = rel

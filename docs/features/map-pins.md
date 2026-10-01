@@ -41,7 +41,7 @@ input actions were added and `REBINDABLE_ACTIONS` is unchanged.
 
 | Input (default keys) | Effect on the map screen |
 |---|---|
-| Arrows / mouse drag | Pan, as before. The frame centre is the cursor; it snaps to the cell under it. |
+| Move keys (arrows by default) / mouse drag | Pan with the `move_*` actions, so rebound keys pan too. The frame centre is the cursor; it snaps to the cell under it. |
 | Wheel, `+` / `-` | Zoom, as before; zooming in makes single cells easy to hit. |
 | `fire_beam` (X / J) | Place a `return` pin on the cursor cell, or advance the kind of the pin there. |
 | `fire_missile` (C / K) | Remove the pin on the cursor cell. |

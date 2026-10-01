@@ -11,6 +11,10 @@ const LENGTH := 64.0
 const THICKNESS := 16.0
 const SNAP := 16.0
 const HEADROOM := 112.0
+## The art is drawn this much thicker than its length scale so the one-tile peg reads at 1920 px;
+## its length stays the collider's, and a pale rim marks the standable top edge.
+const ART_THICKEN := 1.5
+const RIM_COLOR := Color(0.93, 0.89, 0.78, 0.9)
 const WARN_SECONDS := 1.0
 const PLATFORM_LAYER := 32
 const TERRAIN_LAYER := 1
@@ -48,9 +52,12 @@ func _ready() -> void:
 		_art = Sprite2D.new()
 		_art.texture = texture
 		_art.centered = false
-		# Art: 128x48, wall surface at x=0, shaft top at y~14; drawn at half scale (64 px long).
-		_art.scale = Vector2(float(wall_side), 1.0) * (LENGTH / float(texture.get_width()))
+		# Art: 128x48, wall surface at x=0, shaft top at y~14; drawn 64 px long, 1.5x thick,
+		# with the shaft top kept on the collider's top.
+		var length_scale := LENGTH / float(texture.get_width())
+		_art.scale = Vector2(float(wall_side) * length_scale, length_scale * ART_THICKEN)
 		_art.position = Vector2(0.0, -14.0 * _art.scale.y)
+		_art.show_behind_parent = true
 		add_child(_art)
 	queue_redraw()
 
@@ -84,6 +91,8 @@ func top_surface_y() -> float:
 
 func _draw() -> void:
 	if _art != null:
+		var x0 := minf(0.0, float(wall_side) * LENGTH)
+		draw_rect(Rect2(Vector2(x0, -1.0), Vector2(LENGTH, 3.0)), RIM_COLOR)
 		return
 	var s := float(wall_side)
 	var shaft := Color(0.33, 0.23, 0.16)

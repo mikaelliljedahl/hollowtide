@@ -259,6 +259,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			unpin_at_cursor()
 		get_viewport().set_input_as_handled()
 		return
+	if _is_move_event(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_ESCAPE, KEY_M, KEY_TAB:
@@ -271,8 +274,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_zoom(_zoom * 1.25, FRAME.get_center())
 			KEY_MINUS, KEY_KP_SUBTRACT, KEY_PAGEDOWN:
 				_set_zoom(_zoom / 1.25, FRAME.get_center())
-			KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN:
-				pass
 			_:
 				return
 		get_viewport().set_input_as_handled()
@@ -291,6 +292,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+func _is_move_event(event: InputEvent) -> bool:
+	for action in [&"move_left", &"move_right", &"move_up", &"move_down"]:
+		if event.is_action(action):
+			return true
+	return false
+
+
 func _process(delta: float) -> void:
 	if not visible:
 		return
@@ -302,15 +310,8 @@ func _process(delta: float) -> void:
 		_canvas.queue_redraw()
 		_legend.queue_redraw()
 		return
-	var pan := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_LEFT):
-		pan.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_RIGHT):
-		pan.x += 1.0
-	if Input.is_physical_key_pressed(KEY_UP):
-		pan.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_DOWN):
-		pan.y += 1.0
+	# Pan with the move actions, so rebound keys and the D/W/S alternates pan too.
+	var pan := Input.get_vector(&"move_left", &"move_right", &"move_up", &"move_down")
 	if pan != Vector2.ZERO:
 		_center += pan.normalized() * PAN_SPEED * delta / map_scale()
 		_clamp_center()

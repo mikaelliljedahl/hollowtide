@@ -58,6 +58,13 @@ static func glide(player: CharacterBody2D, jump_held: bool) -> void:
 	cloak.apply_glide(jump_held)
 
 
+## True while the player's cloak glides; the glide shows the upright air pose instead of the
+## tuck/spin, so the cloak spreads above her shoulders rather than hiding behind the tucked body.
+static func is_gliding(player: Node) -> bool:
+	var cloak := player.get_node_or_null(^"UpdraftCloak") as UpdraftCloak
+	return cloak != null and cloak.gliding
+
+
 ## Caps fall speed while gliding. Returns true while gliding.
 func apply_glide(jump_held: bool) -> bool:
 	gliding = (
@@ -85,7 +92,8 @@ func _is_worn() -> bool:
 func _anchor_world() -> Vector2:
 	var facing := int(_player.get("facing"))
 	# The spin/tuck pose sits lower and more compact than the standing pose.
-	var anchor_y := ANCHOR.y + (26.0 if bool(_player.get("is_spinning")) else 0.0)
+	var tucked := bool(_player.get("is_spinning")) and not gliding
+	var anchor_y := ANCHOR.y + (26.0 if tucked else 0.0)
 	return _player.global_position + Vector2(ANCHOR.x * facing, anchor_y)
 
 

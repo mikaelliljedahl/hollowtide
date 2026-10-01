@@ -817,7 +817,7 @@ func _update_animation() -> void:
 			_sprite.rotation = 0.14 * float(facing)
 			return
 
-	if is_spinning:
+	if is_spinning and not UpdraftCloak.is_gliding(self):
 		var spin_animation: StringName = &"spin_armed" if GameState.has_beam else &"spin"
 		if _sprite.sprite_frames.has_animation(spin_animation):
 			_sprite.play(spin_animation)

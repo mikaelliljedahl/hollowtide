@@ -70,10 +70,13 @@ static func _floor_under(space: PhysicsDirectSpaceState2D, point: Vector2, botto
 ## `step` moved toward the boss until her standing body fits there, or unchanged when it does
 ## not within STAND_SCAN shifts. Under a low roof she stays curled and fires nothing: r7-min-s1i
 ## rolled to and fro in the vaults_03 west alcove (a firing step 320 px from the Stone Guardian)
-## through five stage 4 punish windows with 5 Harpoons, fired none, and died there.
-static func standing_step(player: Player, step: float, toward: int) -> float:
+## through five stage 4 punish windows with 5 Harpoons, fired none, and died there. The body is
+## fitted `level` px below her feet, on the boss's floor: on that alcove's roof, fitted at her
+## own level, the step lay on the roof above the alcove, and the approach stood there for 550 s
+## (round 9, once the jump off the roof onto the Guardian was no longer offered).
+static func standing_step(player: Player, step: float, toward: int, level := 0.0) -> float:
 	var space := player.get_world_2d().direct_space_state
-	var feet := player.global_position
+	var feet := player.global_position + Vector2(0, level)
 	for index in STAND_SCAN + 1:
 		var shifted := step + toward * STAND_SHIFT * index
 		if _fits_standing(space, feet + Vector2(shifted, 0)):
