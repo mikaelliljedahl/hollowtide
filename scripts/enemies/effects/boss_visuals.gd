@@ -273,7 +273,8 @@ static func draw_health_bar(boss: Node) -> void:
 	var canvas := boss as CanvasItem
 	var accent: Color = boss._boss_accent_color()
 	var size := Vector2(300.0, 18.0)
-	var top_left: Vector2 = boss._visual_base_position + Vector2(-size.x * 0.5, -236.0)
+	var bar_height := -150.0 if Patterns.is_mini(boss.enemy_id) else -236.0
+	var top_left: Vector2 = boss._visual_base_position + Vector2(-size.x * 0.5, bar_height)
 	var inner := Rect2(top_left + Vector2(3.0, 3.0), size - Vector2(6.0, 6.0))
 	var max_health := float(maxi(int(boss.max_health), 1))
 	canvas.draw_rect(Rect2(top_left, size), Color(0.02, 0.03, 0.04, 0.88), true)
@@ -290,7 +291,7 @@ static func draw_health_bar(boss: Node) -> void:
 		Rect2(inner.position, Vector2(inner.size.x * ratio, 3.0)), Color(1.0, 1.0, 1.0, 0.25), true
 	)
 	# One notch per stage still ahead; the last one marks desperation.
-	for threshold in Patterns.STAGE_THRESHOLDS:
+	for threshold in Patterns.thresholds(boss.enemy_id):
 		if ratio <= threshold:
 			continue
 		var notch_x := inner.position.x + inner.size.x * threshold

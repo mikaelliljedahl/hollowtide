@@ -254,7 +254,9 @@ class Solver:
         exit_state = self.exit(state)
         if exit_state is not None and exit_state != "blocked":
             return [exit_state]
-        supported = self.platform(room, x, y + 1)
+        supported = self.platform(room, x, y + 1) or (
+            y == room.height - 1 and exit_state == "blocked" and up == 0
+        )
         jump = BALL_JUMP if ball else self.jump
         rows = (y,) if ball else (y, y - 1, y - 2)
         if any((x, row) in self.world.downdraft[room_id] for row in rows):
@@ -434,10 +436,11 @@ def progress(
     label: str,
     crumble_gone: bool = True,
     breaks: bool = True,
+    seed_flags: frozenset[str] = frozenset(),
 ):
     """Runs progression to a fixpoint. Returns (errors, stages)."""
     abilities: set[str] = set()
-    flags: set[str] = set()
+    flags: set[str] = set(seed_flags)
     collected: set[str] = set()
     start_room, sx, sy = world.start
     start = (start_room, sx, sy, False, 0, 0)
@@ -641,6 +644,21 @@ def main() -> int:
         errors += shortcut_errors(world, stages, label, REGIONAL, covered_cells)
         if label == "any-order":
             missing = sorted(all_pickups - collected)
+            if missing:
+                # mini:* flaggates guard optional fights (docs/features/mini-bosses.md): a pickup
+                # behind one is reachable when the fight is won. The solver stays strict elsewhere.
+                minis = frozenset(
+                    flag
+                    for room in world.rooms.values()
+                    for entry in room.legend.values()
+                    if entry.kind == "flaggate"
+                    for flag in entry.args[0].split(",")
+                    if flag.startswith("mini:")
+                )
+                _errs, _stages, with_minis = progress(
+                    world, blocked_until, skip_optional, label, seed_flags=minis
+                )
+                missing = sorted(all_pickups - with_minis)
             if missing:
                 errors.append(f"[{label}] unreachable pickups: {missing}")
         if label == "no-breaks":

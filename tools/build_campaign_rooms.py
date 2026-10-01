@@ -29,6 +29,7 @@ EXT = {
     "pickup": ("PackedScene", "res://scenes/pickups/pickup.tscn"),
     "enemy": ("Script", "res://scripts/campaign/enemy_spawn.gd"),
     "boss": ("Script", "res://scripts/campaign/boss_spawn.gd"),
+    "miniboss": ("Script", "res://scripts/campaign/mini_boss_spawn.gd"),
     "gate": ("Script", "res://scripts/world/ability_gate.gd"),
     "flaggate": ("Script", "res://scripts/campaign/flag_gate.gd"),
     "station": ("Script", "res://scripts/campaign/station.gd"),
@@ -207,7 +208,7 @@ class SceneWriter:
                             f"travel_direction = {int(entry.options.get('dir', 1))}",
                         ],
                     )
-            elif kind == "boss":
+            elif kind in ("boss", "miniboss"):
                 (x, y) = room.cells_of(char)[0]
                 ax, ay, aw, ah = (int(part) for part in entry.options["arena"].split(","))
                 rx, ry = (
@@ -215,12 +216,12 @@ class SceneWriter:
                     for part in entry.options.get("return", f"{ax + 2},{ay + ah - 1}").split(",")
                 )
                 self.node(
-                    "Boss",
+                    "Boss" if kind == "boss" else "MiniBoss",
                     "Marker2D",
                     "Entities",
                     [
                         f"position = {_vec(*_cell_center(x, y))}",
-                        f"script = {self.ext('boss')}",
+                        f"script = {self.ext(kind)}",
                         f'boss_id = &"{entry.args[0]}"',
                         f"arena = {_rect(ax * TILE, ay * TILE, aw * TILE, ah * TILE)}",
                         f"return_point = {_vec(*_floor_anchor(rx, ry))}",

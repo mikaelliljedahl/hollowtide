@@ -35,6 +35,8 @@ deflect patent application noted in state.md and get a proper freedom-to-operate
 
 ## 3. Bigger world (~48 rooms)
 
+Status: implemented (48 rooms, 6 pearls, 12 quivers), not hand-tested; see state.md for the climbs that need hand-play.
+
 - Grow each of the five areas from ~3 to ~9–10 rooms: one landmark room, one secret, one shortcut back to
   the hub, and one optional challenge per area. Keep the two branch orders (vaults/kiln) and add at
   least two more loops so backtracking is short.
@@ -44,6 +46,8 @@ deflect patent application noted in state.md and get a proper freedom-to-operate
 - Decide the Heart Pearl / Bolt Quiver budget for the bigger world first (the six-pearl cap is reached).
 
 ## 4. Bosses and set pieces
+
+Status: the five mini-bosses are implemented, not hand-tested; the rest of this section is open.
 
 - The boss rework (four stages, telegraphs, punish windows) is in; tune it by hand first.
 - Add one mid-boss per area in the bigger world so the jump between common enemies and bosses is smaller.

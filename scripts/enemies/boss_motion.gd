@@ -42,6 +42,10 @@ static func move(boss: CharacterBody2D, delta: float, player: Node2D) -> void:
 					room = _pocket_room(boss, boss._movement_direction)
 				boss.velocity.x = boss._movement_direction * clampf(room / delta, 0.0, speed)
 				_fall_and_slide(boss, delta)
+			&"fernmaw", &"tollwing", &"rimeweaver", &"emberkite", &"lanternjaw":
+				# Mini-bosses walk toward the player and stop where a charge would.
+				boss.velocity.x = _pursuit_velocity(boss, player, speed, delta)
+				_fall_and_slide(boss, delta)
 			&"tidal_heart":
 				var home: Vector2 = boss._home_position
 				var target := Vector2(

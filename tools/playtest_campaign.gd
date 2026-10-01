@@ -170,7 +170,7 @@ func _doors(state: Dictionary, current: Dictionary, follow: Dictionary) -> Array
 	var result: Array = []
 	for door in Rooms.ROOMS[room]["doors"]:
 		var id := "%s:%s" % [door["edge"], door["target"]]
-		if not Route.door_open(door) or result.size() >= MAX_DOORS:
+		if not Route.door_open(door) or (result.size() >= MAX_DOORS and id != on_route):
 			continue
 		var entry := _entry(
 			"go_to_door:%s" % id,

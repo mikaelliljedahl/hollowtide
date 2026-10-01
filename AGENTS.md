@@ -29,12 +29,14 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 | [docs/features/map-pins.md](docs/features/map-pins.md) | Feature design for player map pins; rules, controls, save key and tests. |
 | [docs/features/revisit-remix.md](docs/features/revisit-remix.md) | Feature design for elite enemies in revisited rooms after each boss; tiers, stats and tests. |
 | [docs/features/boss-rework.md](docs/features/boss-rework.md) | Feature design for four-stage boss fights; telegraphs, punish windows, attack tables and tests. |
+| [docs/features/mini-bosses.md](docs/features/mini-bosses.md) | Feature design for five optional two-stage mini-bosses, one per area; attacks, rewards, flags, tests and work packages. |
 | [docs/features/dash-deflect.md](docs/features/dash-deflect.md) | Feature design for turning enemy shots with the Undertow Dash; binding patent and naming constraints. |
 | [docs/features/fast-travel.md](docs/features/fast-travel.md) | Feature design for fast travel between save shrines and boss shortcuts; refusal rules and tests. |
 | [docs/features/sequence-breaks.md](docs/features/sequence-breaks.md) | Feature design for three intended sequence breaks; routes, solver model and tests. |
 | [docs/features/tide-modules.md](docs/features/tide-modules.md) | Feature design for Tide Sockets and Tide Glyphs; catalogue, save key and binding legal constraints. |
 | [docs/features/trials.md](docs/features/trials.md) | Feature design for the post-ending Trials (Gauntlet, Boss Rush); rules, flow, save key and tests. |
 | [docs/features/playtest-agent.md](docs/features/playtest-agent.md) | Dev-tool design for the AI playtest agent and its campaign mode; Jev backend, data boundary and results. |
+| [docs/features/bigger-world.md](docs/features/bigger-world.md) | Plan for the ~48-room world: reward budget, per-area room list, layout rules and lane ownership. |
 | [docs/epics/E01-rorelse-game-feel.md](docs/epics/E01-rorelse-game-feel.md) | PRD for completed movement base. |
 | [docs/epics/E02-slipstream-forsta-scen.md](docs/epics/E02-slipstream-forsta-scen.md) | PRD for finished slipstream and first ability port. |
 | [docs/epics/E03-grafikpipeline.md](docs/epics/E03-grafikpipeline.md) | PRD for finished graphics pipeline. |
@@ -47,8 +49,8 @@ The normative contracts in `docs/` are binding; other documents guide the work.
 - Visible runtime UI should be in English. The project's documentation is in English.
 - Normal boot runs with `make run`; development start runs with `make dev`. Help in start menu/pause is
   approved text outside the game world; don't put tutorial text in the game world.
-- Phase 1 is done. Phase 2's 16-room mini-campaign is playable (beaten by the user); next is a bigger
-  world, harder bosses and a release export. Player-visible names follow D19; internal IDs are unchanged except four renamed ones (see `docs/state.md`).
+- Phase 1 is done. Phase 2's 16-room mini-campaign was playable and beaten by the user; the world is now 48 rooms
+  with five optional mini-bosses (implemented, not hand-tested); next is hand-testing it, harder bosses and a release export. Player-visible names follow D19; internal IDs are unchanged except four renamed ones (see `docs/state.md`).
 
 ## Absolute work rules
 - Read relevant normative contracts before code or graphics work; never guess dimensions, paths or interfaces.

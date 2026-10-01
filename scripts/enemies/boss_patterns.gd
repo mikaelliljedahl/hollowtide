@@ -4,6 +4,7 @@ extends RefCounted
 ## damage matrix) a stage uses, the attack rotation per stage, and every attack's telegraph,
 ## active and punish timing. Nothing here touches the scene tree.
 
+const Mini = preload("res://scripts/enemies/mini_boss_patterns.gd")
 const DESPERATION_STAGE := 4
 ## Health ratio at or below which each later stage starts (stage 2, 3, 4).
 const STAGE_THRESHOLDS: Array[float] = [0.75, 0.5, 0.25]
@@ -100,33 +101,49 @@ const MOVE_SPEEDS := {
 }
 
 
-static func stage_for(health: int, max_health: int) -> int:
+## Mini-bosses (docs/features/mini-bosses.md) have two stages; every other id keeps four.
+static func is_mini(boss_id: StringName) -> bool:
+	return boss_id != &"" and Mini.has(boss_id)
+
+
+static func stage_count(boss_id: StringName = &"") -> int:
+	return Mini.STAGE_COUNT if is_mini(boss_id) else DESPERATION_STAGE
+
+
+static func thresholds(boss_id: StringName = &"") -> Array[float]:
+	return Mini.STAGE_THRESHOLDS if is_mini(boss_id) else STAGE_THRESHOLDS
+
+
+static func stage_for(health: int, max_health: int, boss_id: StringName = &"") -> int:
 	var ratio := float(health) / float(maxi(max_health, 1))
 	var stage := 1
-	for threshold in STAGE_THRESHOLDS:
+	for threshold in thresholds(boss_id):
 		if ratio <= threshold:
 			stage += 1
 	return stage
 
 
 ## Health at which `stage` ends and the next one starts; 0 for the desperation stage.
-static func stage_floor(stage: int, max_health: int) -> int:
-	if stage < 1 or stage >= DESPERATION_STAGE:
+static func stage_floor(stage: int, max_health: int, boss_id: StringName = &"") -> int:
+	if stage < 1 or stage >= stage_count(boss_id):
 		return 0
-	return floori(float(max_health) * STAGE_THRESHOLDS[stage - 1])
+	return floori(float(max_health) * thresholds(boss_id)[stage - 1])
 
 
-## Most damage one opening accepts.
-static func opening_damage(max_health: int) -> int:
+## Most damage one opening accepts: a stage's share of health split over its openings.
+static func opening_damage(max_health: int, boss_id: StringName = &"") -> int:
+	if is_mini(boss_id):
+		return ceili(float(max_health) * 0.5 / float(Mini.OPENINGS_PER_STAGE))
 	return ceili(float(max_health) * 0.25 / float(OPENINGS_PER_STAGE))
 
 
-static func protection_phase(stage: int) -> int:
-	return 2 if stage >= ARMORED_STAGE else 1
+static func protection_phase(stage: int, boss_id: StringName = &"") -> int:
+	var armored := Mini.ARMORED_STAGE if is_mini(boss_id) else ARMORED_STAGE
+	return 2 if stage >= armored else 1
 
 
 static func chain_at(boss_id: StringName, stage: int, index: int) -> Array[StringName]:
-	var stages: Array = ROTATIONS.get(boss_id, ROTATIONS[&"stone_guardian"])
+	var stages: Array = _rotations(boss_id, ROTATIONS[&"stone_guardian"])
 	var cycle: Array = stages[clampi(stage, 1, stages.size()) - 1]
 	var chain: Array[StringName] = []
 	for attack: StringName in cycle[posmod(index, cycle.size())]:
@@ -137,7 +154,7 @@ static func chain_at(boss_id: StringName, stage: int, index: int) -> Array[Strin
 ## Every attack a boss can use in a stage, in rotation order without repeats.
 static func attacks_in_stage(boss_id: StringName, stage: int) -> Array[StringName]:
 	var result: Array[StringName] = []
-	var stages: Array = ROTATIONS.get(boss_id, [])
+	var stages: Array = _rotations(boss_id, [])
 	if stages.is_empty():
 		return result
 	for chain: Array in stages[clampi(stage, 1, stages.size()) - 1]:
@@ -147,22 +164,34 @@ static func attacks_in_stage(boss_id: StringName, stage: int) -> Array[StringNam
 	return result
 
 
+static func _rotations(boss_id: StringName, fallback: Array) -> Array:
+	if is_mini(boss_id):
+		return Mini.table_for(boss_id).ROTATIONS
+	return ROTATIONS.get(boss_id, fallback)
+
+
+static func _timing(attack: StringName) -> Dictionary:
+	return TIMING[attack] if TIMING.has(attack) else Mini.timing(attack)
+
+
 static func telegraph_seconds(attack: StringName, stage: int) -> float:
-	var seconds := float(TIMING[attack]["telegraph"])
+	var seconds := float(_timing(attack)["telegraph"])
 	if stage >= DESPERATION_STAGE:
 		seconds *= DESPERATION_TELEGRAPH_SCALE
 	return maxf(seconds, MIN_TELEGRAPH)
 
 
 static func active_seconds(attack: StringName, stage: int) -> float:
-	var seconds := float(TIMING[attack]["active"])
+	var seconds := float(_timing(attack)["active"])
 	if stage >= DESPERATION_STAGE:
 		seconds += float(DESPERATION_EXTRA_ACTIVE.get(attack, 0.0))
 	return seconds
 
 
-static func punish_seconds(attack: StringName, stage: int) -> float:
-	var seconds := float(TIMING[attack]["punish"])
+static func punish_seconds(attack: StringName, stage: int, boss_id: StringName = &"") -> float:
+	var seconds := float(_timing(attack)["punish"])
+	if is_mini(boss_id) or (not TIMING.has(attack) and Mini.has_attack(attack)):
+		return maxf(seconds, Mini.MIN_PUNISH[clampi(stage, 1, Mini.STAGE_COUNT) - 1])
 	if stage >= DESPERATION_STAGE:
 		return maxf(seconds * DESPERATION_PUNISH_SCALE, DESPERATION_MIN_PUNISH)
 	if stage >= ARMORED_STAGE:
@@ -170,14 +199,18 @@ static func punish_seconds(attack: StringName, stage: int) -> float:
 	return seconds
 
 
-static func idle_seconds(stage: int) -> float:
+static func idle_seconds(stage: int, boss_id: StringName = &"") -> float:
+	if is_mini(boss_id):
+		return Mini.IDLE_SECONDS[clampi(stage, 1, Mini.STAGE_COUNT) - 1]
 	return IDLE_SECONDS[clampi(stage, 1, IDLE_SECONDS.size()) - 1]
 
 
 static func move_speed(boss_id: StringName, stage: int) -> float:
 	var speeds: Array = MOVE_SPEEDS.get(boss_id, MOVE_SPEEDS[&"stone_guardian"])
+	if is_mini(boss_id):
+		speeds = Mini.table_for(boss_id).MOVE_SPEEDS
 	return float(speeds[clampi(stage, 1, speeds.size()) - 1])
 
 
 static func is_charge(attack: StringName) -> bool:
-	return CHARGES.has(attack)
+	return CHARGES.has(attack) or Mini.is_charge(attack)

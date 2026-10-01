@@ -1,0 +1,30 @@
+id: fringe_08
+area: fringe
+name: Hopper Pit
+origin: 120 0
+# hopper_pit: Fernmaw (optional mini-boss, flag mini:fernmaw) fights in the whole pit; the Quiver Cache
+# waits in the sealed alcove at the top right, behind the flag gate.
+legend:
+  M missilerefill
+  v stalactite
+  L light
+  B miniboss fernmaw arena=1,1,28,15 return=3,15
+  G flaggate mini:fernmaw
+grid:
+##############################
+#..........L..v........v.....#
+#............................#
+#............................#
+#.....................########
+#.....................G.....##
+#.....................G..M..##
+#........#####...#############
+#..L.........................#
+#............................#
+#....#####...........#####...#
+#............................#
+#.........B..................#
+######........#####...........
+#.............................
+#.............................
+########....##################

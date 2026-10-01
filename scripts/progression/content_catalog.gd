@@ -49,6 +49,9 @@ const ENEMY_IDS := [
 	&"lava_monster",
 ]
 const BOSS_IDS := [&"stone_guardian", &"furnace_mother", &"tidal_heart"]
+## Optional mini-bosses (docs/features/mini-bosses.md): two stages, flag `mini:<id>`, not counted
+## as bosses by the ending, boss shortcuts or the Trials. Stats live in BOSS_DATA below.
+const MINI_BOSS_IDS := [&"fernmaw", &"tollwing", &"rimeweaver", &"emberkite", &"lanternjaw"]
 const ENERGY_CONTENT_IDS := [
 	"UPG-ENERGY-01",
 	"UPG-ENERGY-02",
@@ -154,6 +157,11 @@ const DISPLAY_NAMES: Dictionary[StringName, String] = {
 	&"glyph_ebb_mend": "Ebb Mend",
 	&"glyph_deep_pulse": "Deep Pulse",
 	&"glyph_spring_tide": "Spring Tide",
+	&"fernmaw": "Fernmaw",
+	&"tollwing": "Tollwing",
+	&"rimeweaver": "Rimeweaver",
+	&"emberkite": "Emberkite",
+	&"lanternjaw": "Lanternjaw",
 }
 const BEAM_DISPLAY_NAMES: Dictionary[StringName, String] = {
 	&"base": "Seed Bolt",
@@ -406,6 +414,11 @@ const BOSS_DATA := {
 	&"stone_guardian": {"max_health": 300, "contact_damage": 24},
 	&"furnace_mother": {"max_health": 360, "contact_damage": 28},
 	&"tidal_heart": {"max_health": 400, "contact_damage": 20},
+	&"fernmaw": {"max_health": 100, "contact_damage": 14},
+	&"tollwing": {"max_health": 130, "contact_damage": 16},
+	&"rimeweaver": {"max_health": 150, "contact_damage": 18},
+	&"emberkite": {"max_health": 170, "contact_damage": 20},
+	&"lanternjaw": {"max_health": 190, "contact_damage": 22},
 }
 
 

@@ -21,6 +21,7 @@ Layouts live in scenes/campaign/layouts/<room_id>.txt. Format:
       h enemy hopper w=10 h=6 dir=-1
       m gate missile
       G flaggate boss:stone_guardian
+      B miniboss fernmaw arena=1,1,28,15 [return=3,15]   # optional mini-boss, flag mini:<id>
       ~ lava
       t timeddoor [seconds=6] [id=door]   # solid door cells, opened by its switches
       o switch door=t                      # shootable switch (air cell, mount it by rock)
@@ -55,6 +56,7 @@ ENTITY_KINDS = (
     "enemy",
     "floater",
     "boss",
+    "miniboss",
     "gate",
     "flaggate",
     "lava",
@@ -94,6 +96,8 @@ ENEMY_IDS = (
     "chasm_sniper",
 )
 BOSS_IDS = ("stone_guardian", "furnace_mother", "tidal_heart")
+# Optional mini-bosses (docs/features/mini-bosses.md); flag mini:<id>, never a boss: flag.
+MINI_BOSS_IDS = ("fernmaw", "tollwing", "rimeweaver", "emberkite", "lanternjaw")
 PICKUP_KINDS = (
     "beam",
     "slipstream",
@@ -363,6 +367,16 @@ def _validate_legend(room: Room) -> None:
                 raise LayoutError(f"{where}: boss needs a known boss id")
             if "arena" not in entry.options or count != 1:
                 raise LayoutError(f"{where}: boss needs arena=x,y,w,h and exactly one cell")
+        elif entry.kind == "miniboss":
+            if len(entry.args) != 1 or entry.args[0] not in MINI_BOSS_IDS:
+                raise LayoutError(f"{where}: miniboss needs a known mini-boss id")
+            if "arena" not in entry.options or count != 1:
+                raise LayoutError(f"{where}: miniboss needs arena=x,y,w,h and exactly one cell")
+            ax, ay, aw, ah = (int(part) for part in entry.options["arena"].split(","))
+            if ax < 0 or ay < 0 or ax + aw > room.width or ay + ah > room.height:
+                raise LayoutError(f"{where}: miniboss arena outside the room")
+            if room.ambushes:
+                raise LayoutError(f"{where}: a miniboss room has no ambush zone")
         elif entry.kind == "gate":
             if not entry.args or entry.args[0] not in GATE_KINDS:
                 raise LayoutError(f"{where}: gate needs one of {GATE_KINDS}")
