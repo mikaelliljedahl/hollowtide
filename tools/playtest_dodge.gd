@@ -196,6 +196,14 @@ static func _entry(attack: String, label: String, program: Variant) -> Dictionar
 	return {"key": "dodge:%s" % attack, "kind": "dodge", "label": label, "program": program}
 
 
+## True for a dodge that keeps her standing where she is (its label starts "stand still"), so a
+## shot fired in place loses nothing.
+static func stays_put(entry: Dictionary) -> bool:
+	return (
+		entry.get("kind") == "dodge" and String(entry.get("label", "")).begins_with("stand still")
+	)
+
+
 ## The feet x offset nearest the player that keeps clear of every locked column and of the boss
 ## body, with nothing solid in the way on the walk there; null when there is none.
 static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:

@@ -10,6 +10,7 @@ const Policy = preload("res://tools/playtest_policy.gd")
 const Actions = preload("res://tools/playtest_actions.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
+const Programs = preload("res://tools/playtest_programs.gd")
 const State = preload("res://tools/playtest_state.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const BOSS_OFFSET := Vector2(416, -92)
@@ -43,6 +44,7 @@ func run() -> void:
 	await _test_fan_embers_in_recover()
 	for attack in Tide.ATTACKS:
 		await _test_tidal(attack)
+	await _test_harpoon_in_echo_window()
 	_test_attacks_landed()
 
 
@@ -446,6 +448,71 @@ func _test_tidal(attack: StringName) -> void:
 	boss.queue_free()
 	for shot in _host.get_tree().get_nodes_in_group(&"enemy_shot"):
 		shot.queue_free()
+	await _frames(40)
+
+
+## An Echo window opens while she stands out a Crosscurrent where no line reaches her: the loop
+## ends the stand-still dodge and the heuristic fires the Harpoon in place. r6-full-s4 let such a
+## 2 s window lapse (Tidal Heart at 150 health for 44 s); a dodge that moves her still comes first.
+func _test_harpoon_in_echo_window() -> void:
+	_reset_kit()
+	GameState.collect_pickup("check.missile_tank.0", &"missile_tank")
+	await _frames(30)
+	var boss := EnemyFactory.create(&"tidal_heart") as Node2D
+	WorldFxTestbed.entities(_root.current_room).add_child(boss)
+	boss.global_position = _player.global_position + Vector2(0, -330)
+	var room: Node2D = _root.current_room
+	var size: Vector2 = room.call("size_px")
+	boss.call(
+		&"configure_arena", Rect2(room.global_position + Vector2(64, 64), size - Vector2(128, 128))
+	)
+	boss.call(&"set_test_stage", 3)
+	await _frames(4)
+	# Held still: only the opening matters here.
+	boss.set_physics_process(false)
+	var loop := Loop.new(_root, _player, Policy.HEURISTIC, 5, [])
+	var still := {
+		"key": "dodge:crosscurrent",
+		"kind": "dodge",
+		"label": "stand still: no Crosscurrent line reaches her here",
+		"program": Programs.hold([], 300),
+	}
+	loop.current = still
+	loop.driver.start(still["program"])
+	var health := int(boss.get("health"))
+	var fired := ""
+	for frame in 90:
+		if frame == 10:
+			boss.call(&"open_wave_window")
+		loop.physics_step(1.0 / 60.0)
+		if String(loop.current.get("kind", "")) == "harpoon":
+			fired = loop.current["key"]
+		await _host.get_tree().physics_frame
+	loop.finish({})
+	_check(
+		not fired.is_empty(),
+		(
+			"an Echo window ends a stand-still dodge and the Harpoon is fired (%s)"
+			% loop.current["key"]
+		)
+	)
+	_check(
+		int(boss.get("health")) < health,
+		(
+			"the Harpoon fired in place hurts the opened Tidal Heart (%d -> %d)"
+			% [health, boss.get("health")]
+		)
+	)
+	var options := [
+		{"key": "dodge:maelstrom", "kind": "dodge", "label": "curl up where she stands"},
+		{"key": "harpoon:e1:up", "kind": "harpoon", "label": "fire a harpoon up at tidal_heart"},
+	]
+	var pick := Policy.new(1).heuristic({"room": {}, "enemies": []}, options, false)
+	_check(
+		pick == "dodge:maelstrom",
+		"a dodge that curls her still comes before the Harpoon (%s)" % pick
+	)
+	_clear_boss(boss)
 	await _frames(40)
 
 

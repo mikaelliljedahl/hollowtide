@@ -879,3 +879,17 @@ fails (0 to 8 of 17): the embers come down there, and walking back in before cur
 in two probe variants, so it was dropped. `_test_fan_after_vent` and `_test_fan_embers_in_recover`
 in `tools/check_playtest_dodge.gd` fail on the old code (the loop still plays `dodge:vent_burst`
 when the fan telegraphs; no curl offered in the punish window).
+
+**Tidal Heart Echo window.** `r6-full-s4` rated the Tidal Heart "too long" (0.68, 257.8 s over two
+attempts, one death). The fight's floor is R8's 16 openings, about 49 s with a Harpoon in every
+one ([boss-rework.md](boss-rework.md#10-verification)); the time on top was the agent's: of six
+Echo windows two lapsed, one with an empty quiver and one at 150 health in stage 3, where the
+heuristic hint stood out a Crosscurrent for 4 s (`dodge:crosscurrent`, "stand still") with
+`harpoon:<id>:up` offered, and the next Harpoon landed 5.4 s later. Two refill runs on an empty
+quiver (12 and 29 s) and the walk to where the grate lines up made up most of the rest. No game
+change. A stand-still dodge now gives way to an offered Harpoon (`stays_put`,
+`tools/playtest_dodge.gd`; `tools/playtest_policy.gd`), and a boss opening ends a running
+stand-still dodge or idle so the Harpoon is offered at once (`_new_opening`,
+`tools/playtest_loop.gd`); a dodge that moves or curls her still comes first.
+`_test_harpoon_in_echo_window` in `tools/check_playtest_dodge.gd` fails on the old code (the loop
+plays `dodge:crosscurrent` through the window, the Heart stays at 400).
