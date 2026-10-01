@@ -11,6 +11,7 @@ const Policy = preload("res://tools/playtest_policy.gd")
 const Bridge = preload("res://tools/playtest_bridge.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Campaign = preload("res://tools/playtest_campaign.gd")
+const Dodge = preload("res://tools/playtest_dodge.gd")
 const LOGGED_FALLBACKS := 5
 ## A streamed decision log is flushed this often, so a long run can be followed from outside.
 const LOG_FLUSH_EVERY := 200
@@ -34,6 +35,15 @@ var _policy: Policy
 var _root: Node
 var _player: Player
 var _fallbacks_logged := 0
+## The boss attack plan seen when the running program was chosen. A new telegraph ends the program
+## so the answer to it starts at once: in r6-min-s1b 5 of 20 Ember Fan hits came in stage 4 while
+## a Vent Burst dodge still waited out its pillars, and 5 more while a retreat ran on past the
+## point the fan was aimed at.
+var _seen_plan: Variant = null
+## Whether the boss could be hurt when the running program was chosen. An opening ends a program
+## that keeps her standing in place, so the Harpoon is offered at once: in r6-full-s4 a
+## stand-still Crosscurrent dodge ran on through a 2 s Tidal Heart Echo window.
+var _seen_open := false
 
 
 func _init(root: Node, player: Player, policy: String, seed_value: int, break_specs: Array) -> void:
@@ -61,7 +71,7 @@ func physics_step(delta: float) -> void:
 		current = {}
 		telemetry.tick(delta, false, "")
 		return
-	if driver.done():
+	if driver.done() or _new_telegraph() or _new_opening():
 		_decide()
 	driver.step()
 	var kind := String(current.get("kind", ""))
@@ -132,6 +142,8 @@ func _decide() -> void:
 	current = Actions.find(options, key)
 	if current.is_empty():
 		current = options[0]
+	_seen_plan = _boss_plan()
+	_seen_open = _boss_open()
 	if _player.is_ball and current["kind"] in Programs.STANDING_KINDS:
 		driver.start(Programs.StandFirst.new(current["program"]))
 	else:
@@ -158,6 +170,34 @@ func _decide() -> void:
 			_log_file.flush()
 	else:
 		decision_log.append(line)
+
+
+func _boss_plan() -> Variant:
+	var boss := _player.get_tree().get_first_node_in_group(&"bosses")
+	return boss.get("_attack_plan") if boss != null else null
+
+
+func _new_telegraph() -> bool:
+	var boss := _player.get_tree().get_first_node_in_group(&"bosses")
+	return (
+		boss != null
+		and boss.get("_attack_state") == &"telegraph"
+		and not is_same(boss.get("_attack_plan"), _seen_plan)
+	)
+
+
+func _boss_open() -> bool:
+	var boss := _player.get_tree().get_first_node_in_group(&"bosses")
+	return (
+		boss != null and boss.get("_branch_open") == true and int(boss.get("_opening_damage")) > 0
+	)
+
+
+func _new_opening() -> bool:
+	if _seen_open or not _boss_open():
+		return false
+	# A move in progress (a jump over the boss, a curl under a line) is left to finish.
+	return current.get("kind") == "idle" or Dodge.stays_put(current)
 
 
 func _log_fallback(reason: String) -> void:

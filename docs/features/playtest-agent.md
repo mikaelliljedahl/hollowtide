@@ -855,3 +855,41 @@ opener, its `visible` and the firing spot. `tools/check_playtest_grate.gd` build
 real Tidal Heart and grate: on the old code the state offers `open_boss:<id>:forward` with
 `visible: true` and no spot (2 checks FAIL); through real inputs that shot leaves the shell closed,
 and the same shot at a grate ahead of the muzzle opens it.
+
+## 26. Harness round 7 (2026-09-30)
+
+**Ember Fan dodge.** `r6-min-s1b` (minimum kit) took 20 of its 38 Cinder Warden hits from the
+Ember Fan, 19 of them with `dodge:ember_fan` chosen in the 2 s before. Its decisions split them:
+10 came within 260 px of the boss, where the fan had no answer (a game fix, see
+[boss-rework.md](boss-rework.md#6-cinder-warden)); 5 in stage 4, where the fan is chained straight
+after Vent Burst and the Vent Burst dodge was still waiting out its pillars, so the fan's dodge
+started 0.22 s after the release; the rest after a retreat or an approach still running when the
+fan locked its aim. The dodge probe in kiln_03 (same positions and stages, 17 start times) also
+showed that the dodge was not offered once the fan was out: the boss is in its punish window then,
+while the embers still fly for up to 0.8 s.
+
+Two changes. A new boss telegraph ends the running program so the answer starts at once
+(`_new_telegraph`, `tools/playtest_loop.gd`). The fan's curl is offered through the punish window
+while an enemy shot still flies at her (`embers_left`, `tools/playtest_dodge.gd`), and no longer
+once they have passed, so the window stays for the Harpoon. With the game fix, the harness answer
+from standing now matches a scripted curl in place at every probed spot (11 to 12 of 17 at 309 to
+333 px, 8 of 17 at 212 to 244 px); the stage 4 Vent Burst then Ember Fan chain went from 4 to 8 of
+17 for the loop. A curl while running away from the boss past the point the fan aims at still
+fails (0 to 8 of 17): the embers come down there, and walking back in before curling did not help
+in two probe variants, so it was dropped. `_test_fan_after_vent` and `_test_fan_embers_in_recover`
+in `tools/check_playtest_dodge.gd` fail on the old code (the loop still plays `dodge:vent_burst`
+when the fan telegraphs; no curl offered in the punish window).
+
+**Tidal Heart Echo window.** `r6-full-s4` rated the Tidal Heart "too long" (0.68, 257.8 s over two
+attempts, one death). The fight's floor is R8's 16 openings, about 49 s with a Harpoon in every
+one ([boss-rework.md](boss-rework.md#10-verification)); the time on top was the agent's: of six
+Echo windows two lapsed, one with an empty quiver and one at 150 health in stage 3, where the
+heuristic hint stood out a Crosscurrent for 4 s (`dodge:crosscurrent`, "stand still") with
+`harpoon:<id>:up` offered, and the next Harpoon landed 5.4 s later. Two refill runs on an empty
+quiver (12 and 29 s) and the walk to where the grate lines up made up most of the rest. No game
+change. A stand-still dodge now gives way to an offered Harpoon (`stays_put`,
+`tools/playtest_dodge.gd`; `tools/playtest_policy.gd`), and a boss opening ends a running
+stand-still dodge or idle so the Harpoon is offered at once (`_new_opening`,
+`tools/playtest_loop.gd`); a dodge that moves or curls her still comes first.
+`_test_harpoon_in_echo_window` in `tools/check_playtest_dodge.gd` fails on the old code (the loop
+plays `dodge:crosscurrent` through the window, the Heart stays at 400).

@@ -169,7 +169,7 @@ Fire projectiles. Vents are read on the floor; the heat ring is escaped through 
 
 | Attack | Stage added | Telegraph | Punish (st 1-2 / 3 / 4) | What happens |
 |---|---|---|---|---|
-| Ember Fan | 1 | 0.55 s: pulse, aim lines | 0.8 / 1.4 / 1.2 s | 3-way fan; 5-way from stage 3; desperation fires it twice 0.3 s apart |
+| Ember Fan | 1 | 0.55 s: pulse, aim lines | 0.8 / 1.4 / 1.2 s | 3-way fan; 5-way from stage 3; desperation fires it twice 0.3 s apart; the first ember flies on the locked aim line (her chest) and the rest fan out above it, so curling under it clears the fan at any range |
 | Vent Burst | 1 | 0.75 s: rises, floor circles | 1.0 / 1.4 / 1.2 s | Fire pillars erupt from the circles: under the player and 300 px either side (5 circles 210 px apart in desperation) |
 | Scuttle Rush | 2 | 0.6 s: crouches back, floor arrow | 1.3 / 1.4 / 1.2 s | Rushes the lane toward the player's side at 580 px/s and stops where the arrow ends, 128 px of floor short of the first wall (a low roof or step counts) or the lane end, like Shoulder Charge |
 | Heat Ring | 3 | 0.8 s: swells, ring of dots with a bright gap toward the player | 1.6 / 1.6 / 1.36 s | 12 embers in a ring with a 77 degree gap; desperation adds a second, offset ring 0.4 s later |
@@ -187,6 +187,20 @@ stage 3 two tiles west of the pocket, 9 responses times 17 start times) hit 151 
 before: the patrol walked flush to the step (x 3044), and standing still was hit every time. After
 the change it turns at x 2916 and 102 of 153 stay unhurt (standing, jumping, climbing the step);
 the hits left are runs and slides into the body.
+
+Ember Fan above the aim line (2026-09-30, Jev round 7). The fan used to spread evenly around the
+aim line. In r6-min-s1b (minimum kit, 100 health) 20 of the Warden's 38 hits were Ember Fan hits,
+10 of them within 260 px of the boss. A dodge probe in the real kiln_03 arena at the positions and
+stages of those hits (real player, fan forced, 20 responses at 17 start times 0.1 s apart from the
+telegraph's start; outputs under `/Volumes/Personal/Tools/hollowtide-runs/round7/`) found no answer
+212 to 244 px away in stages 3 and 4: 0 of 17 for every response (standing, crouching, curling,
+jumps in place, away, toward and over the boss, runs, rolls, run-then-curl), because the lower
+embers crossed her column 7 to 16 px above the floor and the upper ones her jump. At 309 to 333 px
+curling cleared 11 to 12 of 17. The fan now fans out above the aim line, like the Boulder Volley
+below it (`_fan_above`, `scripts/enemies/boss_attacks.gd`): at 212 to 244 px curling in place
+clears 8 of 17 (every start inside the telegraph), and standing is still hit. Checked in
+`tools/check_boss_fan.gd`, run by the `boss rework` suite (fails on the old code: the curled ball
+takes 1 and 2 hits in stages 3 and 4).
 
 ## 7. Tidal Heart
 

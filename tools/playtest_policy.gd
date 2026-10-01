@@ -66,6 +66,10 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 		keys[entry["kind"]] = entry["key"]
 		keys[entry["key"]] = entry["key"]
 	if keys.has("dodge"):
+		# r6-full-s4 stood out a Crosscurrent through a 2 s Tidal Heart Echo window with a Harpoon
+		# offered; a Harpoon fired where she stands keeps her as safe as standing still.
+		if keys.has("harpoon") and candidates.any(Dodge.stays_put):
+			return keys["harpoon"]
 		return keys["dodge"]
 	if keys.has("dash_through"):
 		return keys["dash_through"]
