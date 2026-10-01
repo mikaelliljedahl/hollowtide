@@ -188,6 +188,14 @@ func _doors(state: Dictionary, current: Dictionary, follow: Dictionary) -> Array
 	return result
 
 
+## The frost floaters the next hops stand on, frozen or not; the state marks them `platform`.
+func platforms() -> Array:
+	var where := Nav.Navigator.locate(_root, _player)
+	if where.is_empty() or objective().is_empty():
+		return []
+	return Floaters.platforms(_player.get_tree(), where["room_node"], nav.landings(where))
+
+
 ## `freeze:<cell>` for the farthest floater the next hops stand on, while the Snare is owned.
 func _freeze(where: Dictionary) -> Dictionary:
 	if where.is_empty() or not GameState.has_ability(&"ice_beam"):

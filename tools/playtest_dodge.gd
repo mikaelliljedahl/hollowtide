@@ -33,6 +33,8 @@ const SPOT_STEP := 8
 const SETTLE_FRAMES := 12
 ## A walk stops this close (px) to its spot; walking stops in about 20 px.
 const STEP_TOLERANCE := 24.0
+## Probe (px) below a step's spot for her floor.
+const FLOOR_PROBE := 8.0
 ## Ember Fan (scripts/enemies/boss_attacks.gd): speed, origin, the second fan's delay in
 ## desperation, and the seconds a curled ball waits after the fan reaches her column.
 const FAN_SPEED := 380.0
@@ -92,7 +94,8 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 	# The Tidal Heart's shots keep flying through its recovery; they are all in `shots_rel`.
 	if StringName(attack) in Tide.ATTACKS:
 		return Tide.candidate(boss, player)
-	if phase not in ["telegraph", "active"]:
+	# The embers keep flying through the fan's punish window.
+	if phase not in ["telegraph", "active"] and not (attack == "ember_fan" and phase == "recover"):
 		return {}
 	var rel := Vector2(float(boss["rel"][0]), float(boss["rel"][1]))
 	var away := -1 if rel.x > 0.0 else 1
@@ -136,6 +139,8 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 			# Curl where she stands and stay curled until the fan (both fans in desperation) passed.
 			var reach := maxf(rel.length() - FAN_ORIGIN, 0.0) / FAN_SPEED
 			var passed := release + reach + FAN_PASS + (FAN_REPEAT if desperate else 0.0)
+			if phase == "recover":
+				passed = embers_left(player)
 			if passed < 0.0:
 				return {}
 			program = Programs.hold([&"slipstream"], 2)
@@ -193,8 +198,16 @@ static func _entry(attack: String, label: String, program: Variant) -> Dictionar
 	return {"key": "dodge:%s" % attack, "kind": "dodge", "label": label, "program": program}
 
 
+## True for a dodge that keeps her standing where she is (its label starts "stand still"), so a
+## shot fired in place loses nothing.
+static func stays_put(entry: Dictionary) -> bool:
+	return (
+		entry.get("kind") == "dodge" and String(entry.get("label", "")).begins_with("stand still")
+	)
+
+
 ## The feet x offset nearest the player that keeps clear of every locked column and of the boss
-## body, with nothing solid in the way on the walk there; null when there is none.
+## body, on her floor, with nothing solid in the way on the walk there; null when there is none.
 static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:
 	if columns.is_empty():
 		return null
@@ -207,8 +220,28 @@ static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:
 				continue
 			if distance > 0 and player.test_move(player.global_transform, Vector2(x, 0)):
 				continue
+			# The probed step stays on her floor: off the vaults_03 alcove roof it fell to the
+			# floor beside the Guardian and touched it.
+			var spot := Transform2D(0.0, player.global_position + Vector2(x, 0))
+			if not player.test_move(spot, Vector2(0, FLOOR_PROBE)):
+				continue
 			return x
 	return null
+
+
+## Seconds until the last enemy shot still flying at her has passed her column, plus FAN_PASS;
+## negative when none is. The fan's embers fly on through its punish window.
+static func embers_left(player: Player) -> float:
+	var left := -1.0
+	for node in player.get_tree().get_nodes_in_group(&"enemy_shot"):
+		var shot := node as EnemyProjectile
+		if shot == null or shot.is_queued_for_deletion():
+			continue
+		var dx := player.global_position.x - shot.global_position.x
+		var closing := shot.direction.x * shot.speed * signf(dx)
+		if closing > 1.0:
+			left = maxf(left, (absf(dx) - REACH) / closing + FAN_PASS)
+	return left
 
 
 ## Waits until JUMP_LEAD before `arrival` (seconds from now), then jumps in place; with a `gap`,

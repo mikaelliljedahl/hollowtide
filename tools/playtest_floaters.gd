@@ -30,21 +30,13 @@ const LEVEL := 40.0
 ## Floaters the upcoming landing cells rest on, not frozen for long enough, farthest first.
 ## `landings` holds [room, x, y] resting cells in route order.
 static func needed(tree: SceneTree, room_node: Node2D, landings: Array, feet: Vector2) -> Array:
-	var found: Array = []
-	for node in tree.get_nodes_in_group(&"enemies"):
-		var enemy := node as Node2D
-		if enemy == null or StringName(enemy.get("enemy_id")) != FLOATER:
-			continue
-		if not room_node.is_ancestor_of(enemy) or int(enemy.get("health")) <= 0:
-			continue
-		if bool(enemy.get("is_frozen")) and float(enemy.get("_freeze_remaining")) > FROZEN_ENOUGH:
-			continue
-		var home: Vector2 = Vector2(enemy.get("_home_position")) - room_node.global_position
-		var cell := Vector2i(floori(home.x / TILE), floori(home.y / TILE))
-		for landing in landings:
-			if int(landing[1]) == cell.x and int(landing[2]) + 1 == cell.y:
-				found.append(enemy)
-				break
+	var found := platforms(tree, room_node, landings).filter(
+		func(enemy: Node2D) -> bool:
+			return not (
+				bool(enemy.get("is_frozen"))
+				and float(enemy.get("_freeze_remaining")) > FROZEN_ENOUGH
+			)
+	)
 	found.sort_custom(
 		func(a: Node2D, b: Node2D) -> bool:
 			return (
@@ -52,6 +44,24 @@ static func needed(tree: SceneTree, room_node: Node2D, landings: Array, feet: Ve
 				> feet.distance_squared_to(b.global_position)
 			)
 	)
+	return found
+
+
+## Every live floater an upcoming landing cell rests on, frozen or not: the route's platforms.
+static func platforms(tree: SceneTree, room_node: Node2D, landings: Array) -> Array:
+	var found: Array = []
+	for node in tree.get_nodes_in_group(&"enemies"):
+		var enemy := node as Node2D
+		if enemy == null or StringName(enemy.get("enemy_id")) != FLOATER:
+			continue
+		if not room_node.is_ancestor_of(enemy) or int(enemy.get("health")) <= 0:
+			continue
+		var home: Vector2 = Vector2(enemy.get("_home_position")) - room_node.global_position
+		var cell := Vector2i(floori(home.x / TILE), floori(home.y / TILE))
+		for landing in landings:
+			if int(landing[1]) == cell.x and int(landing[2]) + 1 == cell.y:
+				found.append(enemy)
+				break
 	return found
 
 

@@ -64,6 +64,7 @@ func _run() -> void:
 		await _fight_takes_every_stage(boss_id)
 	await _engages_on_floor_line()
 	await _volley_fans_below_aim()
+	await load("res://tools/check_boss_fan.gd").new(self).run()
 	await _charges_leave_wall_pocket()
 	await _pursuit_leaves_wall_pocket()
 	await _hits_need_engagement()

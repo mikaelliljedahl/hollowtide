@@ -10,6 +10,7 @@ const WAVE_TEXTURE = preload("res://assets/sprites/effects/wave_core.png")
 ## pulse that ricochets off terrain up to ECHO_MAX_BOUNCES times). Both are drawn procedurally.
 const ECHO_COLOR := Color(0.72, 0.62, 1.0, 1.0)
 const ECHO_CORE := Color(0.82, 0.98, 1.0, 1.0)
+const ECHO_DRAW_SCALE := 1.6
 const BUBBLE_COLOR := Color(0.72, 0.95, 1.0, 1.0)
 ## Seed Crossbow base bolt: a faint leaf-green to turquoise trail behind the seed.
 const SEED_TRAIL_OUTER := Color(0.36, 0.86, 0.56, 0.16)
@@ -205,7 +206,9 @@ func _draw_bubble() -> void:
 
 
 func _draw_echo() -> void:
-	# Wavefront: nested arcs opening forward, pulsing like a sound ring.
+	# Wavefront: nested arcs opening forward, pulsing like a sound ring; drawn larger than the
+	# 6 px collider so the head reads at 1920 px.
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * ECHO_DRAW_SCALE)
 	var pulse := 0.5 + 0.5 * sin(_visual_age * 40.0)
 	for index in 3:
 		var radius := 8.0 + float(index) * 7.0 + pulse * 2.0
@@ -231,6 +234,7 @@ func _draw_echo() -> void:
 			true
 		)
 	draw_circle(Vector2.ZERO, 4.5, Color(ECHO_CORE, 0.95))
+	draw_set_transform(Vector2.ZERO)
 
 
 func _apply_visual_profile() -> void:

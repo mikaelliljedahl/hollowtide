@@ -75,7 +75,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) `platform` (campaign mode: a frost floater an upcoming route hop stands on, frozen or not; it gets no fight options and Jev reads it as `route_platform`) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -266,7 +266,10 @@ Request (`tools/playtest/jev_request.py:282`):
 - Illegal candidates are removed in code before sending (`tools/playtest/jev_request.py:90`): a
   harpoon without ammo, a shot or jump shot without the crossbow, a pulse without the Resonance
   Pulse, a dash that is not ready, a wall jump off the wall, a jump-over while airborne, a crouch
-  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change. Each new
+  shot while airborne, its Harpoon without ammo or its bolt at a target the bolt does not change, and
+  an approach to a boss no bolt hurts while the quiver is empty and the Harpoon refill run is offered
+  (the state's `facts` then say `quiver: empty`), and the route (`go_to_objective`, `go_to_door`,
+  `fast_travel`) while the player is inside a running arena. Each new
   round 3 kind has its own rubric line and feedback group. The hint always stays. With one option left no request is sent.
 
 The answer's `choice` is played when it is a sent key and its `confidence` is at least
@@ -354,6 +357,8 @@ local server that ignores it.
   Scores and one Choice, answers parsed into named levels, goodness and flags, a bad answer or a
   401 recorded per segment, the budget stop, a missing key, and no key in any written file.
   `tools/check_playtest_dodge.gd` covers the boss recorder's `attacks_landed`.
+- `tools/check_playtest_boss_rooms.gd` (suite `playtest boss rooms`): the depths_02 Echo firing
+  spot and climb, the vaults_03 alcove approach and pocket cache, in the real rooms (section 27).
 - `tools/check_playtest_agent.gd` (suite `playtest agent`): option parsing and refusals, state keys
   and JSON round trip, candidate count, unique keys and real input actions only, the heuristic kills
   a hopper in a small real room built with `tools/worldfx_testbed.gd` through inputs only, telemetry
@@ -807,3 +812,163 @@ ordinary enemies (`_bolt_matters` in `tools/playtest/jev_request.py`). Room runs
 with that kit, Jev policy and critic, 300 s: before, 0 of 3 attempts won, 2 deaths, rated 0.38
 (too hard, boring); with the spot only, 0 of 2, 1 death, 0.58, 899 body shots; with both, won the
 first attempt in 106.1 s with no death, rated 0.82 (fair, good pacing, fun high).
+
+## 25. Harness round 6 (2026-09-30)
+
+**Empty quiver at a boss.** `t4-min-s1b` (section 24) held the Tidal Heart at stage 1 for 300 s:
+with no Harpoons Jev chose `approach` 1,880 times at depths_02 (24 to 25, 10) while
+`go_to_refill:missilerefill` was offered and was the hint. A room run from (24, 10) with the
+minimum kit (Jev policy, 150 s) reproduced it: of the decisions with the refill run offered, 198
+were `approach`, 100 of them Jev's own answer at about 0.65 confidence and the rest held between
+calls; the boss was unfinished at stage 2. Nothing in Jev's state said that closing in is useless
+with an empty quiver. The Jev backend now drops that approach (`_refill_first` in
+`tools/playtest/jev_request.py`) and the facts carry `quiver: empty`. The same room run afterwards:
+no approach while the refill run was offered (29 refill runs), boss defeated in 99.4 s, no death.
+`test_empty_quiver_at_a_boss_takes_the_refill_run` in `tools/check_playtest_bridge.py` fails on the
+old code.
+
+**Frozen floaters shot down.** The first minimum-kit run of this round (`r6-min-s1`) stopped at 5
+of 13 in vaults_02 (two 300 s timeouts on the Updraft Cloak). After freezing the floater at
+(28, 13) the `freeze` candidate was no longer offered, so the platform guard of section 5 lapsed:
+Jev switched to the seed bolt ("it hurts frost_floater") and shot the frozen floaters, killing all
+four; from then on every route walk west from (31, 14) fell to the hall at row 31 and climbed back,
+for 580 s. The state now marks a floater an upcoming hop stands on as `platform` whether frozen or
+not (`Floaters.platforms`, `tools/playtest_loop.gd`), and such a floater gets no fight options. A
+new case in `_test_shots_that_can_land` (`tools/check_playtest_campaign.gd`) fails on the old code
+(an approach and a shot at the frozen platform floater).
+
+**Route out of a running arena.** In two of four runs (`r6-min-s1`, `r6-full-s3`) the fringe_03
+beam trial aborted after 41.4 s at wave 1 with no damage, the "too long" the critic rated in round 5:
+once the arena sealed, Jev chose `go_to_objective` (0.67 in `r6-full-s3`), the route led up to the
+Bolt Quiver ledge at (16 to 23, 7), and from there it fired 225 and 365 level bolts at hoppers out of
+sight 260 px below until the arena's stall abort reset the fight. The Jev backend now drops the
+route while she is inside a running arena. `r6-min-s1c` cleared the trial in 8.6 s and chose a route
+move in 2 of 239 decisions inside running arenas (the hint, which always stays).
+`test_no_route_out_of_a_running_arena` in `tools/check_playtest_bridge.py` fails on the old code.
+
+**Echo grate behind the muzzle.** `r6-min-s1c` (minimum kit, third run) stopped at 11 of 13: after a
+death at stage 4 the second Tidal Heart attempt sat in stage 3 for 483 s, and at depths_02 (27, 10),
+facing the boss with the Echo equipped and Harpoons left, Jev chose `open_boss:<id>:forward` about
+1,000 times; the shell never opened. The grate hung 46 px ahead of her feet and 96 px up, while a
+standing bolt starts at the muzzle 71 px ahead (`PlayerConfig.STANDING_HORIZONTAL_MUZZLE_OFFSET`),
+so the bolt never crossed it; `Aim.line_up` measured from a point above the feet and lined it up.
+Grate aims now also need the grate ahead of the grounded muzzle (`Aim.ahead_of_muzzle`), for the
+opener, its `visible` and the firing spot. `tools/check_playtest_grate.gd` builds that case with a
+real Tidal Heart and grate: on the old code the state offers `open_boss:<id>:forward` with
+`visible: true` and no spot (2 checks FAIL); through real inputs that shot leaves the shell closed,
+and the same shot at a grate ahead of the muzzle opens it.
+
+## 26. Harness round 7 (2026-09-30)
+
+**Ember Fan dodge.** `r6-min-s1b` (minimum kit) took 20 of its 38 Cinder Warden hits from the
+Ember Fan, 19 of them with `dodge:ember_fan` chosen in the 2 s before. Its decisions split them:
+10 came within 260 px of the boss, where the fan had no answer (a game fix, see
+[boss-rework.md](boss-rework.md#6-cinder-warden)); 5 in stage 4, where the fan is chained straight
+after Vent Burst and the Vent Burst dodge was still waiting out its pillars, so the fan's dodge
+started 0.22 s after the release; the rest after a retreat or an approach still running when the
+fan locked its aim. The dodge probe in kiln_03 (same positions and stages, 17 start times) also
+showed that the dodge was not offered once the fan was out: the boss is in its punish window then,
+while the embers still fly for up to 0.8 s.
+
+Two changes. A new boss telegraph ends the running program so the answer starts at once
+(`_new_telegraph`, `tools/playtest_loop.gd`). The fan's curl is offered through the punish window
+while an enemy shot still flies at her (`embers_left`, `tools/playtest_dodge.gd`), and no longer
+once they have passed, so the window stays for the Harpoon. With the game fix, the harness answer
+from standing now matches a scripted curl in place at every probed spot (11 to 12 of 17 at 309 to
+333 px, 8 of 17 at 212 to 244 px); the stage 4 Vent Burst then Ember Fan chain went from 4 to 8 of
+17 for the loop. A curl while running away from the boss past the point the fan aims at still
+fails (0 to 8 of 17): the embers come down there, and walking back in before curling did not help
+in two probe variants, so it was dropped. `_test_fan_after_vent` and `_test_fan_embers_in_recover`
+in `tools/check_playtest_dodge.gd` fail on the old code (the loop still plays `dodge:vent_burst`
+when the fan telegraphs; no curl offered in the punish window).
+
+**Tidal Heart Echo window.** `r6-full-s4` rated the Tidal Heart "too long" (0.68, 257.8 s over two
+attempts, one death). The fight's floor is R8's 16 openings, about 49 s with a Harpoon in every
+one ([boss-rework.md](boss-rework.md#10-verification)); the time on top was the agent's: of six
+Echo windows two lapsed, one with an empty quiver and one at 150 health in stage 3, where the
+heuristic hint stood out a Crosscurrent for 4 s (`dodge:crosscurrent`, "stand still") with
+`harpoon:<id>:up` offered, and the next Harpoon landed 5.4 s later. Two refill runs on an empty
+quiver (12 and 29 s) and the walk to where the grate lines up made up most of the rest. No game
+change. A stand-still dodge now gives way to an offered Harpoon (`stays_put`,
+`tools/playtest_dodge.gd`; `tools/playtest_policy.gd`), and a boss opening ends a running
+stand-still dodge or idle so the Harpoon is offered at once (`_new_opening`,
+`tools/playtest_loop.gd`); a dodge that moves or curls her still comes first.
+`_test_harpoon_in_echo_window` in `tools/check_playtest_dodge.gd` fails on the old code (the loop
+plays `dodge:crosscurrent` through the window, the Heart stays at 400).
+
+## 27. Harness round 8 (2026-10-01)
+
+**Tidal Heart firing spot.** In r7-min-s1h (minimum kit) 26 of the Heart's 42 hits (260 of 412
+damage) were body contact, all during `approach` to the Echo grate's firing spot: the nearest spot
+was the ledge's east end (depths_02 cell 29, 10), and the approach climbed to it from the floor at
+cells 31 to 35, where the Heart hovers over her and her jump reaches it. A probe in the real room
+(stage 3, attacks held, 8 s standing per spot, a real Echo through real inputs) found the spots
+themselves safe: no contact at cells 23 to 29 on the ledge, and the Echo opens the shell from 23 to
+26 facing east and from 28 and 29 facing west. The Heart cannot pass its grate or the rock column
+holding it, so west of the grate it stays 216 px or more away. No game change. `_firing_spot`
+(`tools/playtest_boss.gd`) now ranks first a spot with rock or a grate between it and the boss's
+body and a climb point, the floor one tile past the ledge's far end (`climb_rel`); while
+she is on a floor below the spot the approach walks there first (under the ledge) and climbs from
+it. A heuristic room run from cell (32, 14) with the minimum kit (240 s): before, stage 2 at the
+time limit with 50 contact damage; after, stage 4 reached, 10 contact damage of 120.
+
+**Stone Guardian alcove.** r7-min-s1i died once in stage 4 at vaults_03: after a Rockfall dodge she
+was curled in the west alcove, under a roof 128 px high, and the approach's firing step (320 px
+from the Guardian at its pursuit stop, x 476) lay inside it, so she rolled to and fro between x 92
+and 231 through five punish windows with 5 Harpoons, offered no Harpoon while curled, and took a
+Fault Slam, a volley and contact. The boss approach now moves its stop toward the boss until a
+standing body fits (`Reach.standing_step`, `tools/playtest_reach.gd`): she leaves the alcove,
+stands up flush with the roof's end (x 284) and the Harpoon is offered. The other contact in all
+three round 7 runs, on the pocket cache, was the game's (see
+[boss-rework.md](boss-rework.md#5-stone-guardian)).
+
+`tools/check_playtest_boss_rooms.gd` runs both in the real rooms, attacks held: the Heart's spot
+lies past the grate, the approach reaches it from (32, 14) with no contact and the Echo opens the
+shell; curled in the alcove, the approach leaves it for room to stand without contact; standing
+and jumping on the pocket cache is not contact and refills. 6 checks fail on the old harness and
+layout.
+
+## 28. Harness round 9 (2026-10-01)
+
+**Stone Guardian telegraphs.** Both round 8 minimum-kit runs took 3 Guardian contact hits (72
+damage) in stage 4, the same way each time. After the Fault Slam dodge (a jump in place at the
+alcove roof's end, x 284) she landed on the roof of the vaults_03 west alcove (x 218, y 768), and
+during the Rockfall telegraph Jev picked `jump:right`, which fell onto the Guardian stopped at
+x 476 (twice); curled in the alcove during a Shoulder Charge telegraph it picked `jump_over`, which
+lands on the same stopped body. `tools/playtest_clearance.gd` now filters the candidates: from an
+engaged boss attack's telegraph to the end of its recovery, an Array program whose predicted path (the player's ground and
+air acceleration with the turn boost and apex easing, coyote jump, cut-off and gravity, from her
+current velocity, stopped by rock through her own `test_move`) touches
+the boss's contact circle (112 px) is not offered; while a boss telegraphs or runs a Shoulder
+Charge or Scuttle Rush, neither is a move ending more than 32 px closer to it. Standing still and
+the probed dodge are always kept. The step dodge for Rockfall and Vent Burst (`Dodge.safe_spot`)
+also stays on her floor: from the roof it stepped off the edge and fell beside the Guardian. The
+heuristic policy reads `approach` with a fallback, since the filter can drop it.
+
+The Cinder Warden death in r8-min-s1 was not this pattern: its Scuttle Rush hits came from
+`approach` walking into the running rush (twice, from 754 and 669 px), one `dodge:scuttle_rush`
+started 0.48 s before release from 726 px, and the killing hit from a `go_to_refill` run past the
+boss outside any telegraph. The charge rule covers the first two.
+
+Two rated runs refined it. A predictor without the turn boost let `jump:right` through: she lands
+on the roof running west at 608 px/s (from the retreat in the air), and the boosted turn still
+carries the jump onto the Guardian (2 hits). Filtering the telegraph only, she stood out the
+Rockfall on the roof and then jumped right onto the Guardian while the rocks fell (2 hits).
+Filtering the whole attack, two runs stood on the roof for 550 s and never finished the Guardian
+(75 of 300 health left): the jump onto it had been her only way down, because the approach's stop
+was fitted for a standing body at her own level (`Reach.standing_step`) and so lay on the roof
+above the alcove. It is now fitted on the boss's floor (its centre plus 92 px, never above her
+feet), so the approach walks off the roof's east end to x 284.
+
+`tools/check_playtest_boss_rooms.gd` plays every move offered in the round 8 states (on the roof in
+a Rockfall telegraph, at rest and landing at 608 px/s west, and in its recovery; at x 284 in a
+Fault Slam telegraph; curled at x 173 in a Shoulder Charge telegraph; 0.5 s left) through real
+inputs in the real room and counts contact hits, and checks that `jump:right` off the landing does
+reach the Guardian; from the roof, with the Guardian idle, the approach reaches the floor with no
+contact (fails while the stop is fitted at her level). 12 checks fail on the old harness (`jump:right` and `jump_over` in all five
+states, the Rockfall step off the roof twice).
+
+Rated run r9-min-s1 (seed 1, minimum kit, Jev and critic): ending 13/13 at 652.1 s; Stone Guardian
+1 contact hit (24, was 72), from the probed Rockfall step at x 306 with the Guardian 170 px away,
+not a jump; Cinder Warden no contact and no death; one Tidal Heart death (Crosscurrent). Critic
+overall 0.753 (round 8: 0.747 and 0.749), Guardian 0.93 (0.81 to 0.86).

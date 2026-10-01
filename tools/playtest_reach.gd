@@ -17,6 +17,13 @@ const JUMP_APEX := 256.0
 const FLOOR_SCAN := 4096.0
 ## Spacing (px) of the floor samples along the way.
 const FLOOR_STEP := 32.0
+## A boss approach's stop moves toward the boss in STAND_SHIFT px shifts, at most STAND_SCAN
+## times, until a standing body fits (probed STAND_PROBES px above the feet, up to her 176 px).
+const STAND_SHIFT := 32.0
+const STAND_SCAN := 6
+const STAND_PROBES := [16.0, 88.0, 170.0]
+## A body flush against rock still fits (px kept off each side).
+const FLUSH := 2.0
 
 
 ## True when the steer from the feet arrives at `rel` (px from the feet): no more than CLIMB above
@@ -58,3 +65,33 @@ static func _floor_under(space: PhysicsDirectSpaceState2D, point: Vector2, botto
 		PhysicsRayQueryParameters2D.create(from, Vector2(point.x, bottom), 1)
 	)
 	return (hit["position"] as Vector2).y if not hit.is_empty() else NAN
+
+
+## `step` moved toward the boss until her standing body fits there, or unchanged when it does
+## not within STAND_SCAN shifts. Under a low roof she stays curled and fires nothing: r7-min-s1i
+## rolled to and fro in the vaults_03 west alcove (a firing step 320 px from the Stone Guardian)
+## through five stage 4 punish windows with 5 Harpoons, fired none, and died there. The body is
+## fitted `level` px below her feet, on the boss's floor: on that alcove's roof, fitted at her
+## own level, the step lay on the roof above the alcove, and the approach stood there for 550 s
+## (round 9, once the jump off the roof onto the Guardian was no longer offered).
+static func standing_step(player: Player, step: float, toward: int, level := 0.0) -> float:
+	var space := player.get_world_2d().direct_space_state
+	var feet := player.global_position + Vector2(0, level)
+	for index in STAND_SCAN + 1:
+		var shifted := step + toward * STAND_SHIFT * index
+		if _fits_standing(space, feet + Vector2(shifted, 0)):
+			return shifted
+	return step
+
+
+## True when no rock overlaps a standing body with its feet at `feet`.
+static func _fits_standing(space: PhysicsDirectSpaceState2D, feet: Vector2) -> bool:
+	var half := PlayerConfig.STANDING_WIDTH * 0.5 - FLUSH
+	for x in [-half, 0.0, half]:
+		for height in STAND_PROBES:
+			var query := PhysicsPointQueryParameters2D.new()
+			query.position = feet + Vector2(x, -height)
+			query.collision_mask = 1
+			if not space.intersect_point(query, 1).is_empty():
+				return false
+	return true

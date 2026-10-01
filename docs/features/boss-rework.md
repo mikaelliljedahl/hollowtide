@@ -127,7 +127,7 @@ against the wall (15 of 17 clear), so the slam is unchanged. With the pursuit po
 in 48.2 s through all four stages, and Jev won 1 of 4 attempts in 48.2 s, with contact down to 336 of
 1080 damage and Rockfall (a side-step answer) as the killing blow in both deaths.
 
-A second Quiver Cache stands in the vaults_03 west pocket (cell 5, 14), so the minimum route kit
+A second Quiver Cache stands in the vaults_03 west pocket (cell 4, 14), so the minimum route kit
 (100 health, 5 Harpoons) refills without touching the boss: jumping in place on it or rolling into
 the alcove and back refills. Playtest round 3 (2026-09-30): the arena's only cache sat at cell 12,
 and from the west pocket, where the pursuit stops the body under the platform with no air to jump
@@ -140,6 +140,15 @@ side nor air to jump it (`tools/campaign_boss_refill.py`). The Cinder Warden pat
 Heart floats, so neither pins her; the same probe reached their caches unhurt by hopping over the
 Warden (10 of 17 from the kiln_03 west end) and by ball hops over the depths_02 steps under the
 Heart (16 of 17; every standing jump under it touched it), so their arenas are unchanged.
+
+Jev round 8 (2026-10-01) moved the pocket cache from cell 5 to cell 4. The pursuit stops the body
+128 px of floor short of the low roof (centre x 476), but its contact area reaches 20 px past the
+body, so a player standing on a cache at cell 5 (x 352) overlapped it: all three round 7 minimum-kit
+and full runs took two contact hits on that cell (48 of 100 health), and r7-min-s1i died there in
+stage 4. In the real room with the Guardian held at its stop, standing on the cell 5 cache is
+contact; standing and jumping in place on the cell 4 cache (x 288, 48 px clear) is not, and it
+refills. Checked in `tools/check_playtest_boss_rooms.gd` (suite `playtest boss rooms`; fails on the
+old layout).
 
 Rotation: stage 1 Volley, Slam; stage 2 Slam, Rockfall, Volley; stage 3 Volley, Charge,
 Rockfall, Slam; stage 4 Slam then Rockfall, Charge then Volley, Rockfall then Charge.
@@ -169,7 +178,7 @@ Fire projectiles. Vents are read on the floor; the heat ring is escaped through 
 
 | Attack | Stage added | Telegraph | Punish (st 1-2 / 3 / 4) | What happens |
 |---|---|---|---|---|
-| Ember Fan | 1 | 0.55 s: pulse, aim lines | 0.8 / 1.4 / 1.2 s | 3-way fan; 5-way from stage 3; desperation fires it twice 0.3 s apart |
+| Ember Fan | 1 | 0.55 s: pulse, aim lines | 0.8 / 1.4 / 1.2 s | 3-way fan; 5-way from stage 3; desperation fires it twice 0.3 s apart; the first ember flies on the locked aim line (her chest) and the rest fan out above it, so curling under it clears the fan at any range |
 | Vent Burst | 1 | 0.75 s: rises, floor circles | 1.0 / 1.4 / 1.2 s | Fire pillars erupt from the circles: under the player and 300 px either side (5 circles 210 px apart in desperation) |
 | Scuttle Rush | 2 | 0.6 s: crouches back, floor arrow | 1.3 / 1.4 / 1.2 s | Rushes the lane toward the player's side at 580 px/s and stops where the arrow ends, 128 px of floor short of the first wall (a low roof or step counts) or the lane end, like Shoulder Charge |
 | Heat Ring | 3 | 0.8 s: swells, ring of dots with a bright gap toward the player | 1.6 / 1.6 / 1.36 s | 12 embers in a ring with a 77 degree gap; desperation adds a second, offset ring 0.4 s later |
@@ -187,6 +196,20 @@ stage 3 two tiles west of the pocket, 9 responses times 17 start times) hit 151 
 before: the patrol walked flush to the step (x 3044), and standing still was hit every time. After
 the change it turns at x 2916 and 102 of 153 stay unhurt (standing, jumping, climbing the step);
 the hits left are runs and slides into the body.
+
+Ember Fan above the aim line (2026-09-30, Jev round 7). The fan used to spread evenly around the
+aim line. In r6-min-s1b (minimum kit, 100 health) 20 of the Warden's 38 hits were Ember Fan hits,
+10 of them within 260 px of the boss. A dodge probe in the real kiln_03 arena at the positions and
+stages of those hits (real player, fan forced, 20 responses at 17 start times 0.1 s apart from the
+telegraph's start; outputs under `/Volumes/Personal/Tools/hollowtide-runs/round7/`) found no answer
+212 to 244 px away in stages 3 and 4: 0 of 17 for every response (standing, crouching, curling,
+jumps in place, away, toward and over the boss, runs, rolls, run-then-curl), because the lower
+embers crossed her column 7 to 16 px above the floor and the upper ones her jump. At 309 to 333 px
+curling cleared 11 to 12 of 17. The fan now fans out above the aim line, like the Boulder Volley
+below it (`_fan_above`, `scripts/enemies/boss_attacks.gd`): at 212 to 244 px curling in place
+clears 8 of 17 (every start inside the telegraph), and standing is still hit. Checked in
+`tools/check_boss_fan.gd`, run by the `boss rework` suite (fails on the old code: the curled ball
+takes 1 and 2 hits in stages 3 and 4).
 
 ## 7. Tidal Heart
 
@@ -241,6 +264,9 @@ Suite `tools/check_boss_rework.tscn` (registered as `boss rework` in `tools/run_
 | Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); every charge of every boss plans and runs to a stop 128 px short of a low roof and of a two-tile step, and a player backed against either is not hit. The Stone Guardian's idle pursuit stops at the same pocket and leaves a player backed against a low roof or a step unhurt (fails on the pre-2026-09-28 code: the body walks on to x 1550 and hits her). The volley and Shoulder Charge cases fail on the pre-round-2 code, the Scuttle Rush cases on the pre-sweep code. |
 | Engagement | With the player outside the arena every boss takes no damage from opened Harpoon hits, and takes damage again once she is inside. Fails on the pre-sweep code. |
 | Cycles | In a walled test arena, for every boss and stage: every attack of the stage is released; every release follows its own telegraph by at least 0.4 s; every projectile appears only while an attack is active; every punish window lasts its table time; B2 armor is open in each punish window and closed during every wind-up; charges carry the body along the lane; desperation chains a telegraph straight after an attack. |
+
+The `playtest boss rooms` suite (`tools/check_playtest_boss_rooms.gd`) checks the vaults_03
+pocket cache in the real room (section 5).
 
 The `campaign graph` suite (`tools/check_campaign_graph.py`) checks the pocket rule of section 5
 for every campaign boss arena; it fails on the pre-2026-09-30 vaults_03 layout ("stone_guardian

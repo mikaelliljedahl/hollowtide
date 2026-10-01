@@ -126,6 +126,14 @@ func _test_harpoon_pegs() -> void:
 		_check((peg.collision_layer & 32) != 0, "peg is on the player-only platform layer")
 		var shape := peg.get_node("CollisionShape2D") as CollisionShape2D
 		_check(shape.one_way_collision, "peg is one-way from above")
+		var art := peg.find_children("*", "Sprite2D", false, false)
+		if not art.is_empty():
+			var sprite := art[0] as Sprite2D
+			var drawn := sprite.texture.get_size() * sprite.scale.abs()
+			_check(
+				absf(drawn.x - HarpoonPeg.LENGTH) < 0.5 and drawn.y >= 32.0,
+				"peg art is collider-long and thick enough to read (%.0fx%.0f)" % [drawn.x, drawn.y]
+			)
 		# Stand on it: drop the player just above the peg.
 		_player.reset_for_spawn(Vector2(peg.global_position.x - 36.0, peg.global_position.y - 40.0))
 		await _frames(20)

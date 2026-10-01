@@ -63,6 +63,20 @@ enemy_id = &"frost_floater"
 bounds = Rect2(608, 928, 384, 256)
 travel_direction = 1
 
+[node name="Enemy02" type="Marker2D" parent="Entities"]
+position = Vector2(544, 544)
+script = ExtResource("6_enemy")
+enemy_id = &"frost_floater"
+bounds = Rect2(352, 416, 384, 256)
+travel_direction = 1
+
+[node name="Enemy03" type="Marker2D" parent="Entities"]
+position = Vector2(1312, 1568)
+script = ExtResource("6_enemy")
+enemy_id = &"frost_floater"
+bounds = Rect2(1120, 1440, 384, 256)
+travel_direction = 1
+
 [node name="Stalactite01" type="Node2D" parent="Entities"]
 position = Vector2(224, 64)
 script = ExtResource("7_stalactite")

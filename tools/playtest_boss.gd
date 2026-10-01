@@ -8,6 +8,14 @@ extends RefCounted
 const Aim = preload("res://tools/playtest_aim.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const TILE := 64.0
+## A firing spot the boss's body can reach counts as this much farther away (px).
+const UNSHIELDED_PENALTY := 4096.0
+## Her body's centre above the feet when standing (PlayerConfig.STANDING_HEIGHT / 2).
+const BODY_CENTRE := Vector2(0, -88)
+## How far below a ledge's end the climb point's floor may lie (tiles).
+const CLIMB_DROP_ROWS := 8
+## How far along the ledge its end is looked for (tiles).
+const CLIMB_SCAN_COLUMNS := 24
 ## Boss id -> protection phase -> opener. `beam` is the GameState beam id the opener needs ("" for
 ## none), `via` says where it lands: "body" (a hit on the boss), "grate" (a shot through its Echo
 ## grate) or "punish" (the recovery after one of its attacks; nothing to fire).
@@ -83,12 +91,17 @@ static func facts(boss: Node2D, feet: Vector2) -> Dictionary:
 	var radius := Aim.GRATE_RADIUS if grate != null else Aim.BOSS_RADIUS
 	opener["visible"] = (
 		_opener_in_sight(boss, feet + Aim.EYE, point, beam, grate)
-		and not Aim.line_up(point - feet, true, radius, Catalog.BEAM_RANGE).is_empty()
+		and not (
+			Aim.line_up(point - feet, true, radius, Catalog.BEAM_RANGE, grate != null).is_empty()
+		)
 	)
 	if not opener["visible"] and opener["owned"] and opener["via"] != "punish":
 		var spot = _firing_spot(boss, feet, point, beam, grate, opener["via"] == "grate")
 		if spot is Vector2:
 			opener["spot_rel"] = [roundi(spot.x - feet.x), roundi(spot.y - feet.y)]
+			var climb = _climb_point(boss, spot)
+			if climb is Vector2:
+				opener["climb_rel"] = [roundi(climb.x - feet.x), roundi(climb.y - feet.y)]
 	result["opener"] = opener
 	return result
 
@@ -116,6 +129,9 @@ static func _opener_in_sight(
 ## The standing spot in the boss's arena nearest `feet` from which a grounded opener shot lines up
 ## with `point` in sight (feet position, global), or null. Only scanned while the opener is out
 ## of sight, so the approach can climb to it (the Tidal Heart's grate hangs just above a ledge).
+## A spot with rock or a grate between it and the boss's body, and a climb point, comes first: the
+## floating Tidal Heart follows her and cannot pass its grate, and in r7-min-s1h 26 of its 42 hits
+## were contact on the climb to the nearest spot, the ledge end under it.
 static func _firing_spot(
 	boss: Node2D, feet: Vector2, point: Vector2, beam: String, target: Node2D, grate: bool
 ) -> Variant:
@@ -126,19 +142,47 @@ static func _firing_spot(
 	var space := boss.get_world_2d().direct_space_state
 	var radius := Aim.GRATE_RADIUS if grate else Aim.BOSS_RADIUS
 	var best: Variant = null
-	var best_distance := INF
+	var best_score := INF
 	for row in range(1, roundi(arena.size.y / TILE) + 1):
 		for column in roundi(arena.size.x / TILE):
 			var spot := arena.position + Vector2((column + 0.5) * TILE, row * TILE)
-			var distance := spot.distance_to(feet)
-			if distance >= best_distance or not _stands(space, spot):
+			var score := spot.distance_to(feet) + UNSHIELDED_PENALTY
+			if score - UNSHIELDED_PENALTY >= best_score or not _stands(space, spot):
 				continue
-			if Aim.line_up(point - spot, true, radius, Catalog.BEAM_RANGE).is_empty():
+			if _shielded(boss, spot) and _climb_point(boss, spot) is Vector2:
+				score -= UNSHIELDED_PENALTY
+			if score >= best_score:
+				continue
+			if Aim.line_up(point - spot, true, radius, Catalog.BEAM_RANGE, grate).is_empty():
 				continue
 			if _opener_in_sight(boss, spot + Aim.EYE, point, beam, target):
 				best = spot
-				best_distance = distance
+				best_score = score
 	return best
+
+
+## True when rock or a grate stands between the boss's body and her body at `spot`.
+static func _shielded(boss: Node2D, spot: Vector2) -> bool:
+	var query := PhysicsRayQueryParameters2D.create(boss.global_position, spot + BODY_CENTRE, 1)
+	return not boss.get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+
+
+## Where to climb to a raised `spot` from without passing under the boss: the floor one tile past
+## the end of the spot's ledge on the side away from the boss (global feet), or null.
+static func _climb_point(boss: Node2D, spot: Vector2) -> Variant:
+	var space := boss.get_world_2d().direct_space_state
+	var away := Vector2(TILE if spot.x >= boss.global_position.x else -TILE, 0)
+	var edge := spot
+	for _column in CLIMB_SCAN_COLUMNS:
+		if not _stands(space, edge + away):
+			break
+		edge += away
+	var below := edge + away
+	for _row in CLIMB_DROP_ROWS:
+		below.y += TILE
+		if _stands(space, below):
+			return below
+	return null
 
 
 ## True when feet at `spot` stand on rock with room for the body above.

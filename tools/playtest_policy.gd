@@ -66,6 +66,10 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 		keys[entry["kind"]] = entry["key"]
 		keys[entry["key"]] = entry["key"]
 	if keys.has("dodge"):
+		# r6-full-s4 stood out a Crosscurrent through a 2 s Tidal Heart Echo window with a Harpoon
+		# offered; a Harpoon fired where she stands keeps her as safe as standing still.
+		if keys.has("harpoon") and candidates.any(Dodge.stays_put):
+			return keys["harpoon"]
 		return keys["dodge"]
 	if keys.has("dash_through"):
 		return keys["dash_through"]
@@ -97,7 +101,7 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 	if not target.is_empty() and (_engage(state, target) or objective.is_empty()):
 		var move := _fight(state, target, keys)
 		if not move.is_empty() or objective.is_empty():
-			return move if not move.is_empty() else keys["approach"]
+			return move if not move.is_empty() else keys.get("approach", "idle")
 	return objective if not objective.is_empty() else "idle"
 
 
@@ -193,7 +197,7 @@ func _fight_move(state: Dictionary, target: Dictionary, keys: Dictionary) -> Str
 	_track_progress(target, now)
 	var distance := float(target["dist"])
 	var hurt_by: Array = target["hurt_by"]
-	var away: String = keys.get("retreat", keys["approach"])
+	var away: String = keys.get("retreat", keys.get("approach", "idle"))
 	if target["is_boss"]:
 		var move := _boss_move(target, keys)
 		if not move.is_empty():
@@ -201,7 +205,7 @@ func _fight_move(state: Dictionary, target: Dictionary, keys: Dictionary) -> Str
 	elif distance < RUSHER_DISTANCE and bool(state["player"]["grounded"]):
 		return keys.get("jump_over", away)
 	if now < _close_in_until:
-		return keys["approach"]
+		return keys.get("approach", "idle")
 	if now - _progress_at > FUTILE_SECONDS:
 		# Shots are not landing (a wall or ledge is in the way): walk closer for a while, and
 		# after a few tries leave this target alone for a while.
@@ -211,7 +215,7 @@ func _fight_move(state: Dictionary, target: Dictionary, keys: Dictionary) -> Str
 			_futile_attempts = 0
 		_close_in_until = now + CLOSE_IN_SECONDS
 		_progress_at = now
-		return keys["approach"]
+		return keys.get("approach", "idle")
 	# A target too low for a standing shot (an armored guard) is fought crouched.
 	if keys.has("crouch_shot"):
 		return keys["crouch_shot"]
@@ -226,7 +230,7 @@ func _fight_move(state: Dictionary, target: Dictionary, keys: Dictionary) -> Str
 		for kind in ["shoot", "jump_shoot"]:
 			if keys.has(kind):
 				return keys[kind]
-	return keys["approach"]
+	return keys.get("approach", "idle")
 
 
 ## A boss's own rules, before the generic shooting: dodge a close wind-up, open the shell (switch
@@ -236,7 +240,7 @@ func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
 	if not bool(boss.get("engaged", true)):
 		# Outside its arena it neither fights nor takes damage: walk in (cw-j1 idled 268 s at the
 		# kiln_03 arena's edge once the retreat was withheld there).
-		return keys["approach"]
+		return keys.get("approach", "idle")
 	var distance := float(boss["dist"])
 	if bool(boss["telegraph"]) and distance < TELEGRAPH_DISTANCE:
 		return keys.get("jump_over", keys.get("retreat", "idle"))
@@ -255,7 +259,7 @@ func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
 			return beam
 		if opener["via"] != "punish":
 			# Walk to where the opener lines up (Actions.boss_goal), keeping out of its body.
-			return keys["approach"]
+			return keys.get("approach", "idle")
 	if not (boss["hurt_by"] as Array).is_empty():
 		return ""
 	var switch := "select_beam:%s" % boss.get("switch_to", "")
@@ -264,7 +268,7 @@ func _boss_move(boss: Dictionary, keys: Dictionary) -> String:
 	if distance < BOSS_SPACING:
 		# Pinned against the arena wall there is no retreat; walking in would touch it.
 		return keys.get("retreat", "idle")
-	return keys["approach"]
+	return keys.get("approach", "idle")
 
 
 static func _refill_for(state: Dictionary, kind: String) -> Dictionary:

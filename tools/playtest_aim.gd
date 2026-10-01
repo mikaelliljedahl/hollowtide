@@ -17,6 +17,12 @@ const LEVEL_TOLERANCE := 80.0
 ## Where to stand from a boss that sits level with the crossbow.
 const LEVEL_STANDOFF := 320.0
 const MIN_STANDOFF := 160.0
+## Where each grounded aim's bolt starts, facing right (PlayerConfig and player.gd's muzzle poses).
+const MUZZLES := {
+	"forward": PlayerConfig.STANDING_HORIZONTAL_MUZZLE_OFFSET,
+	"diag_up": Vector2(44, -191),
+	"up": Vector2(15, -190),
+}
 const GROUNDED_AIMS := ["forward", "diag_up", "up"]
 const AIRBORNE_AIMS := ["forward", "diag_up", "up", "diag_down", "down"]
 
@@ -46,16 +52,30 @@ static func miss(rel: Vector2, aim: String, reach: float) -> float:
 	return absf(offset.cross(way))
 
 
-## The aim whose bolt passes within `radius` of `rel` (the closest one), or "".
-static func line_up(rel: Vector2, grounded: bool, radius: float, reach: float) -> String:
+## The aim whose bolt passes within `radius` of `rel` (the closest one), or "". With `thin`, the
+## point must lie ahead of the grounded muzzle: a bolt starts there, so an Echo grate between her
+## body and the muzzle is never crossed (r6-min-s1c fired 1,000 Echo shots at the Tidal Heart's
+## grate 46 px ahead of her feet, the muzzle 71 px ahead).
+static func line_up(
+	rel: Vector2, grounded: bool, radius: float, reach: float, thin := false
+) -> String:
 	var best := ""
 	var best_miss := radius
 	for aim in GROUNDED_AIMS if grounded else AIRBORNE_AIMS:
+		if thin and grounded and not ahead_of_muzzle(rel, aim):
+			continue
 		var off := miss(rel, aim, reach)
 		if off <= best_miss:
 			best = aim
 			best_miss = off
 	return best
+
+
+## True when a grounded bolt along `aim` toward `rel` starts short of it.
+static func ahead_of_muzzle(rel: Vector2, aim: String) -> bool:
+	var side := -1 if rel.x < 0.0 else 1
+	var muzzle: Vector2 = MUZZLES[aim]
+	return (rel - Vector2(muzzle.x * side, muzzle.y)).dot(direction(aim, side)) > 0.0
 
 
 ## Physics frame, counted from the jump press, at which the feet have risen `rise` px on a held

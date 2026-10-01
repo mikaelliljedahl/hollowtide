@@ -1,11 +1,12 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
 [ext_resource type="Script" path="res://scripts/campaign/light_shaft.gd" id="4_light"]
-[ext_resource type="Script" path="res://scripts/campaign/station.gd" id="5_station"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/push_current.gd" id="6_current"]
+[ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="5_enemy"]
+[ext_resource type="Script" path="res://scripts/campaign/station.gd" id="6_station"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/push_current.gd" id="7_current"]
 
 [node name="kiln_07" type="Node2D"]
 script = ExtResource("1_room")
@@ -36,14 +37,21 @@ script = ExtResource("4_light")
 required_flag = ""
 shaft_size = Vector2(192, 768)
 
+[node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(736, 288)
+script = ExtResource("5_enemy")
+enemy_id = &"vent_flyer"
+bounds = Rect2(416, 160, 640, 256)
+travel_direction = 1
+
 [node name="AmmoRefill01" type="Area2D" parent="Entities"]
 position = Vector2(544, 922)
-script = ExtResource("5_station")
+script = ExtResource("6_station")
 station_kind = &"missilerefill"
 
 [node name="Current01" type="Area2D" parent="Entities"]
 position = Vector2(928, 128)
-script = ExtResource("6_current")
+script = ExtResource("7_current")
 zone_size = Vector2(192, 256)
 direction = Vector2(0, -1)
 strength = 520

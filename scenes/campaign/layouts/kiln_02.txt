@@ -16,6 +16,7 @@ legend:
   y gate wave
   u enemy burrower w=12 h=4
   v enemy vent_flyer w=14 h=8
+  f enemy vent_flyer w=10 h=4
   k crusher
   K crusher offset=1.8
   Q pickup glyph_spring_tide spring_tide
@@ -41,7 +42,7 @@ grid:
 ###########..................#
 #####################.........
 ###########...................
-###########...................
+###########.........f.........
 #####.....x............#######
 #####.....x..................#
 #####.M...x..................#

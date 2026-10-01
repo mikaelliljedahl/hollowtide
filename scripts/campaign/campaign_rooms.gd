@@ -2692,7 +2692,7 @@ const ROOMS := {
 		"origin": Vector2i(90, 68),
 		"size": Vector2i(30, 17),
 		"saves": [],
-		"refills": [Vector2(352, 960), Vector2(800, 960)],
+		"refills": [Vector2(288, 960), Vector2(800, 960)],
 		"gates":
 		[
 			{

@@ -6,7 +6,8 @@ Checks: layouts parse, rooms do not overlap, every boundary opening has an exact
 opening in the neighbouring room, pickup IDs are unique, generated scenes are up to date, every
 boss room has a guaranteed missile refill that a floor-pursuing boss cannot cut off from either end
 of its lane (tools/campaign_boss_refill.py), walking straight in through a side door never drops into
-lava and no flyer patrols above it (tools/campaign_walk_in.py), a cell-level solver can finish the
+lava and no flyer patrols above it (tools/campaign_walk_in.py), no stretch of a room's long axis is
+empty of enemies (tools/campaign_pacing.py), a cell-level solver can finish the
 campaign (vaults-first, kiln-first, and without optional tanks/Long Beam). The solver also proves
 that every position reachable at every progression stage can still walk back to a save shrine
 with the abilities owned at that moment (no softlocks, including entering rooms too early).
@@ -45,6 +46,7 @@ from campaign_layout import (  # noqa: E402
     overlap_errors,
     room_at_world,
 )
+from campaign_pacing import pacing_errors  # noqa: E402
 from campaign_shortcuts import shortcut_errors  # noqa: E402
 from campaign_walk_in import lava_errors  # noqa: E402
 
@@ -529,6 +531,7 @@ def static_errors(rooms: dict[str, Room]) -> list[str]:
     errors += door_errors
     errors += lava_errors(rooms)
     errors += pursuit_refill_errors(rooms)
+    errors += pacing_errors(rooms)
     for door in doors:
         if door.target is None or door.edge in ("north", "south"):
             continue

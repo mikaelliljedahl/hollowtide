@@ -85,6 +85,13 @@ required_flag = ""
 shaft_size = Vector2(192, 256)
 
 [node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(800, 672)
+script = ExtResource("5_enemy")
+enemy_id = &"vent_flyer"
+bounds = Rect2(480, 544, 640, 256)
+travel_direction = 1
+
+[node name="Enemy02" type="Marker2D" parent="Entities"]
 position = Vector2(1632, 928)
 script = ExtResource("5_enemy")
 enemy_id = &"hopper"

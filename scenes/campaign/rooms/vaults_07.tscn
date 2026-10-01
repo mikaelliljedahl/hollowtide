@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
 [ext_resource type="Script" path="res://scripts/campaign/station.gd" id="4_station"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="5_stalactite"]
+[ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="5_enemy"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="6_stalactite"]
 
 [node name="vaults_07" type="Node2D"]
 script = ExtResource("1_room")
@@ -39,6 +40,13 @@ position = Vector2(1696, 922)
 script = ExtResource("4_station")
 station_kind = &"save"
 
+[node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(992, 160)
+script = ExtResource("5_enemy")
+enemy_id = &"frost_floater"
+bounds = Rect2(800, 64, 384, 224)
+travel_direction = 1
+
 [node name="Stalactite01" type="Node2D" parent="Entities"]
 position = Vector2(288, 64)
-script = ExtResource("5_stalactite")
+script = ExtResource("6_stalactite")

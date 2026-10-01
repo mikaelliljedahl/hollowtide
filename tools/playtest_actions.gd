@@ -9,6 +9,7 @@ const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
 const Crouch = preload("res://tools/playtest_crouch.gd")
 const Reach = preload("res://tools/playtest_reach.gd")
+const Clearance = preload("res://tools/playtest_clearance.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
@@ -40,6 +41,10 @@ const DASH_REACH := 384.0
 const AMBUSH_FLOOR := 160.0
 ## The boss approach stops this far (px) inside the arena's edge.
 const ARENA_MARGIN := 48.0
+## A firing spot this far above her feet (px) is climbed to from its ledge's climb point, which
+## counts as reached within CLIMB_REACHED px.
+const CLIMB_LEVEL := 32.0
+const CLIMB_REACHED := 48.0
 ## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
 ## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
 const ENEMY_RADIUS := 120.0
@@ -79,8 +84,13 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var target := primary_target(enemies)
 	# A frost floater the route is about to freeze is a platform, not a target: a bolt kills it
 	# (jev-c2 shot the vaults_02 floaters down instead of freezing them, and stalled there).
+	# Once frozen it is marked `platform` instead (r6-min-s1 shot four frozen ones down).
 	var platform := route.any(func(entry: Dictionary) -> bool: return entry["kind"] == "freeze")
-	if not target.is_empty() and not (platform and target["type"] == "frost_floater"):
+	if (
+		not target.is_empty()
+		and not (platform and target["type"] == "frost_floater")
+		and not bool(target.get("platform", false))
+	):
 		result.append_array(_fight(state, target, player))
 	var shot := Dodge.incoming_projectile(state)
 	if (
@@ -154,7 +164,7 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 			result.append_array(
 				route.filter(func(entry: Dictionary) -> bool: return entry["kind"] == "go_to_door")
 			)
-		return result.slice(0, MAX_CANDIDATES - 2) + _jumps()
+		return Clearance.keep_clear(result.slice(0, MAX_CANDIDATES - 2) + _jumps(), state, player)
 	var exits := 0
 	for door in state["exits"]:
 		if boss_alive or bool(door["gated"]) or exits >= MAX_EXITS:
@@ -171,7 +181,9 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 			)
 		)
 	var jumps := _jumps()
-	return result.slice(0, MAX_CANDIDATES - jumps.size()) + jumps
+	return Clearance.keep_clear(
+		result.slice(0, MAX_CANDIDATES - jumps.size()) + jumps, state, player
+	)
 
 
 static func _jumps() -> Array:
@@ -210,12 +222,23 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 			var high := float(arena[2]) - ARENA_MARGIN
 			if low <= high:
 				step.x = clampf(step.x, low, high)
+		var level := maxf(rel.y + Dodge.BODY_RADIUS, 0.0)
+		step.x = Reach.standing_step(player, step.x, _sign(rel.x), level)
 		var spot := _opener_spot(target)
 		if not engaged:
 			step = rel
 		elif not spot.is_empty():
-			# Out of sight of the opener: climb to a spot it lines up from.
+			# Out of sight of the opener: climb to a spot it lines up from, from the ledge's far
+			# end while she is on a floor below it, not under the boss.
 			step = _vec(spot)
+			var climb: Array = target["opener"].get("climb_rel", [])
+			if (
+				not climb.is_empty()
+				and player.is_on_floor()
+				and step.y < -CLIMB_LEVEL
+				and absf(float(climb[0])) > CLIMB_REACHED
+			):
+				step = _vec(climb)
 		result.append(
 			_entry(
 				"approach:%s" % target["id"],
@@ -344,7 +367,7 @@ static func _opener(
 		return []
 	var goal := boss_goal(boss)
 	var point: Vector2 = goal[0]
-	var aim := Aim.line_up(point, grounded, goal[1], reach)
+	var aim := Aim.line_up(point, grounded, goal[1], reach, opener["via"] == "grate")
 	if aim.is_empty():
 		return []
 	var through := "through the grate at" if opener["via"] == "grate" else "at"

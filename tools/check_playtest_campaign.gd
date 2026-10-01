@@ -294,6 +294,13 @@ func _test_shots_that_can_land() -> void:
 	var freeze := {"key": "freeze:28_13", "kind": "freeze", "label": "", "program": []}
 	_check(not shots.call([]).is_empty(), "a stray floater can be shot")
 	_check(shots.call([freeze]).is_empty(), "not the floater the route is freezing")
+	# r6-min-s1: once frozen, freeze is no longer offered; the route's floater is still a platform.
+	floater["frozen"] = true
+	floater["platform"] = true
+	var fights := Actions.candidates(state, _player, []).filter(
+		func(e: Dictionary) -> bool: return e["kind"] in ["shoot", "select_beam", "approach"]
+	)
+	_check(fights.is_empty(), "no shot or bolt switch at a frozen platform floater (%s)" % [fights])
 	# jev-r3: an armed arena whose trigger lies 448 px below stood her still on the ledge above it
 	# for 550 s; in campaign mode the route leads there instead.
 	state["enemies"] = []

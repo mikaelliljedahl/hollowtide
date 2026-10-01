@@ -59,7 +59,9 @@ static func plan(boss: Node2D, attack: StringName) -> Dictionary:
 			var count := 1 if stage < Patterns.ARMORED_STAGE else (5 if desperate else 3)
 			directions.append_array(_fan_below(aim, count, 0.2 if desperate else 0.22))
 		&"ember_fan":
-			directions.append_array(_spread(aim, 3 if stage < Patterns.ARMORED_STAGE else 5, 0.28))
+			directions.append_array(
+				_fan_above(aim, 3 if stage < Patterns.ARMORED_STAGE else 5, 0.28)
+			)
 		&"surge_lance":
 			directions.append(aim)
 		&"tide_ring":
@@ -297,11 +299,12 @@ static func _fan_below(aim: Vector2, count: int, step: float) -> Array[Vector2]:
 	return result
 
 
-static func _spread(aim: Vector2, count: int, step: float) -> Array[Vector2]:
-	var result: Array[Vector2] = []
-	for index in count:
-		result.append(aim.rotated(step * (float(index) - float(count - 1) * 0.5)))
-	return result
+## The fan's first ember flies on the locked aim line (chest height at the target) and the rest
+## fan out above it, so curling under the aim line clears every ember at any range. A fan centred
+## on the aim line left no answer within about 250 px: its lower embers crossed her column 7 to
+## 16 px above the floor (Jev round 7 probe in kiln_03).
+static func _fan_above(aim: Vector2, count: int, step: float) -> Array[Vector2]:
+	return _fan_below(aim, count, -step)
 
 
 static func _target_point(boss: Node2D) -> Vector2:
