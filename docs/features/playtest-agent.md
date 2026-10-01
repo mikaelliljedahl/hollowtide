@@ -357,6 +357,8 @@ local server that ignores it.
   Scores and one Choice, answers parsed into named levels, goodness and flags, a bad answer or a
   401 recorded per segment, the budget stop, a missing key, and no key in any written file.
   `tools/check_playtest_dodge.gd` covers the boss recorder's `attacks_landed`.
+- `tools/check_playtest_boss_rooms.gd` (suite `playtest boss rooms`): the depths_02 Echo firing
+  spot and climb, the vaults_03 alcove approach and pocket cache, in the real rooms (section 27).
 - `tools/check_playtest_agent.gd` (suite `playtest agent`): option parsing and refusals, state keys
   and JSON round trip, candidate count, unique keys and real input actions only, the heuristic kills
   a hopper in a small real room built with `tools/worldfx_testbed.gd` through inputs only, telemetry
@@ -893,3 +895,35 @@ stand-still dodge or idle so the Harpoon is offered at once (`_new_opening`,
 `tools/playtest_loop.gd`); a dodge that moves or curls her still comes first.
 `_test_harpoon_in_echo_window` in `tools/check_playtest_dodge.gd` fails on the old code (the loop
 plays `dodge:crosscurrent` through the window, the Heart stays at 400).
+
+## 27. Harness round 8 (2026-10-01)
+
+**Tidal Heart firing spot.** In r7-min-s1h (minimum kit) 26 of the Heart's 42 hits (260 of 412
+damage) were body contact, all during `approach` to the Echo grate's firing spot: the nearest spot
+was the ledge's east end (depths_02 cell 29, 10), and the approach climbed to it from the floor at
+cells 31 to 35, where the Heart hovers over her and her jump reaches it. A probe in the real room
+(stage 3, attacks held, 8 s standing per spot, a real Echo through real inputs) found the spots
+themselves safe: no contact at cells 23 to 29 on the ledge, and the Echo opens the shell from 23 to
+26 facing east and from 28 and 29 facing west. The Heart cannot pass its grate or the rock column
+holding it, so west of the grate it stays 216 px or more away. No game change. `_firing_spot`
+(`tools/playtest_boss.gd`) now ranks first a spot with rock or a grate between it and the boss's
+body and a climb point, the floor one tile past the ledge's far end (`climb_rel`); while
+she is on a floor below the spot the approach walks there first (under the ledge) and climbs from
+it. A heuristic room run from cell (32, 14) with the minimum kit (240 s): before, stage 2 at the
+time limit with 50 contact damage; after, stage 4 reached, 10 contact damage of 120.
+
+**Stone Guardian alcove.** r7-min-s1i died once in stage 4 at vaults_03: after a Rockfall dodge she
+was curled in the west alcove, under a roof 128 px high, and the approach's firing step (320 px
+from the Guardian at its pursuit stop, x 476) lay inside it, so she rolled to and fro between x 92
+and 231 through five punish windows with 5 Harpoons, offered no Harpoon while curled, and took a
+Fault Slam, a volley and contact. The boss approach now moves its stop toward the boss until a
+standing body fits (`Reach.standing_step`, `tools/playtest_reach.gd`): she leaves the alcove,
+stands up flush with the roof's end (x 284) and the Harpoon is offered. The other contact in all
+three round 7 runs, on the pocket cache, was the game's (see
+[boss-rework.md](boss-rework.md#5-stone-guardian)).
+
+`tools/check_playtest_boss_rooms.gd` runs both in the real rooms, attacks held: the Heart's spot
+lies past the grate, the approach reaches it from (32, 14) with no contact and the Echo opens the
+shell; curled in the alcove, the approach leaves it for room to stand without contact; standing
+and jumping on the pocket cache is not contact and refills. 6 checks fail on the old harness and
+layout.

@@ -44,7 +44,7 @@ required_flags = PackedStringArray("boss:stone_guardian")
 gate_size = Vector2(64, 192)
 
 [node name="AmmoRefill01" type="Area2D" parent="Entities"]
-position = Vector2(352, 922)
+position = Vector2(288, 922)
 script = ExtResource("6_station")
 station_kind = &"missilerefill"
 
