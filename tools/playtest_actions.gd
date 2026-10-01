@@ -40,6 +40,10 @@ const DASH_REACH := 384.0
 const AMBUSH_FLOOR := 160.0
 ## The boss approach stops this far (px) inside the arena's edge.
 const ARENA_MARGIN := 48.0
+## A firing spot this far above her feet (px) is climbed to from its ledge's climb point, which
+## counts as reached within CLIMB_REACHED px.
+const CLIMB_LEVEL := 32.0
+const CLIMB_REACHED := 48.0
 ## A shot at an ordinary enemy is offered when its bolt line passes this close (px) to the enemy's
 ## origin; a body is about a tile, and a hopper's origin sits 100 px under a level bolt.
 const ENEMY_RADIUS := 120.0
@@ -215,12 +219,22 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 			var high := float(arena[2]) - ARENA_MARGIN
 			if low <= high:
 				step.x = clampf(step.x, low, high)
+		step.x = Reach.standing_step(player, step.x, _sign(rel.x))
 		var spot := _opener_spot(target)
 		if not engaged:
 			step = rel
 		elif not spot.is_empty():
-			# Out of sight of the opener: climb to a spot it lines up from.
+			# Out of sight of the opener: climb to a spot it lines up from, from the ledge's far
+			# end while she is on a floor below it, not under the boss.
 			step = _vec(spot)
+			var climb: Array = target["opener"].get("climb_rel", [])
+			if (
+				not climb.is_empty()
+				and player.is_on_floor()
+				and step.y < -CLIMB_LEVEL
+				and absf(float(climb[0])) > CLIMB_REACHED
+			):
+				step = _vec(climb)
 		result.append(
 			_entry(
 				"approach:%s" % target["id"],

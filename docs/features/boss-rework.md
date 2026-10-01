@@ -127,7 +127,7 @@ against the wall (15 of 17 clear), so the slam is unchanged. With the pursuit po
 in 48.2 s through all four stages, and Jev won 1 of 4 attempts in 48.2 s, with contact down to 336 of
 1080 damage and Rockfall (a side-step answer) as the killing blow in both deaths.
 
-A second Quiver Cache stands in the vaults_03 west pocket (cell 5, 14), so the minimum route kit
+A second Quiver Cache stands in the vaults_03 west pocket (cell 4, 14), so the minimum route kit
 (100 health, 5 Harpoons) refills without touching the boss: jumping in place on it or rolling into
 the alcove and back refills. Playtest round 3 (2026-09-30): the arena's only cache sat at cell 12,
 and from the west pocket, where the pursuit stops the body under the platform with no air to jump
@@ -140,6 +140,15 @@ side nor air to jump it (`tools/campaign_boss_refill.py`). The Cinder Warden pat
 Heart floats, so neither pins her; the same probe reached their caches unhurt by hopping over the
 Warden (10 of 17 from the kiln_03 west end) and by ball hops over the depths_02 steps under the
 Heart (16 of 17; every standing jump under it touched it), so their arenas are unchanged.
+
+Jev round 8 (2026-10-01) moved the pocket cache from cell 5 to cell 4. The pursuit stops the body
+128 px of floor short of the low roof (centre x 476), but its contact area reaches 20 px past the
+body, so a player standing on a cache at cell 5 (x 352) overlapped it: all three round 7 minimum-kit
+and full runs took two contact hits on that cell (48 of 100 health), and r7-min-s1i died there in
+stage 4. In the real room with the Guardian held at its stop, standing on the cell 5 cache is
+contact; standing and jumping in place on the cell 4 cache (x 288, 48 px clear) is not, and it
+refills. Checked in `tools/check_playtest_boss_rooms.gd` (suite `playtest boss rooms`; fails on the
+old layout).
 
 Rotation: stage 1 Volley, Slam; stage 2 Slam, Rockfall, Volley; stage 3 Volley, Charge,
 Rockfall, Slam; stage 4 Slam then Rockfall, Charge then Volley, Rockfall then Charge.
@@ -255,6 +264,9 @@ Suite `tools/check_boss_rework.tscn` (registered as `boss rework` in `tools/run_
 | Fair answers | Every Boulder Volley rock flies on or below the locked aim line (stages 1, 3, 4); every charge of every boss plans and runs to a stop 128 px short of a low roof and of a two-tile step, and a player backed against either is not hit. The Stone Guardian's idle pursuit stops at the same pocket and leaves a player backed against a low roof or a step unhurt (fails on the pre-2026-09-28 code: the body walks on to x 1550 and hits her). The volley and Shoulder Charge cases fail on the pre-round-2 code, the Scuttle Rush cases on the pre-sweep code. |
 | Engagement | With the player outside the arena every boss takes no damage from opened Harpoon hits, and takes damage again once she is inside. Fails on the pre-sweep code. |
 | Cycles | In a walled test arena, for every boss and stage: every attack of the stage is released; every release follows its own telegraph by at least 0.4 s; every projectile appears only while an attack is active; every punish window lasts its table time; B2 armor is open in each punish window and closed during every wind-up; charges carry the body along the lane; desperation chains a telegraph straight after an attack. |
+
+The `playtest boss rooms` suite (`tools/check_playtest_boss_rooms.gd`) checks the vaults_03
+pocket cache in the real room (section 5).
 
 The `campaign graph` suite (`tools/check_campaign_graph.py`) checks the pocket rule of section 5
 for every campaign boss arena; it fails on the pre-2026-09-30 vaults_03 layout ("stone_guardian
