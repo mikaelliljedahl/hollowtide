@@ -2,6 +2,7 @@ id: fringe_06
 area: fringe
 name: Skylight Atrium
 origin: 60 0
+current: 31 11 5 6 dir=up strength=520 kind=water
 # skylight: slipstream tunnel in from the breach; the floor hole drops into Long Hollow and closes the fringe loop.
 legend:
   L light

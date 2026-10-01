@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
 [ext_resource type="Script" path="res://scripts/campaign/light_shaft.gd" id="4_light"]
 [ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="5_enemy"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/push_current.gd" id="6_current"]
 
 [node name="fringe_06" type="Node2D"]
 script = ExtResource("1_room")
@@ -67,3 +68,11 @@ script = ExtResource("5_enemy")
 enemy_id = &"bat_swarm"
 bounds = Rect2(1056, 160, 768, 512)
 travel_direction = 1
+
+[node name="Current01" type="Area2D" parent="Entities"]
+position = Vector2(2144, 896)
+script = ExtResource("6_current")
+zone_size = Vector2(320, 384)
+direction = Vector2(0, -1)
+strength = 520
+kind = &"water"
