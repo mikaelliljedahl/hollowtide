@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/campaign/light_shaft.gd" id="5_light"]
 [ext_resource type="Script" path="res://scripts/world/ability_gate.gd" id="6_gate"]
 [ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="7_enemy"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="8_stalactite"]
 
 [node name="fringe_01" type="Node2D"]
 script = ExtResource("1_room")
@@ -86,3 +87,19 @@ script = ExtResource("7_enemy")
 enemy_id = &"mimic_lure"
 bounds = Rect2(3552, 480, 224, 512)
 travel_direction = 1
+
+[node name="Stalactite01" type="Node2D" parent="Entities"]
+position = Vector2(2208, 128)
+script = ExtResource("8_stalactite")
+
+[node name="Stalactite02" type="Node2D" parent="Entities"]
+position = Vector2(2528, 128)
+script = ExtResource("8_stalactite")
+
+[node name="Stalactite03" type="Node2D" parent="Entities"]
+position = Vector2(2848, 128)
+script = ExtResource("8_stalactite")
+
+[node name="Stalactite04" type="Node2D" parent="Entities"]
+position = Vector2(1440, 192)
+script = ExtResource("8_stalactite")

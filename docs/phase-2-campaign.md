@@ -78,6 +78,26 @@ P8 supplies a room list with IDs (`fringe_01`, etc.), neighbors, entrances, retu
 requirements, pickups, save point, enemies, and visual landmark. Review it before final graphics. All
 unique pickups receive stable world IDs; if a pickup moves, it retains its ID.
 
+## Encounter pacing
+
+Direction: more action, fewer puzzles. No stretch of 24 columns along a room's long axis (12 rows
+in a room taller than wide, since a climb is slower than a walk) is empty of threats: each needs a resident enemy or an ambush arena's spawn area. In a room without an ambush a
+stalactite also counts, because the rooms before the first weapon (fringe_01, fringe_02) may only
+hold threats the player can dodge; every enemy must be beatable with the kit on first arrival. Boss
+rooms, the ending room and the hub are exempt. `tools/campaign_pacing.py` enforces the rule inside
+`tools/check_campaign_graph.py`.
+
+Jev round 9 (2026-10-01) filled the walks the critic rated lowest (rounds 6 to 8: no enemy within
+640 px of the route, fun 0.39 to 0.46):
+
+| Room | Added | Why |
+|---|---|---|
+| `fringe_01` Surface Breach | Stalactites over the start basin (cell 22, 3) and the shelf walk (34, 2), (39, 2), (44, 2) | Only the exit's Mimic Lure stood in the 60-cell start room, and she has no weapon yet. |
+| `fringe_02` Drip Shaft | Stalactites under the shaft ledges (21, 9), (13, 12), (22, 15) | The descent was empty above row 24; still no weapon here. |
+| `fringe_03` Echo Gallery | Spitter on the lower floor (36, 14); Hopper past the save (52, 14) | After the beam trial the east third was an empty walk to the missile gate; a ground rusher and a ranged Spitter ask for movement and a choice of target. |
+| `fringe_04` Pulse Chimney | Vent Flyer at the top by the Pulse Bombs (10, 3); Spitter on the lower east ledge (20, 22) | The top and the lower climb were empty (rated boring and too long, no damage). |
+| `kiln_02` Furnace Shaft | Vent Flyer mid-shaft (20, 19) | Rows 9 to 25 of the heat shaft were empty between the upper flyer and the antechamber. |
+
 ## Saving, death, resources, and map
 
 - At least one safe save/refill point per area; an accessible save point comes before each boss.

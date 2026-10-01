@@ -67,12 +67,26 @@ enemy_id = &"drop_spider"
 bounds = Rect2(1568, 416, 768, 512)
 travel_direction = 1
 
+[node name="Enemy03" type="Marker2D" parent="Entities"]
+position = Vector2(3360, 928)
+script = ExtResource("6_enemy")
+enemy_id = &"hopper"
+bounds = Rect2(3104, 800, 512, 224)
+travel_direction = 1
+
 [node name="Gate_missile_1" type="StaticBody2D" parent="Entities"]
 position = Vector2(3680, 864)
 script = ExtResource("7_gate")
 gate_kind = &"missile"
 flag_id = "fringe_03.gate.missile_1"
 gate_size = Vector2(64, 192)
+
+[node name="Enemy04" type="Marker2D" parent="Entities"]
+position = Vector2(2336, 928)
+script = ExtResource("6_enemy")
+enemy_id = &"spitter"
+bounds = Rect2(2016, 800, 640, 224)
+travel_direction = 1
 
 [node name="Pickup_quickstring" parent="Entities" instance=ExtResource("4_pickup")]
 position = Vector2(1440, 480)

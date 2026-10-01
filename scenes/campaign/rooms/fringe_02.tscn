@@ -41,9 +41,21 @@ script = ExtResource("5_station")
 station_kind = &"save"
 
 [node name="Stalactite01" type="Node2D" parent="Entities"]
-position = Vector2(800, 1536)
+position = Vector2(1376, 576)
 script = ExtResource("6_stalactite")
 
 [node name="Stalactite02" type="Node2D" parent="Entities"]
+position = Vector2(864, 768)
+script = ExtResource("6_stalactite")
+
+[node name="Stalactite03" type="Node2D" parent="Entities"]
+position = Vector2(1440, 960)
+script = ExtResource("6_stalactite")
+
+[node name="Stalactite04" type="Node2D" parent="Entities"]
+position = Vector2(800, 1536)
+script = ExtResource("6_stalactite")
+
+[node name="Stalactite05" type="Node2D" parent="Entities"]
 position = Vector2(992, 1536)
 script = ExtResource("6_stalactite")
