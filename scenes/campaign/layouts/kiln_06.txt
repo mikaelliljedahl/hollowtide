@@ -2,6 +2,7 @@ id: kiln_06
 area: kiln
 name: Great Bellows
 origin: 270 51
+current: 13 29 3 5 dir=up strength=520 kind=steam
 heat: 1 0 28 30
 current: 13 0 3 5 dir=up strength=520 kind=steam
 legend:

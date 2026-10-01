@@ -2,6 +2,7 @@ id: vaults_10
 area: vaults
 name: Pale Gallery
 origin: 30 102
+current: 20 14 3 3 dir=up strength=520 kind=water
 legend:
   S save
   G flaggate regional:stone_guardian,regional:furnace_mother

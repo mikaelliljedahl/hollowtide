@@ -2,6 +2,7 @@ id: depths_07
 area: depths
 name: Brine Lift
 origin: 45 119
+current: 5 0 3 2 dir=up strength=520 kind=water
 current: 4 2 5 3 dir=up strength=520 kind=water
 legend:
   t timeddoor seconds=6 id=lift

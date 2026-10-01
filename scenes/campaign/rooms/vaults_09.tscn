@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/campaign/station.gd" id="4_station"]
 [ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="5_enemy"]
 [ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="6_stalactite"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/push_current.gd" id="7_current"]
 
 [node name="vaults_09" type="Node2D"]
 script = ExtResource("1_room")
@@ -56,3 +57,11 @@ script = ExtResource("6_stalactite")
 [node name="Stalactite02" type="Node2D" parent="Entities"]
 position = Vector2(2976, 64)
 script = ExtResource("6_stalactite")
+
+[node name="Current01" type="Area2D" parent="Entities"]
+position = Vector2(2656, 192)
+script = ExtResource("7_current")
+zone_size = Vector2(192, 384)
+direction = Vector2(0, -1)
+strength = 520
+kind = &"water"
