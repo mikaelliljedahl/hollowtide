@@ -927,3 +927,48 @@ lies past the grate, the approach reaches it from (32, 14) with no contact and t
 shell; curled in the alcove, the approach leaves it for room to stand without contact; standing
 and jumping on the pocket cache is not contact and refills. 6 checks fail on the old harness and
 layout.
+
+## 28. Harness round 9 (2026-10-01)
+
+**Stone Guardian telegraphs.** Both round 8 minimum-kit runs took 3 Guardian contact hits (72
+damage) in stage 4, the same way each time. After the Fault Slam dodge (a jump in place at the
+alcove roof's end, x 284) she landed on the roof of the vaults_03 west alcove (x 218, y 768), and
+during the Rockfall telegraph Jev picked `jump:right`, which fell onto the Guardian stopped at
+x 476 (twice); curled in the alcove during a Shoulder Charge telegraph it picked `jump_over`, which
+lands on the same stopped body. `tools/playtest_clearance.gd` now filters the candidates: from an
+engaged boss attack's telegraph to the end of its recovery, an Array program whose predicted path (the player's ground and
+air acceleration with the turn boost and apex easing, coyote jump, cut-off and gravity, from her
+current velocity, stopped by rock through her own `test_move`) touches
+the boss's contact circle (112 px) is not offered; while a boss telegraphs or runs a Shoulder
+Charge or Scuttle Rush, neither is a move ending more than 32 px closer to it. Standing still and
+the probed dodge are always kept. The step dodge for Rockfall and Vent Burst (`Dodge.safe_spot`)
+also stays on her floor: from the roof it stepped off the edge and fell beside the Guardian. The
+heuristic policy reads `approach` with a fallback, since the filter can drop it.
+
+The Cinder Warden death in r8-min-s1 was not this pattern: its Scuttle Rush hits came from
+`approach` walking into the running rush (twice, from 754 and 669 px), one `dodge:scuttle_rush`
+started 0.48 s before release from 726 px, and the killing hit from a `go_to_refill` run past the
+boss outside any telegraph. The charge rule covers the first two.
+
+Two rated runs refined it. A predictor without the turn boost let `jump:right` through: she lands
+on the roof running west at 608 px/s (from the retreat in the air), and the boosted turn still
+carries the jump onto the Guardian (2 hits). Filtering the telegraph only, she stood out the
+Rockfall on the roof and then jumped right onto the Guardian while the rocks fell (2 hits).
+Filtering the whole attack, two runs stood on the roof for 550 s and never finished the Guardian
+(75 of 300 health left): the jump onto it had been her only way down, because the approach's stop
+was fitted for a standing body at her own level (`Reach.standing_step`) and so lay on the roof
+above the alcove. It is now fitted on the boss's floor (its centre plus 92 px, never above her
+feet), so the approach walks off the roof's east end to x 284.
+
+`tools/check_playtest_boss_rooms.gd` plays every move offered in the round 8 states (on the roof in
+a Rockfall telegraph, at rest and landing at 608 px/s west, and in its recovery; at x 284 in a
+Fault Slam telegraph; curled at x 173 in a Shoulder Charge telegraph; 0.5 s left) through real
+inputs in the real room and counts contact hits, and checks that `jump:right` off the landing does
+reach the Guardian; from the roof, with the Guardian idle, the approach reaches the floor with no
+contact (fails while the stop is fitted at her level). 12 checks fail on the old harness (`jump:right` and `jump_over` in all five
+states, the Rockfall step off the roof twice).
+
+Rated run r9-min-s1 (seed 1, minimum kit, Jev and critic): ending 13/13 at 652.1 s; Stone Guardian
+1 contact hit (24, was 72), from the probed Rockfall step at x 306 with the Guardian 170 px away,
+not a jump; Cinder Warden no contact and no death; one Tidal Heart death (Crosscurrent). Critic
+overall 0.753 (round 8: 0.747 and 0.749), Guardian 0.93 (0.81 to 0.86).

@@ -67,13 +67,20 @@ instance_id = "kiln_02.wave_beam"
 kind = &"wave_beam"
 
 [node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(1312, 1248)
+script = ExtResource("7_enemy")
+enemy_id = &"vent_flyer"
+bounds = Rect2(992, 1120, 640, 256)
+travel_direction = 1
+
+[node name="Enemy02" type="Marker2D" parent="Entities"]
 position = Vector2(1568, 2016)
 script = ExtResource("7_enemy")
 enemy_id = &"burrower"
 bounds = Rect2(1184, 1888, 672, 224)
 travel_direction = 1
 
-[node name="Enemy02" type="Marker2D" parent="Entities"]
+[node name="Enemy03" type="Marker2D" parent="Entities"]
 position = Vector2(1312, 544)
 script = ExtResource("7_enemy")
 enemy_id = &"vent_flyer"

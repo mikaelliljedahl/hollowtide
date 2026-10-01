@@ -10,6 +10,10 @@ extends Node
 ## Stone Guardian: in r7-min-s1i the approach's firing step lay in the vaults_03 west alcove, under
 ## a roof too low to stand, so she rolled to and fro there curled through five stage 4 punish
 ## windows and fired nothing. The approach now stops where she can stand.
+## Stone Guardian telegraphs (round 9): in both round 8 minimum-kit runs Jev picked `jump:right`
+## from the alcove roof during a Rockfall telegraph and landed on the stopped Guardian, and
+## `jump_over` curled in the alcove during a Shoulder Charge telegraph (3 contact hits, 72 damage,
+## per run). Every move offered in those states, played through real inputs, now meets no contact.
 
 const Actions = preload("res://tools/playtest_actions.gd")
 const Boss = preload("res://tools/playtest_boss.gd")
@@ -38,6 +42,19 @@ const ALCOVE_ROOF_END := 256.0
 const GUARDIAN_STOP := Vector2(476, 868)
 const ALCOVE_FRAMES := 240
 const POCKET_FRAMES := 180
+## Round 8 telegraph starts (room-local feet): on the alcove roof after the Fault Slam dodge, at
+## the roof's end where that dodge starts, and curled in the alcove; the seconds of telegraph
+## left when the offer is read, and the frames a trial runs.
+const ROOF_TOP := Vector2(218, 768)
+## Her velocity landing there from the retreat in the air (r8-min-s1 at 172.6 s, r9-min-s1 137.7 s).
+const ROOF_LANDING := Vector2(-608, 0)
+const SLAM_SPOT := Vector2(284, 960)
+const CHARGE_START := Vector2(173, 960)
+const TELEGRAPH_LEFT := 0.5
+const SETTLE_FRAMES := 90
+const TRIAL_FRAMES := 120
+## Offered kinds whose outcome is played: moves, standing still and the probed dodge.
+const PLAYED := ["idle", "dodge", "jump", "jump_over", "approach", "retreat"]
 
 var _failures: Array[String] = []
 var _root: Node
@@ -174,6 +191,8 @@ func _test_guardian_alcove(boss: Node2D) -> void:
 	)
 	_check(hits == 0, "no contact on the way out (%d hits)" % hits)
 	await _test_pocket_cache(boss, room)
+	await _test_telegraph_moves(boss, room)
+	await _test_roof_approach(boss, room)
 
 
 ## Game layout: standing and jumping in place on the west pocket's Quiver Cache with the Guardian
@@ -203,6 +222,142 @@ func _test_pocket_cache(boss: Node2D, room: Node2D) -> void:
 		)
 	)
 	_check(GameState.missile_count > 0, "the pocket cache refills her Harpoons")
+
+
+## Each move offered during a round 8 telegraph, played from the same start through real inputs,
+## meets no contact. The Guardian is held in its telegraph except for the charge, which runs.
+func _test_telegraph_moves(boss: Node2D, room: Node2D) -> void:
+	var cases := [
+		[&"rockfall", ROOF_TOP, false, "Rockfall telegraph on the alcove roof"],
+		[&"rockfall", ROOF_TOP, false, "Rockfall telegraph landing on the roof", ROOF_LANDING],
+		[&"rockfall", ROOF_TOP, false, "Rockfall recovery on the roof", Vector2.ZERO, &"recover"],
+		[&"fault_slam", SLAM_SPOT, false, "Fault Slam telegraph at the roof's end"],
+		[&"shoulder_charge", CHARGE_START, true, "Shoulder Charge telegraph curled in the alcove"],
+	]
+	for case: Array in cases:
+		await _telegraph_start(boss, room, case)
+		var keys: Array = Actions.candidates(_state(), _player).map(
+			func(entry: Dictionary) -> String: return entry["key"]
+		)
+		keys = keys.filter(func(key: String) -> bool: return key.split(":")[0] in PLAYED)
+		for key: String in keys:
+			await _telegraph_start(boss, room, case)
+			var entry := Actions.find(Actions.candidates(_state(), _player), key)
+			if entry.is_empty():
+				continue
+			var hits := await _play(boss, entry)
+			_check(
+				hits == 0, "%s: the offered %s meets no contact (%d hits)" % [case[3], key, hits]
+			)
+	# The case is real: the round 8 pick, a jump right off the roof, lands on the Guardian.
+	await _telegraph_start(boss, room, cases[1])
+	var landing := {"kind": "jump", "program": Programs.jump(1, Programs.JUMP_HOLD_FRAMES)}
+	_check(
+		await _play(boss, landing) > 0,
+		"the round 8 jump right off the alcove roof lands on the Guardian"
+	)
+	boss.set_physics_process(true)
+
+
+## Round 9: on the alcove roof with the jump onto the Guardian withheld, the approach stood on the
+## roof for 550 s (its stop fitted at her level lay above the alcove). It walks off the roof's east
+## end now, onto the floor clear of the Guardian.
+func _test_roof_approach(boss: Node2D, room: Node2D) -> void:
+	await _telegraph_start(boss, room, [&"rockfall", ROOF_TOP, false, "Approach from the roof"])
+	boss.set_physics_process(true)
+	boss.set("_attack_state", &"idle")
+	var driver := Programs.Driver.new()
+	var hits := 0
+	var health := GameState.health
+	for _frame in ALCOVE_FRAMES:
+		boss.set("_attack_timer", 99.0)
+		if driver.done():
+			driver.release_all()
+			var approach := {}
+			for entry: Dictionary in Actions.candidates(_state(), _player):
+				if String(entry["kind"]) == "approach":
+					approach = entry
+					break
+			if approach.is_empty():
+				break
+			driver.start(approach["program"])
+		driver.step()
+		await get_tree().physics_frame
+		if GameState.health < health:
+			hits += 1
+		health = GameState.health
+	driver.release_all()
+	var feet := _player.global_position - room.global_position
+	_check(
+		feet.y > ROOF_TOP.y + 64.0 and feet.x >= ALCOVE_ROOF_END,
+		"the approach leaves the alcove roof for the floor (feet %s)" % feet
+	)
+	_check(hits == 0, "no contact on the way down (%d hits)" % hits)
+
+
+## Stands her (curled for `case[2]`) at `case[1]` with the Guardian at its pursuit stop, full
+## health, and the Guardian in `case[0]`'s telegraph with TELEGRAPH_LEFT s to go; `case[4]`, when
+## given, is her velocity then, and `case[5]` the attack phase the Guardian is held in instead.
+func _telegraph_start(boss: Node2D, room: Node2D, case: Array) -> void:
+	boss.set_physics_process(true)
+	boss.set("_attack_state", &"idle")
+	_player.velocity = Vector2.ZERO
+	# The roof is open above, so she curls and stands there; beside the Guardian she does not stand.
+	_player.global_position = room.global_position + ROOF_TOP
+	await _held(boss, 30)
+	for _attempt in 3:
+		if _player.is_ball == bool(case[2]):
+			break
+		Input.action_press(&"slipstream")
+		await _held(boss, 2)
+		Input.action_release(&"slipstream")
+		await _held(boss, 30)
+	await _held(boss, SETTLE_FRAMES)
+	_check(
+		_player.is_ball == bool(case[2]),
+		"%s: she starts %s" % [case[3], "curled" if case[2] else "standing"]
+	)
+	_player.global_position = room.global_position + Vector2(case[1])
+	_player.velocity = Vector2.ZERO
+	boss.global_position = room.global_position + GUARDIAN_STOP
+	await _held(boss, 10)
+	boss.global_position = room.global_position + GUARDIAN_STOP
+	GameState.reset_health()
+	var chain: Array[StringName] = [case[0]]
+	boss.set("_attack_chain", chain)
+	boss.call(&"_start_telegraph")
+	boss.set("_telegraph_remaining", TELEGRAPH_LEFT)
+	if case[0] != &"shoulder_charge":
+		boss.set_physics_process(false)
+	await _frames(1)
+	if case.size() > 4:
+		_player.velocity = case[4]
+	if case.size() > 5:
+		boss.set("_attack_state", case[5])
+
+
+## Plays `entry`'s program as the loop does, then waits out TRIAL_FRAMES; the contact hits taken.
+func _play(boss: Node2D, entry: Dictionary) -> int:
+	var driver := Programs.Driver.new()
+	if _player.is_ball and entry["kind"] in Programs.STANDING_KINDS:
+		driver.start(Programs.StandFirst.new(entry["program"]))
+	else:
+		driver.start(entry["program"])
+	var hits := 0
+	var health := GameState.health
+	for _frame in TRIAL_FRAMES:
+		if not driver.done():
+			driver.step()
+		else:
+			driver.release_all()
+		if boss.get("_attack_state") == &"idle":
+			boss.set("_attack_timer", 99.0)
+		await get_tree().physics_frame
+		if GameState.health < health:
+			hits += 1
+		health = GameState.health
+	driver.release_all()
+	return hits
 
 
 ## The Echo once offered, else the approach to the Heart.
