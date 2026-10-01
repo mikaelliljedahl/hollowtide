@@ -33,6 +33,8 @@ const SPOT_STEP := 8
 const SETTLE_FRAMES := 12
 ## A walk stops this close (px) to its spot; walking stops in about 20 px.
 const STEP_TOLERANCE := 24.0
+## Probe (px) below a step's spot for her floor.
+const FLOOR_PROBE := 8.0
 ## Ember Fan (scripts/enemies/boss_attacks.gd): speed, origin, the second fan's delay in
 ## desperation, and the seconds a curled ball waits after the fan reaches her column.
 const FAN_SPEED := 380.0
@@ -205,7 +207,7 @@ static func stays_put(entry: Dictionary) -> bool:
 
 
 ## The feet x offset nearest the player that keeps clear of every locked column and of the boss
-## body, with nothing solid in the way on the walk there; null when there is none.
+## body, on her floor, with nothing solid in the way on the walk there; null when there is none.
 static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:
 	if columns.is_empty():
 		return null
@@ -217,6 +219,11 @@ static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:
 			if columns.any(func(c: int) -> bool: return absf(x - float(c)) < COLUMN_CLEAR):
 				continue
 			if distance > 0 and player.test_move(player.global_transform, Vector2(x, 0)):
+				continue
+			# The probed step stays on her floor: off the vaults_03 alcove roof it fell to the
+			# floor beside the Guardian and touched it.
+			var spot := Transform2D(0.0, player.global_position + Vector2(x, 0))
+			if not player.test_move(spot, Vector2(0, FLOOR_PROBE)):
 				continue
 			return x
 	return null
