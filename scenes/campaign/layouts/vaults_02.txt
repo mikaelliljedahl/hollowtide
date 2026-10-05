@@ -3,6 +3,8 @@ area: vaults
 name: Hanging Vaults
 origin: 30 51
 # breaks pillar_ledge, pillar_band: single-wall climbs up the lower-hall pillar (west face, east face).
+# A one-tile curb on each side of the floor shaft to vaults_04 (cols 8-10): walking away from the
+# Bubble Snare stops at the curb instead of dropping her; the drop is a deliberate hop into the pit.
 legend:
   E pickup energy_tank energy_pillar
   I pickup ice_beam ice_beam
@@ -51,6 +53,6 @@ grid:
 #..................................#...#...................#
 #..........................................................#
 #..I.......................................................#
-#.............t.....k......a...............................#
+#......#...#..t.....k......a...............................#
 ########...#############################...#################
 ########...#############################...#################

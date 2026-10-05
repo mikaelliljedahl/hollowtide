@@ -1,12 +1,13 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
 [ext_resource type="PackedScene" path="res://scenes/pickups/pickup.tscn" id="4_pickup"]
-[ext_resource type="Script" path="res://scripts/campaign/station.gd" id="5_station"]
-[ext_resource type="Script" path="res://scripts/world/ability_gate.gd" id="6_gate"]
-[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="7_stalactite"]
+[ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="5_enemy"]
+[ext_resource type="Script" path="res://scripts/campaign/station.gd" id="6_station"]
+[ext_resource type="Script" path="res://scripts/world/ability_gate.gd" id="7_gate"]
+[ext_resource type="Script" path="res://scripts/world/dynamic/stalactite.gd" id="8_stalactite"]
 
 [node name="fringe_02" type="Node2D"]
 script = ExtResource("1_room")
@@ -36,34 +37,48 @@ position = Vector2(352, 1952)
 instance_id = "fringe_02.slipstream"
 kind = &"slipstream"
 
+[node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(1504, 1248)
+script = ExtResource("5_enemy")
+enemy_id = &"crawler"
+bounds = Rect2(1120, 992, 736, 512)
+travel_direction = -1
+
 [node name="Save01" type="Area2D" parent="Entities"]
 position = Vector2(1120, 2010)
-script = ExtResource("5_station")
+script = ExtResource("6_station")
 station_kind = &"save"
 
 [node name="Gate_bomb_1" type="StaticBody2D" parent="Entities"]
 position = Vector2(1696, 160)
-script = ExtResource("6_gate")
+script = ExtResource("7_gate")
 gate_kind = &"bomb"
 flag_id = "fringe_02.gate.bomb_1"
 gate_size = Vector2(64, 192)
 
+[node name="Enemy02" type="Marker2D" parent="Entities"]
+position = Vector2(864, 1056)
+script = ExtResource("5_enemy")
+enemy_id = &"crawler"
+bounds = Rect2(480, 800, 768, 512)
+travel_direction = 1
+
 [node name="Stalactite01" type="Node2D" parent="Entities"]
 position = Vector2(1376, 576)
-script = ExtResource("7_stalactite")
+script = ExtResource("8_stalactite")
 
 [node name="Stalactite02" type="Node2D" parent="Entities"]
 position = Vector2(864, 768)
-script = ExtResource("7_stalactite")
+script = ExtResource("8_stalactite")
 
 [node name="Stalactite03" type="Node2D" parent="Entities"]
 position = Vector2(1440, 960)
-script = ExtResource("7_stalactite")
+script = ExtResource("8_stalactite")
 
 [node name="Stalactite04" type="Node2D" parent="Entities"]
 position = Vector2(800, 1536)
-script = ExtResource("7_stalactite")
+script = ExtResource("8_stalactite")
 
 [node name="Stalactite05" type="Node2D" parent="Entities"]
 position = Vector2(992, 1536)
-script = ExtResource("7_stalactite")
+script = ExtResource("8_stalactite")

@@ -365,7 +365,7 @@ func _leave_room(edge: StringName, local: Vector2) -> void:
 			entry.y = TOP_ENTRY
 		&"north":
 			entry.y = target_size.y - BOTTOM_ENTRY
-			player.velocity.y = minf(player.velocity.y, -UP_ENTRY_SPEED)
+			player.apply_door_lift(UP_ENTRY_SPEED)
 	_transition(target, entry)
 
 
