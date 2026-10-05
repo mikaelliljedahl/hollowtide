@@ -15,6 +15,7 @@ extends RefCounted
 
 const Programs = preload("res://tools/playtest_programs.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
+const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
 ## Shot speeds and origins of scripts/enemies/boss_attacks.gd (`emissions`).
 const SLAM_SPEED := 430.0
 const SLAM_ORIGIN := 70.0
@@ -43,6 +44,8 @@ const FAN_REPEAT := 0.3
 const FAN_PASS := 0.35
 ## Seconds after release a player standing still waits while the Heat Ring passes her.
 const RING_PASS := 1.0
+## Seconds Lanternjaw's Undertow Pull drags once released (scripts/enemies/mini/lanternjaw.gd).
+const PULL_SECONDS := 1.2
 const DESPERATION_STAGE := 4
 ## Armored guard (scripts/enemies/enemy_ai.gd): sight, charge speed, and the seconds before the
 ## charge reaches her at which the jump toward it starts (the probe cleared 0.72 to 0.97 s).
@@ -92,7 +95,7 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 	if not grounded or player.is_ball:
 		return {}
 	# The Tidal Heart's shots keep flying through its recovery; they are all in `shots_rel`.
-	if StringName(attack) in Tide.ATTACKS:
+	if Tide.answers(StringName(attack)):
 		return Tide.candidate(boss, player)
 	# The embers keep flying through the fan's punish window.
 	if phase not in ["telegraph", "active"] and not (attack == "ember_fan" and phase == "recover"):
@@ -109,7 +112,9 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 	var desperate := int(boss.get("stage", 1)) >= DESPERATION_STAGE
 	var program: Array = []
 	var label := ""
-	match attack:
+	# Every charge, the main bosses' and the mini-bosses', stops 128 px short of the first wall.
+	var kind := "charge" if Patterns.is_charge(StringName(attack)) else attack
+	match kind:
 		"fault_slam":
 			var travel := maxf(absf(rel.x) - SLAM_ORIGIN - REACH, 0.0) / SLAM_SPEED
 			program = _jumps(release + travel, SLAM_PAIR_GAP if desperate else 0.0)
@@ -148,12 +153,20 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 			program.append_array(Programs.hold([&"slipstream"], 2))
 			program.append_array(Programs.hold([], Programs.SLIP_FRAMES))
 			label = "curl into a ball where she stands until the Ember Fan has flown over"
+		"undertow_pull":
+			# Lanternjaw's current drags her toward the jaw while it is active: run against it
+			# until it ends (round 10 probe in depths_08: the loop's approach walked into the jaw).
+			var left := release + PULL_SECONDS
+			if left <= 0.0:
+				return {}
+			program = Programs.run(away, roundi(left * FPS))
+			label = "run away from the jaw against the Undertow Pull until it ends"
 		"heat_ring":
 			if phase != "telegraph":
 				return {}
 			program = Programs.hold([], roundi((release + RING_PASS) * FPS))
 			label = "stand still: the Heat Ring's gap is aimed at her"
-		"shoulder_charge", "scuttle_rush":
+		"charge":
 			if phase != "telegraph":
 				return {}
 			if pinned:
@@ -165,7 +178,7 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 				var edge := float(arena[2 if away > 0 else 0]) if arena is Array else away * 720.0
 				var run := StepTo.new(player, edge - away * CHARGE_EDGE, RUN_FRAMES, true)
 				return _entry(
-					attack, "run away from the Shoulder Charge into the wall's pocket", run
+					attack, "run away from the %s into the wall's pocket" % attack.capitalize(), run
 				)
 	if program.is_empty():
 		return {}

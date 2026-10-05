@@ -114,7 +114,11 @@ class Navigator:
 			hop = []
 			status = "at_goal"
 			return status
-		if found[1] != hop:
+		if found[1] != hop or (progress > 0 and found[2] == _from):
+			# Standing on the hop's own start again (a jump that fell back down) starts it over:
+			# its passed cells lie above her, and with the progress kept the next cell was the
+			# next room's, so no jump was pressed (the PR 12 review run s1-full stood under the
+			# nexus_07 shaft to nexus_01 for 225 s after its apex jump fell short).
 			hop = found[1]
 			_from = found[2]
 			progress = 0

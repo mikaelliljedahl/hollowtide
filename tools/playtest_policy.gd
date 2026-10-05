@@ -117,8 +117,8 @@ func _dodge(state: Dictionary) -> String:
 
 
 ## Outside campaign mode every offered refill is taken. In campaign mode a refill run is for low
-## health, or for Harpoons when the objective is a boss or a harpoon socket blocks the route; a
-## detour for spare bolts otherwise costs more than it gives. A live boss's room keeps its
+## health, or for Harpoons when the objective is a boss or mini-boss or a harpoon socket blocks the
+## route; a detour for spare bolts otherwise costs more than it gives. A live boss's room keeps its
 ## Harpoon refill inside the arena (content catalog), so there it is walked to from anywhere.
 func _refill_wanted(state: Dictionary, key: String) -> bool:
 	var goal = state.get("goal")
@@ -143,7 +143,9 @@ func _refill_wanted(state: Dictionary, key: String) -> bool:
 		if float(me["health"]) < float(me["max_health"]) / 3.0:
 			return true
 	var gate = goal.get("gate_ahead")
-	return goal.get("kind") == "boss" or (gate is Dictionary and gate["kind"] == "missile")
+	return (
+		goal.get("kind") in ["boss", "mini"] or (gate is Dictionary and gate["kind"] == "missile")
+	)
 
 
 ## Fight a target that is visible and not given up on, and always fight a sealed arena's enemies.

@@ -41,7 +41,7 @@ from godot_env import isolated_env  # noqa: E402
 
 SCENE = "res://tools/playtest_agent.tscn"
 LOG_LIMIT = 4 * 1024 * 1024  # Godot output kept per run; the rest is dropped.
-CAMPAIGN_SECONDS = 2700.0  # campaign mode's default game-time cap (45 minutes)
+CAMPAIGN_SECONDS = 5400.0  # campaign mode's default game-time cap (90 minutes: the full sweep)
 CAMPAIGN_MAX_DEATHS = 1000  # deaths do not end a campaign run; the time cap does
 # The game writes heartbeat.txt every 20 s of wall time (tools/playtest_agent.gd; piped stdout is
 # block-buffered); this much silence means the process froze (a script loop, a lost scene) and it
@@ -208,12 +208,13 @@ def main() -> int:
     parser.add_argument(
         "--minimum-kit",
         action="store_true",
-        help="campaign: plan the required items only, no nearby Bolt Quivers or energy tanks",
+        help="campaign: required items and bosses only, no sweep of mini-bosses, optional"
+        " pickups and rooms",
     )
     parser.add_argument("--kit", default="", help="abilities and pickups, kind:count repeats")
     parser.add_argument("--spawn", default="", help="feet cell x,y in room tiles")
     parser.add_argument("--seeds", default="1", help="comma-separated seeds, one run each")
-    parser.add_argument("--seconds", type=float, help="game seconds per run (90; campaign 2700)")
+    parser.add_argument("--seconds", type=float, help="game seconds per run (90; campaign 5400)")
     parser.add_argument(
         "--policy", choices=["heuristic", "random", "external"], default="heuristic"
     )

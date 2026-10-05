@@ -7,6 +7,7 @@ extends RefCounted
 
 const Aim = preload("res://tools/playtest_aim.gd")
 const Catalog = preload("res://scripts/progression/content_catalog.gd")
+const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
 const TILE := 64.0
 ## A firing spot the boss's body can reach counts as this much farther away (px).
 const UNSHIELDED_PENALTY := 4096.0
@@ -24,6 +25,9 @@ const OPENERS := {
 	"stone_guardian": {2: {"beam": "", "via": "punish"}},
 	"furnace_mother": {2: {"beam": "", "via": "punish"}},
 }
+## Every mini-boss (docs/features/mini-bosses.md, M2): stage 2 takes the Harpoon only in the
+## punish window after its attack chain.
+const MINI_OPENERS := {2: {"beam": "", "via": "punish"}}
 ## GameState beam id -> ability that unlocks it, in the order `cycle_beam` steps through them
 ## (scripts/player/player.gd `_cycle_beam`).
 const BEAM_ORDER := ["base", "ice", "wave"]
@@ -70,7 +74,8 @@ static func facts(boss: Node2D, feet: Vector2) -> Dictionary:
 			roundi(arena.end.x - feet.x),
 			roundi(arena.end.y - feet.y),
 		]
-	var by_phase: Dictionary = OPENERS.get(String(boss.get("enemy_id")), {})
+	var id := StringName(boss.get("enemy_id"))
+	var by_phase: Dictionary = OPENERS.get(String(id), MINI_OPENERS if Patterns.is_mini(id) else {})
 	if not by_phase.has(phase):
 		return result
 	var opener: Dictionary = by_phase[phase].duplicate()

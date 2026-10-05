@@ -13,11 +13,14 @@ const FORMAT := 1
 const GATE_ABILITY := {
 	"missile": "missiles", "bomb": "bombs", "wave": "wave_beam", "undertow": "undertow_dash"
 }
+const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const OBJECTIVE_NAMES := {
 	"slipstream": "the Slipstream",
 	"beam": "the Seed Crossbow",
 	"missiles": "a Bolt Quiver",
 	"energy_tank": "an energy tank",
+	"long_beam": "the Long Beam",
+	"tide_socket": "a Tide Socket",
 	"bombs": "the Resonance Pulse",
 	"ice_beam": "the Bubble Snare",
 	"high_jump": "the Updraft Cloak",
@@ -29,8 +32,8 @@ const OBJECTIVE_NAMES := {
 	"tidal_heart": "the Tidal Heart",
 }
 
-## Objectives in play order: {index, kind (pickup, boss, ending), target, room, cells, grants,
-## abilities, flags, steps, field}.
+## Objectives in play order: {index, kind (pickup, boss, mini, visit, ending), target, room, cells,
+## grants, abilities, flags, steps, optional, seconds (an optional one's time budget), field}.
 var objectives: Array = []
 var directory := ""
 var _fields: Dictionary = {}
@@ -47,14 +50,18 @@ func load_dir(path: String) -> String:
 	return "" if not objectives.is_empty() else "the route in %s is empty" % path
 
 
-## True once `objective` is reached in the live game: the pickup collected, the boss flag set, the
-## ending playing (`ending`).
+## True once `objective` is reached in the live game: the pickup collected, the boss or mini-boss
+## flag set, the room entered (`visit`), the ending playing (`ending`).
 static func is_done(objective: Dictionary, ending: bool) -> bool:
 	match String(objective["kind"]):
 		"pickup":
 			return GameState.collected_pickup_ids.has(String(objective["target"]))
 		"boss":
 			return GameState.has_world_flag("boss:%s" % objective["target"])
+		"mini":
+			return GameState.has_world_flag("mini:%s" % objective["target"])
+		"visit":
+			return GameState.discovered_rooms.has(String(objective["target"]))
 	return ending
 
 
@@ -95,10 +102,18 @@ static func describe(objective: Dictionary) -> String:
 	var target := String(objective["target"])
 	match String(objective["kind"]):
 		"pickup":
-			var name: String = OBJECTIVE_NAMES.get(String(objective["grants"]), target)
+			var grants := String(objective["grants"])
+			var name: String = OBJECTIVE_NAMES.get(grants, target)
+			if grants.begins_with("glyph_"):
+				name = "a Tide Glyph"
 			return "collect %s in %s" % [name, objective["room"]]
 		"boss":
 			return "defeat %s in %s" % [OBJECTIVE_NAMES.get(target, target), objective["room"]]
+		"mini":
+			var mini: String = Catalog.DISPLAY_NAMES.get(StringName(target), target)
+			return "defeat the mini-boss %s in %s (optional)" % [mini, objective["room"]]
+		"visit":
+			return "explore %s (optional)" % target
 	return "walk into the light in %s (the ending)" % objective["room"]
 
 

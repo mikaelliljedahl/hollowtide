@@ -3,7 +3,8 @@ extends RefCounted
 ## docs/features/playtest-agent.md): objective attempts in order with their times, deaths, damage and stalls, rooms
 ## in the order first entered, deaths with the shrine the player came back at, and where and why
 ## the run stopped. An objective that takes longer than OBJECTIVE_TIMEOUT game seconds is recorded
-## as failed and set aside while another objective is ready; a second timeout ends the run.
+## as failed and set aside while another objective is ready; a second timeout ends the run. An
+## optional one gets its route budget (`seconds`) and is left behind after one timeout.
 
 const Route = preload("res://tools/playtest_route.gd")
 const OBJECTIVE_TIMEOUT := 300.0
@@ -44,14 +45,20 @@ func update(now: float, route: Route, telemetry: RefCounted, steps: int, ending:
 	if _open.is_empty():
 		_start(route.objectives[index], telemetry, steps)
 	_track_steps(steps)
-	var optional: bool = route.objectives[index].get("optional", false)
-	if now - float(_open["start"]) < (OPTIONAL_TIMEOUT if optional else OBJECTIVE_TIMEOUT):
+	if now - float(_open["start"]) < time_budget(route.objectives[index]):
 		return ""
 	timeouts[index] = int(timeouts.get(index, 0)) + 1
 	_close("timeout", telemetry)
 	if int(timeouts[index]) >= MAX_TIMEOUTS:
 		return "objective_failed"
 	return ""
+
+
+## Game seconds `objective` gets before it times out.
+static func time_budget(objective: Dictionary) -> float:
+	if not objective.get("optional", false):
+		return OBJECTIVE_TIMEOUT
+	return float(objective.get("seconds", OPTIONAL_TIMEOUT))
 
 
 ## Objectives reached so far.

@@ -8,10 +8,25 @@ extends RefCounted
 ## and Maelstrom wherever the ball is off every line (17/17 at most spots), Surge Lance is cleared
 ## only by leaving its line (a step or a run, 9 to 17 of 17), and a far boss's Maelstrom only by
 ## moving (run or roll away 17/17). A low Crosscurrent lane is jumped when its beads arrive.
+## The mini-bosses' shot attacks (docs/features/mini-bosses.md) are lines of the same kind and get
+## the same answer (round 10 probe in their real rooms, docs/features/playtest-agent.md section 29).
 
 const Programs = preload("res://tools/playtest_programs.gd")
 const Attacks = preload("res://scripts/enemies/boss_attacks.gd")
 const ATTACKS: Array[StringName] = [&"tide_ring", &"surge_lance", &"crosscurrent", &"maelstrom"]
+const MINI_ATTACKS: Array[StringName] = [
+	&"spore_lob",
+	&"root_burst",
+	&"toll_ring",
+	&"shard_drop",
+	&"peal_lane",
+	&"needle_line",
+	&"icicle_drop",
+	&"frost_ring",
+	&"cinder_rain",
+	&"lure_pulse",
+	&"dark_lance",
+]
 ## The standing and curled bodies (scenes/player/player.tscn): 56 px wide, 176 and 56 px tall
 ## above the feet, and the clearance kept from every line.
 const HALF_WIDTH := 28.0
@@ -41,7 +56,12 @@ const FPS := 60.0
 const IN_FLIGHT := 1600.0
 
 
-## The lines of the current Tidal Heart attack, each [origin x, origin y relative to `feet`,
+## True for an attack answered by its lines: the Tidal Heart's and the mini-bosses' shot attacks.
+static func answers(attack: StringName) -> bool:
+	return attack in ATTACKS or attack in MINI_ATTACKS
+
+
+## The lines of the current line attack (`answers`), each [origin x, origin y relative to `feet`,
 ## direction x, y, seconds from now until it flies (0 once out), speed, lifetime]: while it
 ## telegraphs, every shot of the locked plan (scripts/enemies/boss_attacks.gd `emissions` only reads
 ## the plan); once released, the shots still to come and every enemy shot in flight within
@@ -50,7 +70,7 @@ static func shots(boss: Node2D, feet: Vector2) -> Array:
 	var attack := StringName(boss.get("_attack_id"))
 	var plan = boss.get("_attack_plan")
 	var state := StringName(boss.get("_attack_state"))
-	if attack not in ATTACKS or not plan is Dictionary or (plan as Dictionary).is_empty():
+	if not answers(attack) or not plan is Dictionary or (plan as Dictionary).is_empty():
 		return []
 	var result: Array = []
 	if state == &"telegraph":
@@ -93,8 +113,8 @@ static func _line(shot: Dictionary, delay: float, lifetime: float, feet: Vector2
 	]
 
 
-## The dodge for the Tidal Heart attack whose lines are in `boss["shots_rel"]`, or {} when no
-## answer is found or nothing is coming.
+## The dodge for the line attack whose lines are in `boss["shots_rel"]`, or {} when no answer is
+## found or nothing is coming.
 static func candidate(boss: Dictionary, player: Player) -> Dictionary:
 	var attack := String(boss.get("attack", ""))
 	# Only a line still to cross the floor she could reach matters.
@@ -137,11 +157,12 @@ static func candidate(boss: Dictionary, player: Player) -> Dictionary:
 	var jump: Variant = _lane_jump(lines, player)
 	if jump == null:
 		return {}
-	return _entry(attack, "jump the low Crosscurrent lane as its beads arrive", jump)
+	return _entry(attack, "jump the low %s lane as its beads arrive" % _name(attack), jump)
 
 
 ## [offset px, curl] for the spot nearest her feet where no line reaches the standing body (or,
-## failing that, the curled one), with nothing solid on the walk there; null when none.
+## failing that and with the Slipstream owned, the curled one), with nothing solid on the walk
+## there; null when none.
 static func safe_spot(lines: Array, player: Player, boss: Dictionary) -> Variant:
 	var boss_rel := Vector2(float(boss["rel"][0]), float(boss["rel"][1]))
 	var low := boss_rel.y > -BODY_LOW
@@ -154,7 +175,11 @@ static func safe_spot(lines: Array, player: Player, boss: Dictionary) -> Variant
 			var past := (x - boss_rel.x) * -boss_rel.x < 0.0
 			if low and distance > 0 and (past or absf(x - boss_rel.x) < BODY_CLEAR):
 				continue
-			for height in [STAND_HEIGHT, BALL_HEIGHT]:
+			# Curling needs the Slipstream (a round 10 probe without it curled in vain).
+			var heights := (
+				[STAND_HEIGHT, BALL_HEIGHT] if GameState.has_slipstream else [STAND_HEIGHT]
+			)
+			for height in heights:
 				if _clear(lines, player, x, height, distance > 0):
 					return [x, height == BALL_HEIGHT]
 	return null

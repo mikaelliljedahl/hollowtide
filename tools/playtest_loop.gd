@@ -66,9 +66,14 @@ func connect_external(port: int, hello: Dictionary) -> bool:
 ## Call once per physics frame, before the player processes.
 func physics_step(delta: float) -> void:
 	if _busy():
-		if not driver.held().is_empty():
-			driver.release_all()
-		current = {}
+		# Through a room change the held inputs stay held and the program waits: the fade-in
+		# runs the player with a north door's entry boost, and a released jump cuts it (the PR 12
+		# review and round 10 smoke runs fell back out of nexus_01 into nexus_07 for 225 s and
+		# 860 s). A respawn or death still lets go of everything.
+		if not _changing_room():
+			if not driver.held().is_empty():
+				driver.release_all()
+			current = {}
 		telemetry.tick(delta, false, "")
 		return
 	if driver.done() or _new_telegraph() or _new_opening():
@@ -104,6 +109,16 @@ func _busy() -> bool:
 		or _root.get("_busy") == true
 		or _root.get("_respawning") == true
 		or _player.get_tree().paused
+	)
+
+
+## True during a room change (not a respawn, not dead) while the running program holds inputs.
+func _changing_room() -> bool:
+	return (
+		_root.get("_busy") == true
+		and _root.get("_respawning") != true
+		and GameState.health > 0
+		and not driver.held().is_empty()
 	)
 
 
