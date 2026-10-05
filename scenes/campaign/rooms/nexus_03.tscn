@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/campaign/campaign_room.gd" id="1_room"]
 [ext_resource type="TileSet" path="res://scenes/campaign/cave_tileset.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://scripts/world/cave_visuals.gd" id="3_visuals"]
 [ext_resource type="Script" path="res://scripts/campaign/light_shaft.gd" id="4_light"]
+[ext_resource type="Script" path="res://scripts/campaign/enemy_spawn.gd" id="5_enemy"]
 
 [node name="nexus_03" type="Node2D"]
 script = ExtResource("1_room")
@@ -45,3 +46,24 @@ position = Vector2(672, 384)
 script = ExtResource("4_light")
 required_flag = ""
 shaft_size = Vector2(192, 192)
+
+[node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(480, 992)
+script = ExtResource("5_enemy")
+enemy_id = &"grasshopper"
+bounds = Rect2(64, 800, 864, 224)
+travel_direction = 1
+
+[node name="Enemy02" type="Marker2D" parent="Entities"]
+position = Vector2(1440, 672)
+script = ExtResource("5_enemy")
+enemy_id = &"spitter"
+bounds = Rect2(1184, 544, 512, 256)
+travel_direction = 1
+
+[node name="Enemy03" type="Marker2D" parent="Entities"]
+position = Vector2(992, 544)
+script = ExtResource("5_enemy")
+enemy_id = &"vent_flyer"
+bounds = Rect2(672, 352, 640, 384)
+travel_direction = 1

@@ -243,6 +243,13 @@ func apply_bomb_impulse(origin: Vector2, radius: float) -> void:
 	_stop_spin()
 
 
+## Carries her up through a north door at `speed` or faster. The lift is not her jump, so letting
+## go of jump in the room above must not cut it short and drop her back through the opening.
+func apply_door_lift(speed: float) -> void:
+	velocity.y = minf(velocity.y, -speed)
+	_jump_cutoff_applied = true
+
+
 func _update_jump_timers(delta: float, jump_just_pressed: bool) -> void:
 	if jump_just_pressed:
 		_jump_buffer_timer = PlayerConfig.JUMP_BUFFER
