@@ -11,6 +11,7 @@ const Progress = preload("res://tools/playtest_progress.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Nav = preload("res://tools/playtest_nav.gd")
 const Policy = preload("res://tools/playtest_policy.gd")
+const Actions = preload("res://tools/playtest_actions.gd")
 const Hazards = preload("res://tools/playtest_hazards.gd")
 const HeatZone = preload("res://scripts/campaign/heat_zone.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
@@ -38,6 +39,7 @@ func run() -> void:
 	_test_room_entries()
 	_test_dodge_jump_is_offered()
 	_test_entry_bounce_is_no_attempt()
+	_test_no_refill_run_into_an_attack()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
@@ -285,3 +287,22 @@ func _test_entry_bounce_is_no_attempt() -> void:
 	telemetry.set("_boss", fight.duplicate(true))
 	telemetry.call("_finish_boss", "left_room")
 	_check(telemetry.bosses.size() == 1, "a short fight with an attack is one")
+
+
+## r10-run2 kiln_03: three Cinder Warden deaths began with a refill run picked while the stage 4
+## chain went from Scuttle Rush to Heat Ring; the run's jump onto the step met the ring. No refill
+## run starts while an engaged boss telegraphs or attacks; in its idle time it does.
+func _test_no_refill_run_into_an_attack() -> void:
+	var boss := CampaignCheck._enemy(Vector2(-400, 0))
+	boss.merge(
+		{"is_boss": true, "engaged": true, "attack": "heat_ring", "attack_state": "active"}, true
+	)
+	var state := CampaignCheck._plain_state({"kind": "boss", "gate_ahead": null}, [boss])
+	state["refills"] = [{"kind": "missilerefill", "restores": ["harpoons"], "rel": [320, 0]}]
+	var refills := func() -> Array:
+		return Actions.candidates(state, _player).filter(
+			func(e: Dictionary) -> bool: return e["kind"] == "go_to_refill"
+		)
+	_check(refills.call().is_empty(), "no refill run during a boss attack")
+	boss["attack_state"] = "idle"
+	_check(not refills.call().is_empty(), "a refill run in the boss's idle time")

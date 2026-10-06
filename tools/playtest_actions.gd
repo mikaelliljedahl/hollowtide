@@ -425,6 +425,16 @@ static func _opener_spot(boss: Dictionary) -> Array:
 static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var me: Dictionary = state["player"]
 	var kit: Dictionary = state["kit"]
+	# Not while an engaged boss winds up or runs an attack: in r10-run2 a refill run started as a
+	# Scuttle Rush ended carried her onto the kiln_03 step into the chained Heat Ring, three
+	# identical deaths. Its idle and punish times are left for the run.
+	for enemy in state["enemies"]:
+		if (
+			enemy["is_boss"]
+			and enemy.get("engaged", false)
+			and enemy.get("attack_state", "") in ["telegraph", "active"]
+		):
+			return {}
 	var short: Array = []
 	if int(kit.get("max_missiles", 0)) > 0 and int(kit["missiles"]) <= 0:
 		short.append("harpoons")
