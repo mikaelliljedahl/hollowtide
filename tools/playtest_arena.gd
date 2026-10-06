@@ -6,7 +6,7 @@ extends RefCounted
 ## pulled her back, and the trigger's centre, 160 px above its floor, read as a ledge to jump to.
 
 const Programs = preload("res://tools/playtest_programs.gd")
-## A trigger whose floor is this far (px) above or below the feet is not on her floor.
+## A trigger whose floor is this far (px) or more above or below the feet is not on her floor.
 const AMBUSH_FLOOR := 160.0
 ## Within this of the trigger's floor point (px, x and y) she stands in it.
 const AT_TRIGGER := Vector2(48.0, 64.0)
@@ -21,17 +21,21 @@ static func trigger_floor(arena: AmbushArena) -> Vector2:
 	return Vector2(zone.get_center().x, zone.end.y)
 
 
-## `go_to_ambush` for an armed arena she is not standing in, or {}. In campaign mode only on the
-## trigger's own floor: the route reaches it otherwise, and a straight steer at a trigger far below
-## stood still on the ledge above it (jev-r3 spent 550 s in fringe_03).
+## `go_to_ambush` for an armed arena she is not standing in and the kit can start (an arena with
+## no winnable wave never seals: a rooms run chose it 1,288 times at fringe_03's beam trial before
+## the beam), or {}. In campaign mode only on the trigger's own floor: the route reaches it
+## otherwise, and a straight steer at a trigger far below stood still on the ledge above it (jev-r3
+## spent 550 s in fringe_03).
 static func candidate(state: Dictionary, player: Player, campaign: bool) -> Dictionary:
 	var arena = state["ambush"]
 	if arena == null or arena["state"] != "armed":
 		return {}
 	var trigger := Vector2(float(arena["trigger_rel"][0]), float(arena["trigger_rel"][1]))
-	if at_trigger(trigger) or (campaign and absf(trigger.y) > AMBUSH_FLOOR):
+	if at_trigger(trigger) or (campaign and absf(trigger.y) >= AMBUSH_FLOOR):
 		return {}
 	var node := _arena_node(player.get_tree())
+	if node != null and node.plan_waves().is_empty():
+		return {}
 	return {
 		"key": "go_to_ambush",
 		"kind": "go_to_ambush",

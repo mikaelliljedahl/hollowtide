@@ -2,6 +2,7 @@ extends RefCounted
 ## Round 11 cases of the playtest agent (docs/features/playtest-agent.md, "Harness round 11"), run
 ## by tools/check_playtest_boss_rooms.gd in the real campaign rooms with the kit the route brings
 ## there (no Updraft Cloak).
+## fringe_03: an arena the kit cannot start is never walked to.
 ## kiln_02: r8-full-s2 spent 150 s at cells 13 to 17, 31 switching between `go_to_ambush` and
 ## `go_to_objective`. Each `go_to_ambush` now walks to the trigger's floor until the arena seals,
 ## so one pick between two route steps starts the fight.
@@ -25,6 +26,9 @@ const KILN_CELLS := [Vector2i(13, 31), Vector2i(15, 31)]
 const AMBUSH_PICKS := 4
 const ROUTE_FRAMES := 30
 const PROGRAM_LIMIT := 400
+## fringe_03 floor cells beside and inside the beam trial's trigger (columns 10 to 20, rows 10 to
+## 14); with the Slipstream alone no wave is winnable, so the arena never seals.
+const TRIAL_CELLS := [Vector2i(24, 14), Vector2i(15, 14)]
 ## kiln_03 floor columns west of the Warden and the stages tried; the run's frame budget, and how
 ## close (px) to the boss's centre a hit counts as its body (the trip's lava pit lies far east).
 const WARDEN_COLUMNS := [12, 24, 27]
@@ -49,6 +53,9 @@ func _init(host: Node) -> void:
 
 func run() -> void:
 	GameState.reset_progress()
+	GameState.unlock_ability(&"slipstream")
+	for cell: Vector2i in TRIAL_CELLS:
+		await _test_unstartable_arena(cell)
 	for id in KIT:
 		GameState.unlock_ability(id)
 	GameState.collect_pickup("round11.quiver", &"missile_tank")
@@ -66,6 +73,23 @@ func run() -> void:
 
 func _check(condition: bool, label: String) -> void:
 	_host.call(&"_check", condition, label)
+
+
+## A rooms run: Jev chose `go_to_ambush` 1,288 times at fringe_03's beam trial before the beam,
+## with the trigger's centre exactly 160 px above her (the floor check took it, the arrival check
+## did not).
+func _test_unstartable_arena(cell: Vector2i) -> void:
+	_root.call("teleport", "fringe_03", Vector2((cell.x + 0.5) * TILE, (cell.y + 1) * TILE))
+	await _frames(60)
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	var route := [{"key": "go_to_objective", "kind": "go_to_objective", "label": "", "program": []}]
+	var kinds: Array = Actions.candidates(state, _player, route).map(
+		func(entry: Dictionary) -> String: return entry["kind"]
+	)
+	_check(
+		state["ambush"] != null and not kinds.has("go_to_ambush"),
+		"fringe_03 %s: no go_to_ambush to an arena the kit cannot start (%s)" % [cell, kinds]
+	)
 
 
 func _test_ambush_picks(cell: Vector2i) -> void:

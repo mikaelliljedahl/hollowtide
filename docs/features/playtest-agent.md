@@ -1112,6 +1112,13 @@ stay clear, else backs off, else stands. Same probe: 0 contact in 15 of 15.
 real rooms: 9 checks fail on the old harness (both kiln_02 cells, 5 of 6 Warden refill runs, the
 Heart chain at columns 36 and 37).
 
+**Arena the kit cannot start.** A rooms run chose `go_to_ambush` 1,288 times at fringe_03's beam
+trial before the beam: an arena with no winnable wave never seals, and its trigger centre lay exactly
+160 px above her (the floor check took `<= 160`, the arrival check `< 160`). `go_to_ambush` is now
+offered only when `plan_waves()` keeps a wave, and the floor check is strict like the others.
+`_test_unstartable_arena` (Slipstream only, beside and inside the trigger) fails beside it on the
+previous commit; inside it the trigger-floor point already fixed it.
+
 **Refill run in a Tidal Heart attack.** The first rated run (r11-min-s1) brought the Heart to 25
 health in stage 4 with an empty quiver at 849 s and stood there until the 600 s objective limit:
 the round 10 rule offers no refill run while an engaged boss telegraphs or attacks, and stage 4's
