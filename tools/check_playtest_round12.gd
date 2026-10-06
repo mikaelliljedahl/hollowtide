@@ -14,7 +14,9 @@ extends RefCounted
 ## the forward shot was offered (a Jev room run fired 676 bolts there for 240 s); the approach
 ## from the east pocket now rolls under the slab.
 ## kiln_01: rising through the steam from the ledge at (13, 10), her head stopped 5 px under the
-## shaft's west wall, inside the steering dead zone, for 940 s (r12-full-s1b).
+## shaft's west wall, inside the steering dead zone, for 940 s (r12-full-s1b). Round 12's rooms
+## change ended the steam inside its shaft, out of that rise; the route now climbs onto the rock
+## step under the shaft and rides the steam from there.
 ## nexus_09: r12-full-s1 fought the Tollwing there for over 1,000 s after its objective timed out,
 ## on the way to later objectives; a boss the route's goal is not is passed by.
 
@@ -91,28 +93,35 @@ const KILN06_FIELD := {
 		]
 	],
 }
-## The route's hop up the kiln_01 steam into nexus_03 (full sweep, objective 34) and its frames.
+## The route from the kiln_01 return step to nexus_03 (full sweep, objective 32): onto the rock step
+## under the shaft, then straight up the steam; and its frames.
 const KILN01_FIELD := {
 	"kiln_01:13:10:0":
 	[
-		30,
+		16,
 		[
 			["kiln_01", 13, 10, 0, 1],
 			["kiln_01", 13, 9, 0, 1],
 			["kiln_01", 13, 8, 0, 1],
 			["kiln_01", 13, 7, 0, 0],
 			["kiln_01", 14, 7, 0, 0],
-			["kiln_01", 14, 6, 0, 0],
-			["kiln_01", 14, 5, 0, 0],
-			["kiln_01", 14, 4, 0, 0],
-			["kiln_01", 14, 3, 0, 0],
-			["kiln_01", 14, 2, 0, 0],
-			["kiln_01", 14, 1, 0, 0],
-			["kiln_01", 14, 0, 0, 0],
-			["nexus_03", 14, 16, 0, 1],
-			["nexus_03", 14, 15, 0, 1],
-			["nexus_03", 13, 15, 0, 1],
-			["nexus_03", 13, 15, 0, 0],
+			["kiln_01", 15, 7, 0, 0],
+			["kiln_01", 15, 7, 0, 0],
+		]
+	],
+	"kiln_01:15:7:0":
+	[
+		9,
+		[
+			["kiln_01", 15, 7, 0, 1],
+			["kiln_01", 15, 6, 0, 1],
+			["kiln_01", 15, 5, 0, 1],
+			["kiln_01", 15, 4, 0, 0],
+			["kiln_01", 15, 3, 0, 0],
+			["kiln_01", 15, 2, 0, 0],
+			["kiln_01", 15, 1, 0, 0],
+			["kiln_01", 15, 0, 0, 0],
+			["nexus_03", 15, 16, 0, 1],
 		]
 	],
 	"nexus_03:13:15:0": [0, []],
@@ -232,7 +241,7 @@ func _test_kiln01_steam() -> void:
 	var arrived := await _follow(
 		KILN01_FIELD, "nexus_03", "kiln_01", Vector2i(13, 10), KILN01_FRAMES
 	)
-	_check(arrived, "kiln_01 (13, 10): the route up the steam reaches nexus_03")
+	_check(arrived, "kiln_01 (13, 10): the route over the step and up the steam reaches nexus_03")
 
 
 ## True when the route's own programs from `cell` in `room` bring her into `goal_room`.

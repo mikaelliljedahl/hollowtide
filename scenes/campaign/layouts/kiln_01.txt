@@ -4,6 +4,7 @@ name: Glow Passage
 origin: 180 51
 current: 14 0 3 3 dir=up strength=520 kind=steam
 # steam lift: it stays in the shaft, so the pillar hop over the lava below no longer catches her.
+# The rock step at (15, 8) right under the shaft is where she jumps into it on purpose (nexus_03).
 legend:
   V pickup pressure_seal pressure_seal
   E pickup energy_tank energy_01
@@ -25,7 +26,7 @@ grid:
 #.......................................######..#####......#
 .....................w..................######..#####......#
 ...........................g...............................#
-....S...................####...............................#
+....S..........#........####...............................#
 ##########..............####.................w.............#
 ##########..............####...............................#
 ##########..##......##..####..##............................

@@ -117,7 +117,8 @@ func _case_kiln_01_pillar() -> void:
 
 ## Jev round 12: a full hop east off the return step over the lava pit reached the steam lift, which
 ## carried her into nexus_03 and dropped her back (a heuristic trace: 0.7 s in nexus_03 on every
-## pass). The lift now stays in the shaft, out of the hop's reach.
+## pass). The lift now stays in the shaft, out of the hop's reach; a jump from the rock step under
+## the shaft still rides it into nexus_03 (Loop B, docs/features/bigger-world.md).
 func _case_kiln_01_steam_hop() -> void:
 	if not _wanted("kiln_01_steam_hop"):
 		return
@@ -132,6 +133,15 @@ func _case_kiln_01_steam_hop() -> void:
 	_expect_true(
 		"kiln_01 hop over the lava pit stays under the steam lift (rooms entered: %s)" % [rooms],
 		rooms.is_empty() and _room() == "kiln_01"
+	)
+	rooms.clear()
+	await _setup("kiln_01", Vector2i(15, 7), [])
+	_root.connect(&"room_changed", note)
+	await _jump(0)
+	_root.disconnect(&"room_changed", note)
+	_expect_true(
+		"kiln_01 jump from the step under the shaft rides the steam into nexus_03 (%s)" % [rooms],
+		rooms.has("nexus_03")
 	)
 
 

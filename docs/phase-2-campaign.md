@@ -151,7 +151,7 @@ that a hop from a ledge beside it still reaches, and fringe_06 joins the route w
 | Room | Change | Why |
 |---|---|---|
 | `fringe_07` Root Cistern, `fringe_03` Echo Gallery | A two-cell floor hole in the cistern's west pocket (8, 16) drops into Echo Gallery's top alcove, onto ledge B | The cistern was a dead end: the route back to the vaults (ice beam, 268 solver steps) and later to the depths climbed the Drip Shaft again. It now drops through (237 steps) and never re-enters the shaft. The alcove is too high to jump back up, so the cistern still opens with the Pulse Bombs. |
-| `kiln_01` Glow Passage | The steam lift ends at row 2, inside its shaft (was row 5) | A full hop over the lava pit no longer touches it. It now carries only someone already in the shaft; the route never used it. |
+| `kiln_01` Glow Passage | The steam lift ends at row 2, inside its shaft (was row 5); a one-cell rock step at (15, 8) right under the shaft | A full hop over the lava pit no longer touches it. The lift is still Loop B's only way up from kiln_01 into nexus_03 (bigger-world.md): a jump from the step rides it (route from the return step: 16 steps; without the step, 365 round through kiln_06). |
 | `fringe_06` Skylight Atrium | Hopper on the low block (18, 13); Spitter on the west ledge (10, 10) | The walk from the water lift to the fringe_01 tunnel met only the bat swarm overhead; a ground threat on the landing and a ranged one on the next ledge cover the same stretch, both in sight from the lift. |
 
 ## Saving, death, resources, and map
