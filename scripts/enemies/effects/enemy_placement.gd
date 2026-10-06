@@ -2,6 +2,10 @@ extends RefCounted
 ## Placement, leash and frozen-shape helpers for CombatEnemy.
 
 const VisualProfiles = preload("res://scripts/enemies/effects/runtime_visual_profiles.gd")
+## Bubble Snare: margin around the body collider, and how much of the bubble the art may fill
+## (a box at 0.7 of a circle's diameter keeps its corners inside the rim).
+const BUBBLE_MARGIN := 10.0
+const BUBBLE_ART_FILL := 0.7
 
 
 ## True when a patrol heading `direction` has reached its arena leash edge. Arena clamping stops the
@@ -76,38 +80,38 @@ static func snap_to_perch(enemy: CombatEnemy) -> void:
 	enemy._update_visual_presentation()
 
 
-static func ice_shape(enemy: CombatEnemy) -> PackedVector2Array:
-	# A jagged translucent ice block around the visible silhouette.
-	var bounds: Array = VisualProfiles.profile(enemy.enemy_id).get("nominal_visible_bounds_px", [])
-	var rect := Rect2(-70.0, -70.0, 140.0, 140.0)
-	if bounds.size() == 4:
-		rect = Rect2(
-			Vector2(float(bounds[0]) - 128.0, float(bounds[1]) - 128.0),
-			Vector2(float(bounds[2]) - float(bounds[0]), float(bounds[3]) - float(bounds[1]))
-		)
-		rect.position *= enemy._visual_base_scale
-		rect.size *= enemy._visual_base_scale
-	rect = rect.grow(6.0)
-	rect.position += enemy._visual_base_position
-	var rng := RandomNumberGenerator.new()
-	rng.seed = String(enemy.enemy_id).hash()
-	var shape := PackedVector2Array()
-	var center := rect.get_center()
-	var steps := 18
-	var radii := rect.size * 0.56
-	for index in steps:
-		var angle := TAU * float(index) / float(steps) + rng.randf_range(-0.08, 0.08)
-		var direction := Vector2.RIGHT.rotated(angle)
-		# Alternate crystal points and notches so the block reads as chipped ice.
-		var jag := rng.randf_range(1.02, 1.14) if index % 2 == 0 else rng.randf_range(0.84, 0.94)
-		shape.append(center + Vector2(direction.x * radii.x, direction.y * radii.y) * jag)
-	return shape
-
-
-## Bubble Snare (D19): ellipse around the visible silhouette, local to the enemy.
+## Bubble Snare (D19), local to the enemy: the bubble wraps the body collider with its rim on the
+## collider's top, because that top is the platform she stands on (floater heights in the
+## campaign graph are measured from it).
 static func bubble_rect(enemy: CombatEnemy) -> Rect2:
-	var shape := ice_shape(enemy)
-	var rect := Rect2(shape[0], Vector2.ZERO)
-	for point in shape:
-		rect = rect.expand(point)
-	return rect.grow(4.0)
+	var body := Rect2(-25.0, -25.0, 50.0, 50.0)
+	var shape := enemy.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape != null and shape.shape is RectangleShape2D:
+		var size := (shape.shape as RectangleShape2D).size
+		body = Rect2(shape.position - size * 0.5, size)
+	# Grow 10 px all round, then sink it so the drawn rim (2 px half-width) meets the top.
+	var rect := body.grow(BUBBLE_MARGIN)
+	rect.position.y += BUBBLE_MARGIN - 2.0
+	return rect
+
+
+## Sprite transform that squeezes the enemy's visible art into `bubble` (centred, aspect kept),
+## so the drawn creature stays inside the smaller collider-sized bubble while it is trapped.
+static func bubble_sprite_fit(enemy: CombatEnemy, bubble: Rect2) -> Transform2D:
+	var fit := Transform2D(0.0, enemy._visual_base_scale, 0.0, enemy._visual_base_position)
+	if enemy._sprite == null or enemy._sprite.texture == null:
+		return fit
+	var image := enemy._sprite.texture.get_image()
+	if image == null or image.is_empty():
+		return fit
+	var used := Rect2(image.get_used_rect())
+	used.position -= Vector2(image.get_size()) * 0.5
+	var base := enemy._visual_base_scale.abs()
+	var art := Vector2(used.size.x * base.x, used.size.y * base.y)
+	if art.x <= 0.0 or art.y <= 0.0:
+		return fit
+	var shrink := minf(1.0, BUBBLE_ART_FILL * minf(bubble.size.x / art.x, bubble.size.y / art.y))
+	var offset := used.get_center() * enemy._visual_base_scale * shrink
+	if enemy._sprite.flip_h:
+		offset.x = -offset.x
+	return Transform2D(0.0, enemy._visual_base_scale * shrink, 0.0, bubble.get_center() - offset)

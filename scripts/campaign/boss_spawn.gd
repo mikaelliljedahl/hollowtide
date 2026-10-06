@@ -5,6 +5,10 @@ extends Marker2D
 
 const WAVE_GRATE_SCRIPT = preload("res://scripts/world/wave_grate.gd")
 const REGIONAL_BOSSES: Array[StringName] = [&"stone_guardian", &"furnace_mother"]
+## Dark backing behind the Tidal Heart's grate frame (the arch art's visible stone, not its
+## transparent margin): the heart's grey tentacles pass behind the frame top and blend into it
+## without one.
+const GRATE_BACKING_SIZE := Vector2(152, 284)
 
 @export var boss_id: StringName = &"stone_guardian"
 ## Local-pixel arena rectangle; the boss only fights while the player is inside.
@@ -46,6 +50,9 @@ func _spawn() -> void:
 		_grate.position = position - Vector2(150, 0)
 		get_parent().add_child(_grate)
 		_grate.call("set_relay", boss)
+		var backing := GrateBacking.new()
+		backing.rect = Rect2(Vector2(0, 4) - GRATE_BACKING_SIZE * 0.5, GRATE_BACKING_SIZE)
+		_grate.add_child(backing)
 		_anchor_grate(room)
 
 
@@ -109,6 +116,24 @@ class GrateColumn:
 		draw_rect(
 			Rect2(rect.position + Vector2(10, 0), Vector2(3, rect.size.y)), Color(1, 1, 1, 0.08)
 		)
+
+
+## Soft dark plate between the heart (z 0) and the grate frame (z 2) so the grate's silhouette
+## reads against the tentacles.
+class GrateBacking:
+	extends Node2D
+	var rect := Rect2()
+
+	func _ready() -> void:
+		z_index = 1
+
+	func _draw() -> void:
+		var plate := StyleBoxFlat.new()
+		plate.bg_color = Color(0.01, 0.02, 0.05, 0.55)
+		plate.set_corner_radius_all(int(rect.size.x * 0.5))
+		plate.shadow_color = Color(0.01, 0.02, 0.05, 0.45)
+		plate.shadow_size = 18
+		draw_style_box(plate, rect)
 
 
 func _room() -> Node2D:
