@@ -3,11 +3,16 @@ extends RefCounted
 ## its scene). A mini-boss fight left behind never blocks a required objective, and a route with a
 ## required objective nothing can open ends as `route_blocked`, not `route_done`. A running
 ## takeoff from a hop whose first cell is its own start keeps its plan on the ground and jumps.
+## Sealed heat is no hazard and an enemy shot in heat is credited to the shot, and an updraft bob
+## of 78 px in one place is recorded as a stall.
 
 const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
 const Progress = preload("res://tools/playtest_progress.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Nav = preload("res://tools/playtest_nav.gd")
+const Hazards = preload("res://tools/playtest_hazards.gd")
+const HeatZone = preload("res://scripts/campaign/heat_zone.gd")
+const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 
 var _host: Node
 var _root: Node
@@ -27,6 +32,8 @@ func run() -> void:
 	_test_left_mini_does_not_block()
 	_test_blocked_route_is_named()
 	_test_running_takeoff_jumps()
+	await _test_heat_is_not_the_hit()
+	_test_bob_is_a_stall()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
@@ -111,3 +118,94 @@ func _test_running_takeoff_jumps() -> void:
 		where["grounded"] and jumped,
 		"a running takeoff from its own start cell jumps after its run-up (%s)" % [where["cell"]]
 	)
+
+
+func _frames(count: int) -> void:
+	for _index in count:
+		await _host.get_tree().physics_frame
+
+
+## r10 kiln_08: the Emberkite arena lies inside Heat01, and with the Pressure Seal owned 26 of 27
+## boss hits were credited to "hazard:heat" (the death's killer too), and the agent avoided the
+## harmless heat. Sealed heat is no hazard; a shot in heat is the shot's; heat's own tick is heat.
+func _test_heat_is_not_the_hit() -> void:
+	GameState.reset_progress()
+	GameState.unlock_ability(&"beam")
+	GameState.unlock_ability(&"pressure_seal")
+	GameState.reset_health()
+	var zone := HeatZone.new()
+	zone.zone_size = Vector2(1024, 512)
+	_root.current_room.add_child(zone)
+	zone.global_position = _player.global_position + Vector2(0, -200)
+	var telemetry := Telemetry.new()
+	telemetry.attach(_root, _player, [])
+	await _frames(90)
+	var body := Hazards.body_rect(_player)
+	var kinds: Array = Hazards.near(_host.get_tree(), body, 0.0, true).map(
+		func(h: Dictionary) -> String: return h["kind"]
+	)
+	_check(not kinds.has("heat"), "sealed heat is no hazard (%s)" % [kinds])
+	await _shoot()
+	_check(
+		telemetry.hits.size() == 1 and telemetry.hits[-1]["source"] == "shot:orb",
+		"a shot in sealed heat is the shot's (%s)" % [telemetry.hits]
+	)
+	GameState.reset_progress()
+	GameState.unlock_ability(&"beam")
+	await _frames(90)
+	var seen := telemetry.hits.size()
+	await _shoot()
+	var shot: Array = telemetry.hits.slice(seen).filter(
+		func(h: Dictionary) -> bool: return int(h["amount"]) != 4
+	)
+	_check(
+		not shot.is_empty() and shot[0]["source"] == "shot:orb",
+		"a shot in live heat is the shot's (%s)" % [telemetry.hits.slice(seen)]
+	)
+	var ticks: Array = telemetry.hits.filter(func(h: Dictionary) -> bool: return h["amount"] == 4)
+	_check(
+		not ticks.is_empty() and ticks.all(func(h): return h["source"] == "hazard:heat"),
+		"heat's own drain is the heat's (%s)" % [ticks]
+	)
+	telemetry.detach()
+	zone.queue_free()
+	GameState.reset_progress()
+	GameState.unlock_ability(&"beam")
+	GameState.reset_health()
+	await _frames(90)
+
+
+## A shot at her chest from 90 px, then 30 frames for it to land.
+func _shoot() -> void:
+	var shot := ENEMY_PROJECTILE_SCENE.instantiate() as EnemyProjectile
+	_root.add_child(shot)
+	shot.global_position = _player.global_position + Vector2(90.0, -80.0)
+	shot.launch(Vector2.LEFT, 12)
+	await _frames(30)
+	if is_instance_valid(shot):
+		shot.queue_free()
+
+
+## r10-run3: an updraft bobbed her 78 px up and down at the nexus_07 lip for 580 s with the route
+## program running, and the 48 px spread test recorded no stall. A steady walk records none.
+func _test_bob_is_a_stall() -> void:
+	var home := _player.global_position
+	var bob := Telemetry.new()
+	bob.attach(_root, _player, [])
+	for frame in 600:
+		var phase := absf(fmod(frame / 40.0, 2.0) - 1.0)
+		_player.global_position = Vector2(6.5 * 64.0, 400.0 + 78.0 * phase)
+		bob.tick(1.0 / 60.0, true, "go_to_objective")
+	bob.detach()
+	var longest := 0.0
+	for episode in bob.stuck_episodes:
+		longest = maxf(longest, float(episode["seconds"]))
+	_check(longest >= 3.0, "a 78 px bob in one place is a stall (%s)" % [bob.stuck_episodes])
+	var walk := Telemetry.new()
+	walk.attach(_root, _player, [])
+	for frame in 300:
+		_player.global_position = Vector2(2.5 * 64.0 + frame * 380.0 / 60.0 * 0.25, 480.0)
+		walk.tick(1.0 / 60.0, true, "go_to_objective")
+	walk.detach()
+	_check(walk.stuck_episodes.is_empty(), "a walk is none (%s)" % [walk.stuck_episodes])
+	_player.global_position = home
