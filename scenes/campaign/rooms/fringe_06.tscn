@@ -56,13 +56,27 @@ bounds = Rect2(2912, 352, 384, 256)
 travel_direction = 1
 
 [node name="Enemy02" type="Marker2D" parent="Entities"]
+position = Vector2(1184, 864)
+script = ExtResource("5_enemy")
+enemy_id = &"hopper"
+bounds = Rect2(992, 736, 384, 256)
+travel_direction = 1
+
+[node name="Enemy03" type="Marker2D" parent="Entities"]
 position = Vector2(2720, 736)
 script = ExtResource("5_enemy")
 enemy_id = &"crawler"
 bounds = Rect2(2336, 480, 768, 512)
 travel_direction = 1
 
-[node name="Enemy03" type="Marker2D" parent="Entities"]
+[node name="Enemy04" type="Marker2D" parent="Entities"]
+position = Vector2(672, 672)
+script = ExtResource("5_enemy")
+enemy_id = &"spitter"
+bounds = Rect2(480, 544, 384, 256)
+travel_direction = 1
+
+[node name="Enemy05" type="Marker2D" parent="Entities"]
 position = Vector2(1440, 416)
 script = ExtResource("5_enemy")
 enemy_id = &"bat_swarm"

@@ -340,6 +340,21 @@ class JevBackendTest(unittest.TestCase):
         self.assertEqual((record["input_tokens"], record["model"]), (700, "jev-1.13.0"))
         self.assertGreater(record["latency_ms"], 0)
 
+    def test_shots_that_never_hurt_are_dropped(self):
+        # r12-full-s2: 3,581 shots at a Drop Spider whose health never moved, over 360 s.
+        self.backend.start({})
+        for step in range(jev_backend.FUTILE_SHOTS):
+            self.assertEqual(self.decide(3.0 + step), "shoot:e2:forward")
+        self.decide(3.0 + jev_backend.FUTILE_SHOTS)
+        criteria = self.stub.requests[-1]["body"]["questions"]["action"]["criteria"]
+        self.assertNotIn("shoot:e2:forward", criteria)
+        # Hurt once, the target's shots come back.
+        state = json.loads(json.dumps(GAME_STATE))
+        state["enemies"][0]["health"] -= 1
+        self.backend.decide(dict(state, t=100.0), GAME_CANDIDATES, "retreat")
+        criteria = self.stub.requests[-1]["body"]["questions"]["action"]["criteria"]
+        self.assertIn("shoot:e2:forward", criteria)
+
     def test_rate_cap_skips_between_calls(self):
         self.decide(3.0)
         # Jev's answer is kept between calls instead of the hint ("retreat").
@@ -559,6 +574,29 @@ class JevRoundThreeStateTest(unittest.TestCase):
         keys = [c["key"] for c in jev_request.legal(candidates, state, hint)]
         self.assertEqual(keys, ["approach:e1", "retreat", hint])
         self.assertNotIn("quiver", jev_request.compact_state(state, {})["facts"])
+
+    def test_passing_a_boss_that_is_not_the_goal(self):
+        # r12-full-s1: after the Tollwing objective timed out, later objectives led through its
+        # arena and Jev idled and shot there for over 1,000 s with an empty quiver.
+        state = self.state()
+        state["enemies"][0].update(type="tollwing", stage=2)
+        state["goal"] = {"kind": "visit", "target": "nexus_05", "room": "nexus_05"}
+        candidates = [
+            {"key": "idle", "kind": "idle", "label": "stand still"},
+            {"key": "go_to_objective", "kind": "go_to_objective", "label": "follow the route"},
+            {"key": "dodge:swoop", "kind": "dodge", "label": "run into the pocket"},
+            {"key": "approach:e1", "kind": "approach", "label": "move to firing range"},
+            {"key": "select_beam:base", "kind": "select_beam", "label": "switch"},
+        ]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["go_to_objective", "dodge:swoop"])
+        # Its own objective, or no route move offered: the fight moves stay.
+        state["goal"] = {"kind": "mini", "target": "tollwing", "room": "nexus_09"}
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(len(keys), 5)
+        state["goal"] = {"kind": "visit", "target": "nexus_05", "room": "nexus_05"}
+        keys = [c["key"] for c in jev_request.legal(candidates[2:], state, "dodge:swoop")]
+        self.assertEqual(len(keys), 3)
 
     def test_no_route_out_of_a_running_arena(self):
         # r6-min-s1: the route led up out of the fringe_03 beam trial and the arena aborted.

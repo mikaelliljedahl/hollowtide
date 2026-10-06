@@ -136,6 +136,24 @@ rooms hold only dodgeable enemies and a Drop Spider, and each listed route walk 
 | `vaults_02` Hanging Vaults | Hopper on the east floor (50, 14) | The walk from vaults_01 to the shaft passed under the Frost Floater only. |
 | `nexus_07` Undercroft | Hopper on the floor (19, 12) | The walk to the climb met neither the Crawler behind her nor the Ceiling Diver. |
 
+Round 12 (2026-10-06): the lowest rooms of the 48-room world after round 11 (room fun 0.40) were
+kiln_01 and fringe_02 (0.54, navigation confusing, revisits) and fringe_06 (0.52). fringe_02's
+low score was its revisit: the way back from the Root Cistern climbed out through the Drip Shaft
+past its wall Crawlers (121 s, 6 hits, rated boring). In kiln_01 the steam lift over the lava pit
+reached down to row 5, so the pillar hop across the pit carried her up into nexus_03 and dropped
+her back on every pass. Three rules pin the changes in `tools/check_campaign_graph.py`:
+`revisit_errors` (`tools/campaign_pacing.py`) needs a drop from each listed dead end into the room
+below, `lift_errors` (`tools/campaign_lifts.py`) forbids an updraft out of reach from its floor
+that a hop from a ledge beside it still reaches, and fringe_06 joins the route walks of
+`dodge_room_errors`. In real physics, `tools/check_campaign_moves.gd` (`fringe_07_drain`,
+`route_threats`) and `tools/check_campaign_moves_kd.gd` (`kiln_01_steam_hop`) cover the same.
+
+| Room | Change | Why |
+|---|---|---|
+| `fringe_07` Root Cistern, `fringe_03` Echo Gallery | A two-cell floor hole in the cistern's west pocket (8, 16) drops into Echo Gallery's top alcove, onto ledge B | The cistern was a dead end: the route back to the vaults (ice beam, 268 solver steps) and later to the depths climbed the Drip Shaft again. It now drops through (237 steps) and never re-enters the shaft. The alcove is too high to jump back up, so the cistern still opens with the Pulse Bombs. |
+| `kiln_01` Glow Passage | The steam lift ends at row 2, inside its shaft (was row 5); a one-cell rock step at (15, 8) right under the shaft | A full hop over the lava pit no longer touches it. The lift is still Loop B's only way up from kiln_01 into nexus_03 (bigger-world.md): a jump from the step rides it (route from the return step: 16 steps; without the step, 365 round through kiln_06). |
+| `fringe_06` Skylight Atrium | Hopper on the low block (18, 13); Spitter on the west ledge (10, 10) | The walk from the water lift to the fringe_01 tunnel met only the bat swarm overhead; a ground threat on the landing and a ranged one on the next ledge cover the same stretch, both in sight from the lift. |
+
 ## Saving, death, resources, and map
 
 - At least one safe save/refill point per area; an accessible save point comes before each boss.

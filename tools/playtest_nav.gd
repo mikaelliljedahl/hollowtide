@@ -12,6 +12,8 @@ const TILE := 64.0
 const CENTER_PX := 10.0
 ## Steering dead zone while a grounded hop drops to a lower cell.
 const DROP_PX := 1.0
+## Rock this close (px) above her head stops a rise.
+const CAP_PROBE := 4.0
 ## A frozen frost floater can hold her feet up to 34 px into the row below the solver's resting
 ## row (heur-r1 stood still at vaults_02 (28, 13) with her feet 34 px in, read off the route,
 ## until the floater thawed under her, five times). Feet on real ground sit 64 px into their row.
@@ -115,6 +117,7 @@ class Navigator:
 			# back, and steering her out there stranded her on the nexus_03 floor.
 			if not hop.is_empty() and _stale_air > STALE_AIR_FRAMES and passed_in(where):
 				drop_hop()
+			_chain_in_updraft(where)
 			status = "airborne" if not hop.is_empty() else "off_field"
 			return status
 		var found := rest_entry(where)
@@ -147,6 +150,34 @@ class Navigator:
 			_stale_air = 0
 		status = "on_field"
 		return status
+
+	## Lifted by an updraft with every cell of the hop passed, she takes the field's next hop from
+	## its last cell, so she keeps walking the planned way through the current instead of holding
+	## nothing. Round 12: on the kiln_06 row 5 platform the walk west lifted her off at (15, 4)
+	## into the north steam, she held nothing, rose into kiln_08 and fell back, for good (cells
+	## 13 to 16 never reached the west door in a probe).
+	func _chain_in_updraft(where: Dictionary) -> void:
+		if hop.is_empty() or progress < hop.size() or not _in_updraft(where):
+			return
+		var last: Array = hop[-1]
+		if last[0] != where["room"]:
+			return
+		var next := route.entry(
+			objective, String(last[0]), Vector2i(last[1], last[2]), bool(last[3])
+		)
+		if next.is_empty() or (next[1] as Array).is_empty():
+			return
+		hop = next[1]
+		progress = 0
+		_stale_air = 0
+
+	static func _in_updraft(where: Dictionary) -> bool:
+		var room_node: Node2D = where["room_node"]
+		for node in room_node.get_tree().get_nodes_in_group(&"worldfx_current"):
+			var current := node as PushCurrent
+			if current != null and current.direction.y < -0.1 and current.player_inside():
+				return true
+		return false
 
 	## Gives up the hop: the next refresh reads the field again, or reports her off it.
 	func drop_hop() -> void:
@@ -278,7 +309,16 @@ class Navigator:
 		# Standing on a ledge's lip above a drop in the next column, the feet can sit within
 		# CENTER_PX of the target column and still be held up: step on until she falls.
 		var drop: bool = grounded and target[0] == room and int(target[2]) > cell.y
-		if absf(dx) > (DROP_PX if drop else CENTER_PX):
+		# Rising under rock that stops the body: the column's centre clears it (the body is 56 px
+		# in a 64 px column). Round 12: the kiln_01 steam held her head 5 px under the shaft's west
+		# wall, 9 px from the centre, for 940 s (r12-full-s1b).
+		var capped: bool = (
+			not grounded
+			and target[0] == room
+			and int(target[2]) < cell.y
+			and player.test_move(player.global_transform, Vector2(0, -CAP_PROBE))
+		)
+		if absf(dx) > (DROP_PX if drop or capped else CENTER_PX):
 			held.append(&"move_right" if dx > 0.0 else &"move_left")
 		_press_jump(held, where, player, rises, dx, edge)
 		var want_ball := bool(target[3])
@@ -425,7 +465,11 @@ class Navigator:
 				side = signi(int(step[1]) - _from.x)
 		if top >= _from.y or first.is_empty():
 			return 0
-		if side != 0 and int(first[2]) == _from.y and bool(first[4]):
+		# Not curled: the ball rolls at 580 px/s, so a run off the edge carries it under whatever
+		# lies past the edge before the coyote jump takes. Round 12: kiln_06 (12, 21) rolled under
+		# the west door's ledge and jumped into its underside, round after round (r11-full-s2 chose
+		# `go_to_door:west:kiln_02` 5,227 times there); a jump in place drifts up onto the ledge.
+		if side != 0 and int(first[2]) == _from.y and bool(first[4]) and not player.is_ball:
 			# A wall that way: running into it only delays the jump (kiln_06 (17, 7)).
 			return (
 				0 if player.test_move(player.global_transform, Vector2(side * 8.0, 0.0)) else side

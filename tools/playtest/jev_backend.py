@@ -39,6 +39,12 @@ RETRY_AFTER_CAP = 10.0
 # seven-minute "no healthy upstream" outage, one per decision.
 TRANSIENT_STATUSES = (502, 503, 504)
 BACKOFF_CAP = 15.0
+# Shot kinds tracked per target, and how many in a row at an unchanged health make a target's
+# shots futile until it is hurt. r12-full-s2: Jev fired 3,581 `shoot:e39:up` at a Drop Spider
+# 542 px up and 100 px aside in vaults_01 over 360 s; the bolts passed beside it (health 30
+# throughout) while the hint was the route.
+SHOT_KINDS = ("shoot", "jump_shoot", "crouch_shot", "harpoon")
+FUTILE_SHOTS = 40
 MOVING_KINDS = (
     "approach",
     "go_to_exit",
@@ -182,6 +188,8 @@ class JevBackend(Backend):
         self._input_tokens = 0
         # Jev's last answered key, repeated on rate skips while it is offered.
         self._intent = ""
+        # Target id -> [its health when the run of shots began, shots in a row since].
+        self._shots: dict[str, list[int]] = {}
 
     def start(self, hello: dict[str, Any]) -> None:
         require_key()
@@ -191,6 +199,7 @@ class JevBackend(Backend):
         self.client.close()
 
     def decide(self, state: dict[str, Any], candidates: list[dict[str, Any]], hint: str) -> str:
+        candidates = [c for c in candidates if c["key"] == hint or not self._futile(c, state)]
         record = self._base_record(state, hint)
         skip = self._skip_reason(float(state.get("t", 0.0)))
         if skip is not None or state.get("room") is None:
@@ -344,9 +353,30 @@ class JevBackend(Backend):
         self._intent = ""
         return hint
 
+    def _futile(self, candidate: dict[str, Any], state: dict[str, Any]) -> bool:
+        """True for a shot at a target the last FUTILE_SHOTS shots in a row left unhurt."""
+        if candidate.get("kind") not in SHOT_KINDS:
+            return False
+        target = (candidate["key"].split(":") + [""])[1]
+        run = self._shots.get(target)
+        return run is not None and run[1] >= FUTILE_SHOTS and run[0] == _health(state, target)
+
+    def _note_shot(self, key: str, state: dict[str, Any]) -> None:
+        kind, _sep, rest = key.partition(":")
+        if kind not in SHOT_KINDS:
+            return
+        target = rest.split(":")[0]
+        health = _health(state, target)
+        run = self._shots.get(target)
+        if run is not None and run[0] == health:
+            run[1] += 1
+        else:
+            self._shots[target] = [health, 1]
+
     def _finish(self, record: dict[str, Any], key: str, state: dict[str, Any]) -> str:
         record["key"] = key
         self.records.append(record)
+        self._note_shot(key, state)
         # `last_action` for the next request: the kind just chosen plus how far the previous
         # choice moved the player, and a stall flag after three moving choices that went nowhere.
         cell = (state.get("player") or {}).get("cell")
@@ -365,3 +395,11 @@ class JevBackend(Backend):
             "summary": kind if moved is None else f"{kind} (previous action moved {moved} tiles)",
         }
         return key
+
+
+def _health(state: dict[str, Any], target: str) -> int:
+    """The health of enemy `target` in `state`, or -1 when it is not there."""
+    for enemy in state.get("enemies", []):
+        if enemy.get("id") == target:
+            return int(enemy.get("health", -1))
+    return -1

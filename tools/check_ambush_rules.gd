@@ -401,8 +401,9 @@ func _campaign_fringe_03() -> void:
 	root.call("teleport", "fringe_03", inside)
 	await _frames(30)
 	var arena := get_tree().get_first_node_in_group(&"worldfx_ambush") as AmbushArena
-	_check(arena != null and arena.slabs.size() == 2, "fringe_03 has the beam_trial arena")
-	if arena == null or arena.slabs.size() != 2:
+	# Three seals: the Ball tunnel, the east door and the Root Cistern drop (Jev round 12).
+	_check(arena != null and arena.slabs.size() == 3, "fringe_03 has the beam_trial arena")
+	if arena == null or arena.slabs.size() != 3:
 		root.queue_free()
 		return
 	_telegraphs.clear()
@@ -410,12 +411,13 @@ func _campaign_fringe_03() -> void:
 	var doors := arena.slabs.map(func(slab: SealSlab) -> Vector2: return slab.global_position)
 	await _seconds(0.5)
 	_check(arena.state == AmbushArena.State.ARMED, "no seal without the beam")
-	_check(not _solid_at(doors[0]) and not _solid_at(doors[1]), "both openings are air")
+	_check(doors.all(func(at: Vector2) -> bool: return not _solid_at(at)), "all openings are air")
 	GameState.unlock_ability(&"beam")
 	await _seconds(0.5)
 	_check(arena.state == AmbushArena.State.SEALING, "with the beam the arena seals")
 	_check(
-		_solid_at(doors[0]) and _solid_at(doors[1]), "Ball tunnel and east door are both blocked"
+		doors.all(func(at: Vector2) -> bool: return _solid_at(at)),
+		"Ball tunnel, east door and cistern drop are all blocked"
 	)
 	var points := arena.authored_points()
 	var first_id := arena.get_instance_id()
@@ -434,7 +436,9 @@ func _campaign_fringe_03() -> void:
 	)
 	_check(GameState.has_world_flag(FLAG), "clear flag %s saved" % FLAG)
 	await _seconds(1.2)
-	_check(not _solid_at(doors[0]) and not _solid_at(doors[1]), "seals open after the clear")
+	_check(
+		doors.all(func(at: Vector2) -> bool: return not _solid_at(at)), "seals open after the clear"
+	)
 	root.call("teleport", "fringe_02", Vector2(14.5 * TILE, 32 * TILE))
 	await _frames(20)
 	root.call("teleport", "fringe_03", inside)
