@@ -2,6 +2,8 @@ id: fringe_07
 area: fringe
 name: Root Cistern
 origin: 60 17
+# drain: the floor hole in the west pocket drops into Echo Gallery's top alcove, so the way back
+# from the cistern no longer climbs out through the Drip Shaft.
 legend:
   v stalactite
   L light
@@ -24,4 +26,4 @@ grid:
 ######.......#######.........#
 ######.......................#
 ######................M..S...#
-##############################
+########..####################

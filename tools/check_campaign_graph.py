@@ -7,10 +7,12 @@ opening in the neighbouring room, pickup IDs are unique, generated scenes are up
 boss room has a guaranteed missile refill that a floor-pursuing boss cannot cut off from either end
 of its lane (tools/campaign_boss_refill.py), walking straight in through a side door never drops into
 lava and no flyer patrols above it (tools/campaign_walk_in.py), no stretch of a room's long axis is
-empty of enemies (tools/campaign_pacing.py), a cell-level solver can finish the
-campaign (vaults-first, kiln-first, and without optional tanks/Long Beam). The solver also proves
-that every position reachable at every progression stage can still walk back to a save shrine
-with the abilities owned at that moment (no softlocks, including entering rooms too early).
+empty of enemies and a listed dead end has a drop back down (tools/campaign_pacing.py), no updraft
+out of reach from its floor hangs within a hop of a ledge beside it (tools/campaign_lifts.py), a
+cell-level solver can finish the campaign (vaults-first, kiln-first, and without optional
+tanks/Long Beam). The solver also proves that every position reachable at every progression stage
+can still walk back to a save shrine with the abilities owned at that moment (no softlocks,
+including entering rooms too early).
 Each branch boss room must hold a shortcut back to the hub: a flag gate on that boss's flag at a
 door into a hub room, sealed before the fight and walkable once the boss is down.
 Intended sequence breaks (tools/campaign_breaks.py) join the solver as explicit edges; the campaign
@@ -50,7 +52,8 @@ from campaign_layout import (  # noqa: E402
     overlap_errors,
     room_at_world,
 )
-from campaign_pacing import dodge_room_errors, pacing_errors  # noqa: E402
+from campaign_lifts import lift_errors  # noqa: E402
+from campaign_pacing import dodge_room_errors, pacing_errors, revisit_errors  # noqa: E402
 from campaign_shortcuts import shortcut_errors  # noqa: E402
 from campaign_walk_in import lava_errors  # noqa: E402
 
@@ -557,6 +560,8 @@ def static_errors(rooms: dict[str, Room]) -> list[str]:
     errors += pursuit_refill_errors(rooms)
     errors += pacing_errors(rooms)
     errors += dodge_room_errors(rooms)
+    errors += revisit_errors(rooms)
+    errors += lift_errors(rooms)
     for door in doors:
         if door.target is None or door.edge in ("north", "south"):
             continue

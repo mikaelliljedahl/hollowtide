@@ -118,7 +118,7 @@ is named only when the gate itself needs it.
 | Id | Origin, size | Attaches to | Gate | Purpose | Holds |
 |---|---|---|---|---|---|
 | fringe_06 Skylight Atrium | 60,0 60x17 | fringe_01 east wall (rows 5-7) and fringe_05 north | Slipstream (1-cell tunnel at the fringe_01 door) | Landmark: collapsed ceiling, light shafts, first look at the wider cavern; closes the fringe loop 01-06-05-04-03-02-01 | none |
-| fringe_07 Root Cistern | 60,17 30x17 | fringe_02 east wall (rows 0-3 local y 17-20) | Resonance Pulse (`bomb` gate at the fringe_02 side) | Secret pocket, dead end | `missilerefill`, save |
+| fringe_07 Root Cistern | 60,17 30x17 | fringe_02 east wall (rows 0-3 local y 17-20); one-way floor drop into fringe_03 (round 12) | Resonance Pulse (`bomb` gate at the fringe_02 side) | Secret pocket; its floor drop is the way back out (phase-2-campaign.md, Encounter pacing) | `missilerefill`, save |
 | fringe_08 Hopper Pit | 120,0 30x17 | fringe_04 north, fringe_09 via nexus_08 east | none | Optional challenge: ambush arena (hopper, ceiling_diver) on the north loop | `missilerefill` |
 | fringe_09 Thread Fall | 150,17 30x17 | fringe_04 east (rows 17-30), nexus_02 north | timed door at the nexus_02 end, switch on the fringe_04 side | Shortcut from the fringe back to the hub; loop A (fringe_04-09-nexus_02-nexus_01-fringe_04) | none |
 

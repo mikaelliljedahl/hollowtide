@@ -47,6 +47,7 @@ func _run() -> void:
 	_player.set("dev_invulnerable", true)
 	await _case_kiln_01_entry_steps()
 	await _case_kiln_01_pillar()
+	await _case_kiln_01_steam_hop()
 	await _case_kiln_01_crack()
 	await _case_kiln_01_shrine_exit()
 	await _case_kiln_02_drop()
@@ -112,6 +113,26 @@ func _case_kiln_01_pillar() -> void:
 	_expect_row("kiln_01 floor -> east step", "kiln_01", 10, 30, 31)
 	await _jump(-1, 26)
 	_expect_row("kiln_01 east step -> gargoyle pillar", "kiln_01", 7, 24, 27)
+
+
+## Jev round 12: a full hop east off the return step over the lava pit reached the steam lift, which
+## carried her into nexus_03 and dropped her back (a heuristic trace: 0.7 s in nexus_03 on every
+## pass). The lift now stays in the shaft, out of the hop's reach.
+func _case_kiln_01_steam_hop() -> void:
+	if not _wanted("kiln_01_steam_hop"):
+		return
+	var rooms: Array[String] = []
+	var note := func(room_id: String) -> void: rooms.append(room_id)
+	for start in [Vector2i(12, 10), Vector2i(13, 10)]:
+		await _setup("kiln_01", start, [])
+		_root.connect(&"room_changed", note)
+		Input.action_press(&"move_right")
+		await _jump(0)
+		_root.disconnect(&"room_changed", note)
+	_expect_true(
+		"kiln_01 hop over the lava pit stays under the steam lift (rooms entered: %s)" % [rooms],
+		rooms.is_empty() and _room() == "kiln_01"
+	)
 
 
 func _case_kiln_01_crack() -> void:
