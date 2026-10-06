@@ -1215,3 +1215,17 @@ lists depths_05 to depths_10, Lanternjaw and kiln_07 as unreached and plans 66 o
 the old planner, whose room and mini-boss floors there drop from 40 to 39 and 4 to 3. Game
 finding, not changed here: if the solver is right that depths_05 can only be entered from
 depths_01, that cluster (depths_05 to depths_10 and Lanternjaw) cannot be entered in the game.
+
+**Rated run r12-full-s2** (seed 2, new game, Jev policy and critic, 66 planned objectives): **the
+ending**, 49 of 66 at 3,623 s, 8 deaths, every boss at the first attempt (Tidal Heart in 96.2 s);
+critic overall 0.69 (room 0.66, ambush 0.87, boss 0.72). Its time sinks, for the next round:
+360 s in vaults_01 firing 3,581 `shoot:e39:up` at a Drop Spider 542 px up and 100 px aside (its
+health never moved; the hint was the route), about 1,000 s at nexus_05 (12 to 13, 29) where the
+running takeoff into the one-tile chimney over column 13 hits the rock above and falls back (open:
+a skip-ahead of the hop's cells did not fix it in a probe), and six lava deaths at kiln_01 (15 to
+16, 13) on the way from nexus_03 to nexus_02.
+
+**Shots that never hurt.** The Jev backend now counts shots in a row at one target; after
+`FUTILE_SHOTS` (40) with its health unchanged, shots at it are dropped until it is hurt, unless the
+hint is one (`_futile`, `tools/playtest/jev_backend.py`). `test_shots_that_never_hurt_are_dropped`
+(`tools/check_playtest_bridge.py`) fails on the old backend.

@@ -340,6 +340,21 @@ class JevBackendTest(unittest.TestCase):
         self.assertEqual((record["input_tokens"], record["model"]), (700, "jev-1.13.0"))
         self.assertGreater(record["latency_ms"], 0)
 
+    def test_shots_that_never_hurt_are_dropped(self):
+        # r12-full-s2: 3,581 shots at a Drop Spider whose health never moved, over 360 s.
+        self.backend.start({})
+        for step in range(jev_backend.FUTILE_SHOTS):
+            self.assertEqual(self.decide(3.0 + step), "shoot:e2:forward")
+        self.decide(3.0 + jev_backend.FUTILE_SHOTS)
+        criteria = self.stub.requests[-1]["body"]["questions"]["action"]["criteria"]
+        self.assertNotIn("shoot:e2:forward", criteria)
+        # Hurt once, the target's shots come back.
+        state = json.loads(json.dumps(GAME_STATE))
+        state["enemies"][0]["health"] -= 1
+        self.backend.decide(dict(state, t=100.0), GAME_CANDIDATES, "retreat")
+        criteria = self.stub.requests[-1]["body"]["questions"]["action"]["criteria"]
+        self.assertIn("shoot:e2:forward", criteria)
+
     def test_rate_cap_skips_between_calls(self):
         self.decide(3.0)
         # Jev's answer is kept between calls instead of the hint ("retreat").
