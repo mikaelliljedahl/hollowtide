@@ -83,8 +83,9 @@ unique pickups receive stable world IDs; if a pickup moves, it retains its ID.
 Direction: more action, fewer puzzles. No stretch of 24 columns along a room's long axis (12 rows
 in a room taller than wide, since a climb is slower than a walk) is empty of threats: each needs a resident enemy or an ambush arena's spawn area. In a room without an ambush a
 stalactite also counts, because the rooms before the first weapon (fringe_01, fringe_02) may only
-hold threats the player can dodge (stalactites and Crawlers, which no early weapon harms and she
-jumps over); every other enemy must be beatable with the kit on first arrival. Boss
+hold threats the player can dodge (stalactites, Crawlers she jumps over, the Mimic Lure, and Drop
+Spiders she outwaits), and each needs at least one telegraphed Drop Spider; every other enemy must
+be beatable with the kit on first arrival. Boss
 rooms, the ending room and the hub are exempt. `tools/campaign_pacing.py` enforces the rule inside
 `tools/check_campaign_graph.py`.
 
@@ -120,6 +121,20 @@ room below by accident; the drop stays a deliberate hop. The upward door lift
 change (`Player.apply_door_lift`): in a real nexus_07 probe a held High Jump cleared the nexus_01
 floor by 104 px, but a release in the first frames after the door cut the lift to 40 % and dropped
 her back.
+
+Round 11 (2026-10-06): the round 10 Crawlers reached her in the weaponless rooms, but the critic
+rated the hit unforeseen (readability 0.02, main problem "unclear warning"). Rooms on the route
+that rated "too easy" had their enemies off the walked line (a seed 1 trace: nearest enemy 180 to
+270 px, no damage). `dodge_room_errors` in `tools/campaign_pacing.py` pins both: the weaponless
+rooms hold only dodgeable enemies and a Drop Spider, and each listed route walk has an enemy on it.
+
+| Room | Added | Why |
+|---|---|---|
+| `fringe_01` Surface Breach | Drop Spiders over the start floor (16, 3) and before the pickup block (27, 3) | A threat that twitches and draws its drop line before it falls to her chest height, then re-arms: she waits or walks through on the beat. |
+| `fringe_02` Drip Shaft | Drop Spiders over the Slipstream (7, 28) and under the step block (20, 27) | The same beat on the floor she walks twice, to the Slipstream and back to the tunnel. |
+| `fringe_03` Echo Gallery | Hopper on the upper shelf (33, 7); Spitter at its east end (47, 7) | The route runs along the shelf over the beam trial floor, so the floor's Spitter and Drop Spider never saw her. |
+| `vaults_02` Hanging Vaults | Hopper on the east floor (50, 14) | The walk from vaults_01 to the shaft passed under the Frost Floater only. |
+| `nexus_07` Undercroft | Hopper on the floor (19, 12) | The walk to the climb met neither the Crawler behind her nor the Ceiling Diver. |
 
 ## Saving, death, resources, and map
 

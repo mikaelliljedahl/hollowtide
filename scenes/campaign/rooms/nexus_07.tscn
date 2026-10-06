@@ -56,6 +56,13 @@ enemy_id = &"ceiling_diver"
 bounds = Rect2(608, 64, 768, 416)
 travel_direction = 1
 
+[node name="Enemy03" type="Marker2D" parent="Entities"]
+position = Vector2(1248, 800)
+script = ExtResource("5_enemy")
+enemy_id = &"hopper"
+bounds = Rect2(992, 672, 512, 256)
+travel_direction = 1
+
 [node name="Current01" type="Area2D" parent="Entities"]
 position = Vector2(736, 928)
 script = ExtResource("6_current")

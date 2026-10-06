@@ -89,9 +89,10 @@ var _facing := 1.0
 var _fx: ShaderMaterial
 var _open_texture: Texture2D
 var _closed_texture: Texture2D
-var _ice_shape := PackedVector2Array()
 ## Bubble Snare state (D19): the "frozen" status is an air bubble that drifts slowly upward.
 var _bubble_rect := Rect2()
+## Sprite position/scale that fits the art inside the bubble while trapped.
+var _bubble_fit := Transform2D()
 var _bubble_rise := 0.0
 var _bubble_visual: BubbleVisual
 var _placement_frames := 3
@@ -490,8 +491,8 @@ func _freeze() -> void:
 		_player_detector.set_deferred("monitoring", false)
 	_hit_flash_remaining = HIT_FLASH_SECONDS
 	_spawn_compact_hit(true)
-	_ice_shape = Placement.ice_shape(self)
 	_bubble_rect = Placement.bubble_rect(self)
+	_bubble_fit = Placement.bubble_sprite_fit(self, _bubble_rect)
 	if not is_instance_valid(_bubble_visual):
 		_bubble_visual = BubbleVisual.attach(self, _bubble_rect)
 	_update_visual_presentation()
@@ -804,9 +805,11 @@ func _update_visual_presentation() -> void:
 		if enemy_id != &"shooting_gargoyle":
 			glow_color = Color(1.0, 0.7, 0.28, 1.0)
 	if is_frozen:
-		# Trapped in a bubble: slight pale tint and a slow helpless rotation.
+		# Trapped in a bubble: art squeezed inside it, pale tint and a slow helpless rotation.
 		frost = 0.28
 		glow = 0.0
+		_sprite.position = _bubble_fit.origin
+		_sprite.scale = _bubble_fit.get_scale()
 		_sprite.rotation = sin(_age * 1.6) * 0.08
 		if _freeze_remaining < THAW_WARNING_SECONDS:
 			# Pop notice: the enemy struggles inside the bubble before it bursts.

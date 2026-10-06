@@ -175,7 +175,8 @@ func _draw() -> void:
 		elif state == State.REFORMING:
 			alpha = 1.0 - _timer[index] / REFORM_SECONDS
 		var rect := Rect2(Vector2(index * TILE, 0) + offset, Vector2(TILE, TILE))
-		WorldFx.draw_rock(self, rect, _area, true, 0.0, true, true)
+		# Same stone and brightness as the surrounding terrain; only the cracks and gaps tell.
+		WorldFx.draw_rock(self, rect, _area, true, 0.0, true, true, false)
 		_draw_cracks(rect, index, accent, state == State.SHAKING)
 		if alpha < 1.0:
 			draw_rect(rect, Color(0.02, 0.02, 0.03, 1.0 - alpha), true)
@@ -190,7 +191,8 @@ func _draw_cracks(rect: Rect2, index: int, accent: Color, shaking: bool) -> void
 	# Fine hairline fractures mark the tile as brittle; they glow while it gives way.
 	var noise := RandomNumberGenerator.new()
 	noise.seed = CRACK_SEED + index * 131
-	var crack := Color(0.02, 0.02, 0.03, 0.75 if shaking else 0.4)
+	var crack := Color(0.02, 0.02, 0.03, 0.75 if shaking else 0.6)
+	var lit_edge := Color(1.0, 1.0, 1.0, 0.14)
 	var glow := Color(accent.r, accent.g, accent.b, 0.7)
 	for _branch in 2 if shaking else 1:
 		var point := rect.position + Vector2(noise.randf_range(12, 52), 6)
@@ -200,4 +202,7 @@ func _draw_cracks(rect: Rect2, index: int, accent: Color, shaking: bool) -> void
 			points.append(point)
 		if shaking:
 			draw_polyline(points, glow, 3.5)
-		draw_polyline(points, crack, 1.4)
+		else:
+			# A lit lip under the fissure keeps it readable on matched terrain.
+			draw_polyline(Transform2D(0.0, Vector2(1.0, 1.5)) * points, lit_edge, 1.2)
+		draw_polyline(points, crack, 1.8)

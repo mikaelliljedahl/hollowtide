@@ -211,7 +211,9 @@ static func _dust_texture() -> Texture2D:
 
 ## Draws a rock mass with the area's fill texture (world-aligned when `world_uv`) so blocks read
 ## as the same stone as the terrain. `top_face` adds the kit's surface strip (moss, frost, crust)
-## along the top edge; `seams` adds glowing accent grooves (doors and machinery).
+## along the top edge; `seams` adds glowing accent grooves (doors and machinery). `shaded` false
+## draws the fill exactly as the cave terrain does (kit tint, no block shading), for pieces that
+## sit in a terrain run such as crumble tiles.
 static func draw_rock(
 	canvas: CanvasItem,
 	rect: Rect2,
@@ -219,13 +221,15 @@ static func draw_rock(
 	world_uv := false,
 	seams := 0.0,
 	top_face := false,
-	bottom_face := false
+	bottom_face := false,
+	shaded := true
 ) -> void:
 	var area_kit := kit(area)
 	var colors := palette(area)
 	var fill := area_kit.texture(&"fill")
 	var tint: Color = area_kit.tint if fill != null else colors["rock"]
-	tint = tint.lightened(0.18)
+	if shaded:
+		tint = tint.lightened(0.18)
 	if fill != null:
 		var source := rect
 		if world_uv:
@@ -233,27 +237,8 @@ static func draw_rock(
 		canvas.draw_texture_rect_region(fill, rect, source, Color(tint.r, tint.g, tint.b, 1.0))
 	else:
 		canvas.draw_rect(rect, Color(tint.r * 0.35, tint.g * 0.35, tint.b * 0.35), true)
-	# Soft vertical light falloff (lit from above) and darker side edges.
-	var shade := PackedVector2Array(
-		[
-			rect.position,
-			Vector2(rect.end.x, rect.position.y),
-			rect.end,
-			Vector2(rect.position.x, rect.end.y)
-		]
-	)
-	canvas.draw_polygon(
-		shade,
-		PackedColorArray(
-			[Color(1, 1, 1, 0.06), Color(1, 1, 1, 0.06), Color(0, 0, 0, 0.3), Color(0, 0, 0, 0.3)]
-		)
-	)
-	canvas.draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), Color(0, 0, 0, 0.22), true)
-	canvas.draw_rect(
-		Rect2(rect.position + Vector2(rect.size.x - 4.0, 0), Vector2(4.0, rect.size.y)),
-		Color(0, 0, 0, 0.22),
-		true
-	)
+	if shaded:
+		_draw_block_shading(canvas, rect)
 	if seams > 0.0:
 		var accent: Color = colors["accent"]
 		accent.a = seams
@@ -300,6 +285,30 @@ static func draw_rock(
 		canvas.draw_rect(
 			Rect2(rect.position, Vector2(rect.size.x, 3.0)), Color(1, 1, 1, 0.16), true
 		)
+
+
+static func _draw_block_shading(canvas: CanvasItem, rect: Rect2) -> void:
+	# Soft vertical light falloff (lit from above) and darker side edges.
+	var shade := PackedVector2Array(
+		[
+			rect.position,
+			Vector2(rect.end.x, rect.position.y),
+			rect.end,
+			Vector2(rect.position.x, rect.end.y)
+		]
+	)
+	canvas.draw_polygon(
+		shade,
+		PackedColorArray(
+			[Color(1, 1, 1, 0.06), Color(1, 1, 1, 0.06), Color(0, 0, 0, 0.3), Color(0, 0, 0, 0.3)]
+		)
+	)
+	canvas.draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), Color(0, 0, 0, 0.22), true)
+	canvas.draw_rect(
+		Rect2(rect.position + Vector2(rect.size.x - 4.0, 0), Vector2(4.0, rect.size.y)),
+		Color(0, 0, 0, 0.22),
+		true
+	)
 
 
 ## Repeat for procedural fill drawing, none when the area's art sheet is delivered.

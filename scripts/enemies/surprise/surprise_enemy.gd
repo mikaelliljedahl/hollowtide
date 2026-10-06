@@ -181,34 +181,6 @@ func _die() -> void:
 	super._die()
 
 
-## Size the Bubble Snare to this creature (the shared default is a 140 px block, too big for
-## a bat and too small for the stalker).
-func _freeze() -> void:
-	super._freeze()
-	_bubble_rect = _bubble_local_rect()
-	if is_instance_valid(_bubble_visual):
-		_bubble_visual.rect = _bubble_rect
-
-
-func _bubble_local_rect() -> Rect2:
-	if _has_art and _sprite != null and _sprite.texture != null:
-		var image := _sprite.texture.get_image()
-		if image != null and not image.is_empty():
-			var used := Rect2(image.get_used_rect())
-			used.position -= Vector2(image.get_size()) * 0.5
-			used.position *= _visual_base_scale
-			used.size *= _visual_base_scale
-			if _sprite.flip_h:
-				used.position.x = -used.end.x
-			used.position += _sprite.position
-			return used.grow(8.0)
-	var detector := get_node_or_null("PlayerDetector/CollisionShape2D") as CollisionShape2D
-	var size := Vector2(60, 60)
-	if detector != null and detector.shape is RectangleShape2D:
-		size = (detector.shape as RectangleShape2D).size
-	return Rect2(-size * 0.5, size).grow(10.0)
-
-
 func presentation_state() -> StringName:
 	if _dying:
 		return &"dying"
