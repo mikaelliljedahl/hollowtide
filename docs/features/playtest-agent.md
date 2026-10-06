@@ -1229,3 +1229,9 @@ a skip-ahead of the hop's cells did not fix it in a probe), and six lava deaths 
 `FUTILE_SHOTS` (40) with its health unchanged, shots at it are dropped until it is hurt, unless the
 hint is one (`_futile`, `tools/playtest/jev_backend.py`). `test_shots_that_never_hurt_are_dropped`
 (`tools/check_playtest_bridge.py`) fails on the old backend.
+
+**Final rated runs** (code 6ee46a8): minimum kit, seed 1: the ending, 13 of 13 at 589.4 s, one death
+(Cinder Warden), Stone Guardian with no damage; critic 0.73 (room 0.69, ambush 0.81, boss 0.83).
+Full sweep, seed 1: the ending, 53 of 66 at 3,221.9 s, 6 deaths, every boss and mini-boss fought at
+the first attempt won but the Tollwing and Fernmaw (timed out); critic 0.70 (room 0.67, ambush 0.85,
+boss 0.72). The nexus_05 chimney loop is the largest time sink left.
