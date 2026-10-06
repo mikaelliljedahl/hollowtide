@@ -10,6 +10,7 @@ const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
 const Progress = preload("res://tools/playtest_progress.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Nav = preload("res://tools/playtest_nav.gd")
+const Policy = preload("res://tools/playtest_policy.gd")
 const Hazards = preload("res://tools/playtest_hazards.gd")
 const HeatZone = preload("res://scripts/campaign/heat_zone.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
@@ -35,6 +36,7 @@ func run() -> void:
 	await _test_heat_is_not_the_hit()
 	_test_bob_is_a_stall()
 	_test_room_entries()
+	_test_dodge_jump_is_offered()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
@@ -232,4 +234,26 @@ func _test_room_entries() -> void:
 	_check(
 		causes == ["kiln_02:move", "kiln_03:move", "kiln_02:respawn", "kiln_03:move"],
 		"every room entry is kept, a respawn's marked (%s)" % [causes]
+	)
+
+
+## r10-run2 kiln_03: a fire shot at rel (197, -41) with her against the right wall, where only
+## `jump:left` was offered; the heuristic named `jump:right`, the loop flagged an unknown key and
+## played idle through a Heat Ring.
+func _test_dodge_jump_is_offered() -> void:
+	var state := CampaignCheck._plain_state({"kind": "boss", "gate_ahead": null}, [])
+	state["projectiles"] = [{"rel": [197, -41], "vel": [-320, 0], "style": "fire"}]
+	var offered := [
+		{"key": "idle", "kind": "idle", "label": ""},
+		{"key": "jump:left", "kind": "jump", "label": ""},
+		{"key": "go_to_objective", "kind": "go_to_objective", "label": ""},
+	]
+	var policy := Policy.new(1)
+	var pick := policy.heuristic(state, offered, false)
+	_check(pick == "jump:left", "the shot dodge names an offered jump (%s)" % pick)
+	var keys := offered.map(func(e: Dictionary) -> String: return e["key"])
+	var stuck := [policy.heuristic(state, offered, true), policy.heuristic(state, offered, true)]
+	_check(
+		stuck.all(func(k: String) -> bool: return keys.has(k)),
+		"a stuck jump names an offered key (%s)" % [stuck]
 	)

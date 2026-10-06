@@ -79,10 +79,12 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 		if keys.has("wall_jump"):
 			return keys["wall_jump"]
 		_stuck_flip = -_stuck_flip
-		return "jump:right" if _stuck_flip > 0 else "jump:left"
+		var unstick := _offered_jump(keys, "right" if _stuck_flip > 0 else "left")
+		if not unstick.is_empty():
+			return unstick
 	if state.get("room") == null:
 		return "idle"
-	var dodge := _dodge(state)
+	var dodge := _dodge(state, keys)
 	if not dodge.is_empty():
 		return dodge
 	var target := Actions.primary_target(state["enemies"])
@@ -107,13 +109,27 @@ func heuristic(state: Dictionary, candidates: Array, stuck: bool) -> String:
 
 ## In campaign mode, a jump over an enemy shot about to reach a grounded player (there is no dash
 ## to turn it early in the game); "" otherwise. Room mode keeps its earlier behaviour.
-func _dodge(state: Dictionary) -> String:
+func _dodge(state: Dictionary, keys: Dictionary) -> String:
 	if not state.has("goal") or not bool(state["player"]["grounded"]):
 		return ""
 	var shot := Dodge.incoming_projectile(state)
 	if shot.is_empty() or Vector2(shot["rel"][0], shot["rel"][1]).length() > DODGE_DISTANCE:
 		return ""
-	return "jump:left" if float(shot["rel"][0]) < 0.0 else "jump:right"
+	return _offered_jump(keys, "left" if float(shot["rel"][0]) < 0.0 else "right")
+
+
+## The offered `jump:<side>`, else the other side's jump, a jump over or a retreat; "" when none
+## is offered. r10-run2 named `jump:right` against a wall where only `jump:left` was offered 11
+## times; the loop took that as an unknown key and stood still through a Heat Ring.
+static func _offered_jump(keys: Dictionary, side: String) -> String:
+	var other := "left" if side == "right" else "right"
+	for key in ["jump:%s" % side, "jump:%s" % other]:
+		if keys.has(key):
+			return key
+	for kind in ["jump_over", "retreat"]:
+		if keys.has(kind):
+			return keys[kind]
+	return ""
 
 
 ## Outside campaign mode every offered refill is taken. In campaign mode a refill run is for low
