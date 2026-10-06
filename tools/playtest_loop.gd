@@ -12,6 +12,10 @@ const Bridge = preload("res://tools/playtest_bridge.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Campaign = preload("res://tools/playtest_campaign.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
+const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
+const TILE := 64.0
+## Route programs steer an arrival from below themselves (a shaft can go on straight up).
+const ROUTE_KINDS := ["go_to_objective", "go_to_door", "fast_travel"]
 const LOGGED_FALLBACKS := 5
 ## A streamed decision log is flushed this often, so a long run can be followed from outside.
 const LOG_FLUSH_EVERY := 200
@@ -44,6 +48,12 @@ var _seen_plan: Variant = null
 ## that keeps her standing in place, so the Harpoon is offered at once: in r6-full-s4 a
 ## stand-still Crosscurrent dodge ran on through a 2 s Tidal Heart Echo window.
 var _seen_open := false
+## Side (-1 or 1) leaned toward while she rises out of the floor opening she came up through, until
+## she stands; 0 otherwise. r10: entering kiln_08 from the kiln_06 steam, the Emberkite fight's
+## programs held no sideways move, so she dropped straight back down the opening (12 of 12 in the
+## probe; a 0.7 s "attempt" in each run). Any held direction lands her beside it.
+var _lean := 0
+var _room_seen := ""
 
 
 func _init(root: Node, player: Player, policy: String, seed_value: int, break_specs: Array) -> void:
@@ -78,7 +88,11 @@ func physics_step(delta: float) -> void:
 		return
 	if driver.done() or _new_telegraph() or _new_opening():
 		_decide()
-	driver.step()
+	_update_lean()
+	var lean := &""
+	if _lean != 0 and not String(current.get("kind", "")) in ROUTE_KINDS:
+		lean = &"move_left" if _lean < 0 else &"move_right"
+	driver.step(lean)
 	var kind := String(current.get("kind", ""))
 	telemetry.tick(delta, kind in Actions.MOVING_KINDS, kind)
 
@@ -185,6 +199,29 @@ func _decide() -> void:
 			_log_file.flush()
 	else:
 		decision_log.append(line)
+
+
+func _update_lean() -> void:
+	var room_id := String(_root.get("current_room_id"))
+	if room_id != _room_seen:
+		_room_seen = room_id
+		_lean = _opening_side(room_id)
+	elif _lean != 0 and _player.is_on_floor():
+		_lean = 0
+
+
+## The side of the nearer floor beside the south opening she is rising out of, or 0.
+func _opening_side(room_id: String) -> int:
+	var room := _root.get("current_room") as Node2D
+	if room == null or not Rooms.ROOMS.has(room_id) or _player.velocity.y >= 0.0:
+		return 0
+	var x := _player.global_position.x - room.global_position.x
+	for door in Rooms.ROOMS[room_id]["doors"]:
+		var left := Vector2i(door["from"]).x * TILE
+		var right := (Vector2i(door["to"]).x + 1) * TILE
+		if door["edge"] == &"south" and x >= left and x <= right:
+			return -1 if x - left < right - x else 1
+	return 0
 
 
 func _boss_plan() -> Variant:

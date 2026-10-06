@@ -37,6 +37,7 @@ func run() -> void:
 	_test_bob_is_a_stall()
 	_test_room_entries()
 	_test_dodge_jump_is_offered()
+	_test_entry_bounce_is_no_attempt()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
@@ -257,3 +258,30 @@ func _test_dodge_jump_is_offered() -> void:
 		stuck.all(func(k: String) -> bool: return keys.has(k)),
 		"a stuck jump names an offered key (%s)" % [stuck]
 	)
+
+
+## r10: riding the steam in and out of kiln_08's floor opening logged 0.7 s Emberkite attempts
+## with no attack and no damage; such a pass is no attempt. A real short fight still is.
+func _test_entry_bounce_is_no_attempt() -> void:
+	var telemetry := Telemetry.new()
+	var fight := {
+		"id": "emberkite",
+		"room": "kiln_08",
+		"start": 0.0,
+		"stage": 1,
+		"stage_start": 0.0,
+		"stage_seconds": {},
+		"attacks": {},
+		"attacks_landed": {},
+		"attack_landed": false,
+		"damage_by_source": {},
+		"node": null,
+	}
+	telemetry.set("_boss", fight.duplicate(true))
+	telemetry.now = 0.7
+	telemetry.call("_finish_boss", "left_room")
+	_check(telemetry.bosses.is_empty(), "a 0.7 s pass through the arena is no attempt")
+	fight["attacks"] = {"flare_dive": 1}
+	telemetry.set("_boss", fight.duplicate(true))
+	telemetry.call("_finish_boss", "left_room")
+	_check(telemetry.bosses.size() == 1, "a short fight with an attack is one")

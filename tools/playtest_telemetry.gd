@@ -24,6 +24,10 @@ const BOSS_ATTACK_MEMORY := 3.0
 const KILLER_MEMORY := 1.5
 const BREAK_RADIUS := 1.5
 const BREAK_KINDS := ["jump", "jump_over", "wall_jump", "dash_through"]
+## A boss record that ends by leaving the room this soon, with no attack seen and no damage, was a
+## pass through the arena's edge, not an attempt (r10: 0.7 s Emberkite "attempts" while the kiln_06
+## steam carried her in and out through kiln_08's floor opening).
+const BOUNCE_SECONDS := 1.5
 
 var now := 0.0
 var room := ""
@@ -340,6 +344,14 @@ func _track_boss() -> void:
 
 func _finish_boss(outcome: String) -> void:
 	if _boss.is_empty():
+		return
+	if (
+		outcome == "left_room"
+		and now - float(_boss["start"]) < BOUNCE_SECONDS
+		and (_boss["attacks"] as Dictionary).is_empty()
+		and (_boss["damage_by_source"] as Dictionary).is_empty()
+	):
+		_boss = {}
 		return
 	_on_boss_stage(int(_boss["stage"]), null)
 	var boss = _boss["node"]

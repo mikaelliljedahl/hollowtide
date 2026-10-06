@@ -9,6 +9,9 @@ extends RefCounted
 ## - kiln_10: a kiln_05 hop toward (14, 4) rose into the kiln_05 steam, which carried her through
 ##   the north door into kiln_10's floor updraft; the hop had no cell there, so she was steered at
 ##   her own column and hovered 290 s until the Tollwing objective timed out.
+## - kiln_08: the kiln_06 steam lifts her up through kiln_08's floor opening into the Emberkite
+##   arena, where the fight's programs held no sideways move and she dropped straight back (a
+##   0.7 s boss "attempt" in each r10 run). The loop leans her onto the floor beside it.
 
 const Loop = preload("res://tools/playtest_loop.gd")
 const CampaignMode = preload("res://tools/playtest_campaign.gd")
@@ -94,6 +97,44 @@ func run() -> void:
 	kiln["kiln_05:13:4:0"] = [1, KILN_STEAM_HOP]
 	reached = await _follow(kiln, "kiln_05", KILN_START, "kiln_10", KILN_GOAL, KILN_CARRIED)
 	_check(reached, "carried by the kiln_05 steam into kiln_10, she steps out west of its shaft")
+	var landed := 0
+	for start_x in [13.8, 14.5, 15.2]:
+		landed += 1 if await _rise_into_kiln_08(start_x) else 0
+	_check(landed == 3, "rising into kiln_08 she lands beside its floor opening (%d of 3)" % landed)
+
+
+## Rides the kiln_06 steam up into kiln_08 from `start_x` (tiles) with the loop playing a shot
+## on the spot over and over, as r10's fight decisions did; true when she stands in kiln_08 within
+## 4 s of arriving and never fell back.
+func _rise_into_kiln_08(start_x: float) -> bool:
+	_root.call("teleport", "kiln_06", Vector2(start_x * TILE, 4.0 * TILE))
+	var loop := Loop.new(_root, _player, "heuristic", 1, [])
+	var shots: Array = []
+	for frame in 20:
+		shots.append([&"fire_beam"] if frame % 4 == 0 else [])
+	var arrived := -1
+	var stood := false
+	for frame in 420:
+		if loop.driver.done():
+			loop.current = {"key": "shoot:e1:forward", "kind": "shoot", "program": shots}
+			loop.driver.start(shots)
+		# The Emberkite's attacks are held: a telegraph would hand the choice back to the policy.
+		for boss in _player.get_tree().get_nodes_in_group(&"bosses"):
+			boss.set("_attack_timer", 99.0)
+		loop.physics_step(1.0 / 60.0)
+		await _player.get_tree().physics_frame
+		var room := String(_root.get("current_room_id"))
+		if room == "kiln_08" and arrived < 0:
+			arrived = frame
+		if arrived >= 0 and room != "kiln_08":
+			break
+		if arrived >= 0 and frame - arrived > 30 and _player.is_on_floor():
+			stood = true
+			break
+		if arrived >= 0 and frame - arrived > 240:
+			break
+	loop.finish({})
+	return stood and String(_root.get("current_room_id")) == "kiln_08"
 
 
 func _check(condition: bool, label: String) -> void:
