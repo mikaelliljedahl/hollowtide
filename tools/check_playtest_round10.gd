@@ -1,11 +1,13 @@
 extends RefCounted
 ## Round 10 review cases of the playtest agent check (tools/check_playtest_agent.gd runs them in
 ## its scene). A mini-boss fight left behind never blocks a required objective, and a route with a
-## required objective nothing can open ends as `route_blocked`, not `route_done`.
+## required objective nothing can open ends as `route_blocked`, not `route_done`. A running
+## takeoff from a hop whose first cell is its own start keeps its plan on the ground and jumps.
 
 const CampaignCheck = preload("res://tools/check_playtest_campaign.gd")
 const Progress = preload("res://tools/playtest_progress.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
+const Nav = preload("res://tools/playtest_nav.gd")
 
 var _host: Node
 var _root: Node
@@ -24,6 +26,7 @@ func _init(host: Node) -> void:
 func run() -> void:
 	_test_left_mini_does_not_block()
 	_test_blocked_route_is_named()
+	_test_running_takeoff_jumps()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
@@ -79,4 +82,32 @@ func _test_blocked_route_is_named() -> void:
 	var reason := Progress.new().update(0.0, route, Telemetry.new(), -1, false)
 	_check(
 		reason == "route_blocked", "a required objective never ready blocks the run (%s)" % reason
+	)
+
+
+## r10 kiln_06 (17, 7): the hop's first cell was its start, rising, so the ground frame passed it
+## (progress 1) and every refresh took her for back on the start after a fall and restarted the
+## hop: the running takeoff's edge frames began again each frame and jump was never pressed.
+func _test_running_takeoff_jumps() -> void:
+	var where := Nav.Navigator.locate(_root, _player)
+	var room := String(where["room"])
+	var cell: Vector2i = where["cell"]
+	var hop := [
+		[room, cell.x, cell.y, 0, 1],
+		[room, cell.x + 1, cell.y, 0, 1],
+		[room, cell.x + 1, cell.y - 1, 0, 1],
+		[room, cell.x + 2, cell.y - 2, 0, 0],
+	]
+	var route: RefCounted = _campaign._route(
+		[CampaignCheck._objective(0, "pickup", "check.none", "", [], [])],
+		[{"%s:%d:%d:0" % [room, cell.x, cell.y]: [4, hop]}]
+	)
+	var nav := Nav.Navigator.new(route)
+	var jumped := false
+	for _frame in Nav.EDGE_FRAMES + 8:
+		nav.refresh(where, 0)
+		jumped = jumped or nav.control(where, _player).has(&"jump")
+	_check(
+		where["grounded"] and jumped,
+		"a running takeoff from its own start cell jumps after its run-up (%s)" % [where["cell"]]
 	)
