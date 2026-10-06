@@ -115,6 +115,7 @@ class Navigator:
 			# back, and steering her out there stranded her on the nexus_03 floor.
 			if not hop.is_empty() and _stale_air > STALE_AIR_FRAMES and passed_in(where):
 				drop_hop()
+			_chain_in_updraft(where)
 			status = "airborne" if not hop.is_empty() else "off_field"
 			return status
 		var found := rest_entry(where)
@@ -147,6 +148,34 @@ class Navigator:
 			_stale_air = 0
 		status = "on_field"
 		return status
+
+	## Lifted by an updraft with every cell of the hop passed, she takes the field's next hop from
+	## its last cell, so she keeps walking the planned way through the current instead of holding
+	## nothing. Round 12: on the kiln_06 row 5 platform the walk west lifted her off at (15, 4)
+	## into the north steam, she held nothing, rose into kiln_08 and fell back, for good (cells
+	## 13 to 16 never reached the west door in a probe).
+	func _chain_in_updraft(where: Dictionary) -> void:
+		if hop.is_empty() or progress < hop.size() or not _in_updraft(where):
+			return
+		var last: Array = hop[-1]
+		if last[0] != where["room"]:
+			return
+		var next := route.entry(
+			objective, String(last[0]), Vector2i(last[1], last[2]), bool(last[3])
+		)
+		if next.is_empty() or (next[1] as Array).is_empty():
+			return
+		hop = next[1]
+		progress = 0
+		_stale_air = 0
+
+	static func _in_updraft(where: Dictionary) -> bool:
+		var room_node: Node2D = where["room_node"]
+		for node in room_node.get_tree().get_nodes_in_group(&"worldfx_current"):
+			var current := node as PushCurrent
+			if current != null and current.direction.y < -0.1 and current.player_inside():
+				return true
+		return false
 
 	## Gives up the hop: the next refresh reads the field again, or reports her off it.
 	func drop_hop() -> void:
@@ -425,7 +454,11 @@ class Navigator:
 				side = signi(int(step[1]) - _from.x)
 		if top >= _from.y or first.is_empty():
 			return 0
-		if side != 0 and int(first[2]) == _from.y and bool(first[4]):
+		# Not curled: the ball rolls at 580 px/s, so a run off the edge carries it under whatever
+		# lies past the edge before the coyote jump takes. Round 12: kiln_06 (12, 21) rolled under
+		# the west door's ledge and jumped into its underside, round after round (r11-full-s2 chose
+		# `go_to_door:west:kiln_02` 5,227 times there); a jump in place drifts up onto the ledge.
+		if side != 0 and int(first[2]) == _from.y and bool(first[4]) and not player.is_ball:
 			# A wall that way: running into it only delays the jump (kiln_06 (17, 7)).
 			return (
 				0 if player.test_move(player.global_transform, Vector2(side * 8.0, 0.0)) else side

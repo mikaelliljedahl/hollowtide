@@ -72,6 +72,8 @@ const ROLL_OUT_LIMIT := 60
 ## A standing body blocked this close behind (away from the boss) is pinned.
 const PINNED_PROBE := 40.0
 const FPS := 60.0
+## Frames the landing before a Rockfall or Vent Burst answer may take.
+const LAND_LIMIT := 60
 ## Jumping over a boss body (radius BODY_RADIUS) on the way to a refill: the air above its top that
 ## must be free, the centre distance at which a running jump takes off (the Updraft Cloak rises
 ## past the body's top in about 0.14 s, 100 px at a run), how long jump is held, and a cap.
@@ -101,8 +103,10 @@ const DUCK_REACH := 200.0
 static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dictionary:
 	var attack := String(boss.get("attack", ""))
 	var phase := String(boss.get("attack_state", ""))
-	if not grounded or player.is_ball:
+	if player.is_ball:
 		return {}
+	if not grounded:
+		return _land_first(attack, phase, player)
 	# The Tidal Heart's shots keep flying through its recovery; they are all in `shots_rel`.
 	if Tide.answers(StringName(attack)):
 		return Tide.candidate(boss, player)
@@ -214,6 +218,21 @@ static func guard_candidate(enemy: Dictionary, grounded: bool) -> Dictionary:
 		"label": "jump over the armored guard's charge (%s)" % enemy["id"],
 		"program": frames,
 	}
+
+
+## In the air during a Rockfall or Vent Burst: land where she is, so the next decision's step or
+## roll answers it from her floor. Round 12 (Jev room run in vaults_03): stage 4 chains Rockfall
+## straight after the Fault Slam's double jump, so its telegraph began with her in the air at the
+## alcove roof's end (x 284) and no dodge was offered; `retreat` carried her onto the roof under a
+## rock column (2 of 2 Rockfall hits, 24 each). Landing at x 284 she is pinned and the roll under
+## the roof clears it.
+static func _land_first(attack: String, phase: String, player: Player) -> Dictionary:
+	if attack not in ["rockfall", "vent_burst"] or phase not in ["telegraph", "active"]:
+		return {}
+	var name := "Rockfall" if attack == "rockfall" else "Vent Burst"
+	return _entry(
+		attack, "land where she is, then step or roll clear of the %s" % name, Land.new(player)
+	)
 
 
 static func _entry(attack: String, label: String, program: Variant) -> Dictionary:
@@ -436,6 +455,23 @@ class JumpOver:
 				at += velocity * delta
 			result.append(at)
 		return result
+
+
+## Holds nothing until she stands on a floor (at most LAND_LIMIT frames).
+class Land:
+	extends RefCounted
+
+	var finished := false
+	var _player: Player
+	var _frame := 0
+
+	func _init(player: Player) -> void:
+		_player = player
+
+	func next() -> Array:
+		_frame += 1
+		finished = _frame >= LAND_LIMIT or (_frame > 1 and _player.is_on_floor())
+		return []
 
 
 ## Walks (or runs) to `offset` px from where she stands, then holds still until frame `until`.

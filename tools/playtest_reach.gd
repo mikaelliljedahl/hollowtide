@@ -24,6 +24,10 @@ const STAND_SCAN := 6
 const STAND_PROBES := [16.0, 88.0, 170.0]
 ## A body flush against rock still fits (px kept off each side).
 const FLUSH := 2.0
+## A low passage: rock this far ahead (px) above a curled ball's height (LOW_CLEAR px) but at a
+## standing body's (STAND_PROBES).
+const LOW_AHEAD := 48.0
+const LOW_CLEAR := [16.0, 40.0]
 
 
 ## True when the steer from the feet arrives at `rel` (px from the feet): no more than CLIMB above
@@ -74,14 +78,72 @@ static func _floor_under(space: PhysicsDirectSpaceState2D, point: Vector2, botto
 ## fitted `level` px below her feet, on the boss's floor: on that alcove's roof, fitted at her
 ## own level, the step lay on the roof above the alcove, and the approach stood there for 550 s
 ## (round 9, once the jump off the roof onto the Guardian was no longer offered).
-static func standing_step(player: Player, step: float, toward: int, level := 0.0) -> float:
+## With a `target` (px from her feet), the stop also needs a standing bolt from there that clears
+## the rock on its way to it (`bolt_clear`): round 12, a Jev kiln_08 room run stood 240 s under
+## the rock block over columns 20 to 24 firing 676 wave bolts at the Emberkite from a muzzle
+## inside it.
+static func standing_step(
+	player: Player, step: float, toward: int, level := 0.0, target := Vector2.INF
+) -> float:
 	var space := player.get_world_2d().direct_space_state
 	var feet := player.global_position + Vector2(0, level)
 	for index in STAND_SCAN + 1:
 		var shifted := step + toward * STAND_SHIFT * index
-		if _fits_standing(space, feet + Vector2(shifted, 0)):
-			return shifted
+		var at := feet + Vector2(shifted, 0)
+		if not _fits_standing(space, at):
+			continue
+		if target.is_finite():
+			var rel := target - Vector2(shifted, level)
+			var aim := Aim.line_up(rel, true, Aim.BOSS_RADIUS, INF)
+			if not aim.is_empty() and not bolt_clear(player, at, rel, aim, Aim.BOSS_RADIUS):
+				continue
+		return shifted
 	return step
+
+
+## True when a standing bolt along `aim` from the muzzle of a body with its feet at `feet` (world)
+## meets no rock before it comes within `radius` of `rel` (px from those feet; the body it hits),
+## the muzzle itself not inside rock. The state's line of sight starts lower (Aim.EYE), under rock
+## a standing bolt hits.
+static func bolt_clear(
+	player: Player, feet: Vector2, rel: Vector2, aim: String, radius := 0.0
+) -> bool:
+	if not Aim.MUZZLES.has(aim):
+		return true
+	var side := -1 if rel.x < 0.0 else 1
+	var muzzle: Vector2 = Aim.MUZZLES[aim]
+	var start := feet + Vector2(muzzle.x * side, muzzle.y)
+	var way := Aim.direction(aim, side)
+	var along := maxf((feet + rel - start).dot(way) - radius, 0.0)
+	var query := PhysicsRayQueryParameters2D.create(start, start + way * along, 1)
+	query.hit_from_inside = true
+	var passable: Array[RID] = []
+	for grate in player.get_tree().get_nodes_in_group(&"projectile_grate"):
+		if grate is CollisionObject2D and grate.call(&"can_pass_projectile", &"missile"):
+			passable.append((grate as CollisionObject2D).get_rid())
+	query.exclude = passable
+	return player.get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+
+
+## True when the way `toward` (-1 or 1) is a passage a curled ball fits through and a standing body
+## does not: round 12's kiln_08 slab over columns 20 to 24 hangs 128 px above the floor, and the
+## boss approach's straight steer jumped into its underside from the east pocket.
+## Looked for no farther than `reach` px: the vaults_03 approach stop flush with the alcove roof's
+## end lies 32 px from her, short of the roof.
+static func low_passage(player: Player, toward: int, reach: float) -> bool:
+	var space := player.get_world_2d().direct_space_state
+	var ahead := player.global_position + Vector2(toward * minf(LOW_AHEAD, reach), 0)
+	for height in LOW_CLEAR:
+		if _solid(space, ahead + Vector2(0, -height)):
+			return false
+	return not _fits_standing(space, ahead)
+
+
+static func _solid(space: PhysicsDirectSpaceState2D, point: Vector2) -> bool:
+	var query := PhysicsPointQueryParameters2D.new()
+	query.position = point
+	query.collision_mask = 1
+	return not space.intersect_point(query, 1).is_empty()
 
 
 ## True when no rock overlaps a standing body with its feet at `feet`.

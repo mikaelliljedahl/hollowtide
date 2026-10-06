@@ -208,7 +208,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 			if low <= high:
 				step.x = clampf(step.x, low, high)
 		var level := maxf(rel.y + Dodge.BODY_RADIUS, 0.0)
-		step.x = Reach.standing_step(player, step.x, _sign(rel.x), level)
+		step.x = Reach.standing_step(player, step.x, _sign(rel.x), level, goal[0])
 		var spot := _opener_spot(target)
 		if not engaged:
 			step = rel
@@ -232,7 +232,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 					("move to firing range of %s" if engaged else "walk into the arena of %s")
 					% target["type"]
 				),
-				Programs.steer(player, step, false)
+				_approach_program(player, step, abilities)
 			)
 		)
 	else:
@@ -262,7 +262,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 		)
 	if is_boss and not ball and engaged:
 		result.append_array(_opener(target, kit, grounded, reach, int(me["facing"])))
-	var aim := target_aim(target, grounded, reach)
+	var aim := _clear_aim(player, target, target_aim(target, grounded, reach), grounded)
 	if abilities.has("beam") and not ball and engaged and rel.length() <= SHOT_RANGE:
 		if not aim.is_empty():
 			result.append(
@@ -290,7 +290,7 @@ static func _fight(state: Dictionary, target: Dictionary, player: Player) -> Arr
 	var harpoon := _harpoon_target(state["enemies"], kit)
 	if not harpoon.is_empty() and not ball:
 		var hrel := _vec(harpoon["rel"])
-		var haim := target_aim(harpoon, grounded, reach)
+		var haim := _clear_aim(player, harpoon, target_aim(harpoon, grounded, reach), grounded)
 		if not haim.is_empty():
 			result.append(
 				_entry(
@@ -436,7 +436,7 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 		if not Reach.arrives(player, _vec(refill["rel"])):
 			continue
 		var label := "go to the %s refill to restore %s" % [refill["kind"], " and ".join(wanted)]
-		var program: Variant = Programs.steer(player, _vec(refill["rel"]), true)
+		var program: Variant = Programs.steer_over(player, _vec(refill["rel"]), true)
 		var boss := Dodge.boss_between(state["enemies"], _vec(refill["rel"]))
 		if not boss.is_empty() and Dodge.headroom(player, _vec(boss["rel"])):
 			label += ", jumping over %s on the way" % boss["type"]
@@ -573,6 +573,34 @@ static func _harpoon_target(enemies: Array, kit: Dictionary) -> Dictionary:
 ## alone reaches still gets the Harpoon or the Resonance Pulse offered.
 static func _beam_hurts(kinds: Array) -> bool:
 	return kinds.has("beam") or kinds.has("wave")
+
+
+## The boss approach's steer, or, standing, a roll through a passage too low to stand in on the
+## way (curled, the steer rolls her already).
+static func _approach_program(player: Player, step: Vector2, abilities: Array) -> Variant:
+	var toward := _sign(step.x)
+	if (
+		abilities.has("slipstream")
+		and not player.is_ball
+		and absf(step.x) > Programs.NEAR_TARGET
+		and player.is_on_floor()
+		and Reach.low_passage(player, toward, absf(step.x))
+	):
+		return Programs.RollThrough.new(player, toward)
+	return Programs.steer(player, step, false)
+
+
+## `aim`, or "" when her standing bolt along it would hit rock before it reaches `target`'s body
+## (Reach.bolt_clear).
+static func _clear_aim(player: Player, target: Dictionary, aim: String, grounded: bool) -> String:
+	var radius := Aim.BOSS_RADIUS if bool(target["is_boss"]) else ENEMY_RADIUS
+	if (
+		aim.is_empty()
+		or not grounded
+		or Reach.bolt_clear(player, player.global_position, _vec(target["rel"]), aim, radius)
+	):
+		return aim
+	return ""
 
 
 static func _entry(key: String, kind: String, label: String, program: Variant) -> Dictionary:

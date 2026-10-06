@@ -1128,3 +1128,53 @@ offered first. `_test_heart_refill` fails on the old harness.
 
 Open: every kiln_03 refill trip still lands once in the two-tile lava pit east of the arena wall (9
 damage): the steer's jump over the wall at columns 49 and 50 comes down into it.
+
+## 31. Harness round 12 (2026-10-06)
+
+Probes and room runs in `/Volumes/Personal/Tools/hollowtide-runs/r12harness/` (not in the repo).
+`tools/check_playtest_round12.gd` (run by the `playtest boss rooms` suite) plays every case in the
+real rooms; 8 of its checks fail on the round 11 harness.
+
+**Stone Guardian Rockfall after the Fault Slam.** Round 11 put the minimum-kit Rockfall hits down to
+the roll under the alcove roof from the pocket cache (x 288). A probe there (stage 4, Guardian at its
+pursuit stop, four start times) found the roll clears it every time, and so does the loop; standing,
+curling or jumping in place is hit. A Jev room run (vaults_03, minimum kit) showed the real case:
+stage 4 chains Rockfall straight after the Fault Slam's double jump, so the Rockfall telegraph began
+with her in the air at x 284, where `Dodge.candidate` offered nothing; Jev chose `retreat`, landed on
+the alcove roof under a rock column and took 2 of 2 Rockfall hits there. In the air during a Rockfall
+or Vent Burst the dodge is now "land where she is" (`_land_first`, `tools/playtest_dodge.gd`); on the
+floor at x 284 she is pinned and rolls under the roof. The same Jev room run afterwards: Rockfall
+landed 0 of 6 (was 2 of 10), boss won at the first attempt.
+
+**kiln_06 back to kiln_02.** r11-full-s2 chose `go_to_door:west:kiln_02` 5,227 times in kiln_06. A
+probe played the route's own program (as Jev did) from all 78 resting cells of the full route's field
+toward kiln_02: 41 arrived. Two harness defects. From the lower half every route climbs to the row 22
+platform at (12, 21), whose hop is a ball jump up onto the door ledge; `_takeoff_side` made it a
+running takeoff, so the ball rolled off the edge at 580 px/s, under the ledge, jumped into its
+underside and fell back to the bottom, round after round. A curled ball now jumps in place and drifts
+(`tools/playtest_nav.gd`). On the row 5 platform the walk west passes through the north steam: it
+lifted her at (15, 4) with every cell of the hop passed, so she held nothing, rose into kiln_08 and
+fell back for good. Lifted by an updraft with the hop done, she now takes the field's next hop
+(`_chain_in_updraft`). After both: 75 of 78 arrive; the other three start inside the steam, which
+carries her into the Emberkite's arena.
+
+**kiln_03 lava pit.** A probe of refill trips (stages 1, 3 and 4, nine floor columns, attacks held,
+empty quiver) took 9 lava damage on 27 of 27. Jumping the arena's east wall from its face, she rises
+straight up until her feet clear its top, and the rest of the arc (about 260 px) cannot also cross the
+two-tile pit behind it (about 376 px needed); a longer jump hold and a running takeoff both still landed
+in it. A refill run facing a wall with lava or fire within 320 px behind it now hops onto the wall and
+stops on top (`Programs.steer_over`, `WallHop`), and the steer jumps (full hold) where one running
+step would carry her off an edge with lava or fire below (`_floor_hazard_ahead`). Same probe: 0 lava
+on 27 of 27, every trip refilled.
+
+**Emberkite in kiln_08.** Heat does nothing with the Pressure Seal, and the heuristic beat it in 43 s
+from the west (50 damage). A Jev room run did not finish in 300 s: it stood at (25, 14) in the east
+pocket and fired 676 wave bolts with the boss at stage 1. The state's line of sight starts 100 px
+above the feet, under the rock slab over columns 20 to 24 (128 px above the floor); the standing
+muzzle (71 px ahead, 161 px up) sits inside it. A real-input probe: 8 forward bolts from columns 25,
+24 and 22 left it at 170 health, from 19 and 17 they took it to 141. A shot or Harpoon is now offered
+only when the standing bolt clears the rock (`Reach.bolt_clear`), and the boss approach's stop also
+needs one; a standing body cannot pass under the slab, so the approach rolls through a passage too
+low to stand in (`Reach.low_passage`, `Programs.RollThrough`). From the east pocket the heuristic
+then won in 33.9 s (it died at stage 1 before, 190 Flare Dive damage); the Jev room run won in
+33.7 s with 20 damage.
