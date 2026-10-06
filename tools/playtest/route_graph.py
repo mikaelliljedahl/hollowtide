@@ -31,8 +31,11 @@ MAX_STEP = 1 + BALL_COST + TOGGLE_COST + LAVA_COST
 
 
 class RouteSolver(Solver):
-    """The graph check's solver, minus a move the game does not allow: the player curls into
-    Slipstream form only standing on a floor (scripts/player/player.gd, _handle_slip_input).
+    """The graph check's solver, minus moves the game does not allow: the player curls into
+    Slipstream form only standing on a floor (scripts/player/player.gd, _handle_slip_input), and
+    a body in a strong updraft never sinks (scripts/world/dynamic/push_current.gd drives her
+    vertical speed toward the rise speed everywhere in the zone; round 12, depths_01's south
+    opening: r12-full-s1b hung in that current for 1,400 s on a planned drop into depths_05).
     With `terrain` (room id -> memo dict, shared by kits that leave the room's own items alone)
     the cell tests are looked up once per cell instead of on every move."""
 
@@ -60,9 +63,21 @@ class RouteSolver(Solver):
 
     def neighbours(self, state):
         result = super().neighbours(state)
+        if self._lifted(state):
+            result = [nxt for nxt in result if not self._sinks(state, nxt)]
         if state[3] or resting(self, state):
             return result
         return [nxt for nxt in result if not nxt[3]]
+
+    def _lifted(self, state: State) -> bool:
+        room_id, x, y, ball, _up, _side = state
+        rows = (y,) if ball else (y, y - 1, y - 2)
+        return any((x, row) in self.world.updraft[room_id] for row in rows)
+
+    def _sinks(self, state: State, nxt: State) -> bool:
+        if nxt[0] == state[0]:
+            return nxt[2] > state[2]
+        return state[2] >= self.world.rooms[state[0]].height - 1
 
 
 def resting(solver: Solver, state: State) -> bool:

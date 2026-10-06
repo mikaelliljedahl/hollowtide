@@ -1189,3 +1189,29 @@ the route's goal is not is passed by: the heuristic does not engage it (`_engage
 fight moves against it, keeping the dodges (`_passing_boss`, `tools/playtest/jev_request.py`).
 `test_passing_a_boss_that_is_not_the_goal` (`tools/check_playtest_bridge.py`) and the nexus_09 case
 of `tools/check_playtest_round12.gd` fail on the old code.
+
+**Rated run r12-full-s1b** (seed 1, new game, Jev policy and critic): 49 of 74 objectives,
+`objective_failed` at 5,217 s on the Tidal Heart (three deaths in stage 4); critic overall 0.69
+(room 0.68, ambush 0.85, boss 0.65). Two stalls cost about 2,300 s and led to two more changes.
+
+**Steam shaft wall.** At kiln_01 (14, 7) she hung in the air for 940 s with no input: rising
+through the steam from the ledge at (13, 10), her head stopped 5 px under the shaft's west wall
+(the body is 56 px wide in a 64 px column) while the column's centre lay 9 px away, inside the
+navigator's 10 px dead zone. Rising under rock that stops her, she now centres on the column
+without the dead zone (`control`, `tools/playtest_nav.gd`). A probe with the run's own route:
+before, held at (919, 496) for 600 frames; after, into nexus_03 in 121 frames.
+
+**Sinking in an updraft.** At depths_01 (38 to 40, 29) she hung for about 1,400 s in the water
+current (strength 520) over the south opening to depths_05, where the route planned a drop. The
+graph check's solver lets a body fall through a strong updraft cell; the game's current drives her
+vertical speed toward the rise speed everywhere in the zone. Probes in the real room: placed over
+the opening with no input she is pinned against the rock at row 26 (y 1,904); the route's own
+inputs never get her below y 2,031; a fall at terminal speed is impossible there, since that rock
+roofs the opening. At kiln_06's bomb floor, by contrast, a drop from four rows up punches through
+the steam into kiln_07, while a step in from the floor is held. The route solver now never sinks a
+body that is in a strong updraft (`RouteSolver`, `tools/playtest/route_graph.py`), so the plan
+lists depths_05 to depths_10, Lanternjaw and kiln_07 as unreached and plans 66 objectives;
+`test_route_solver_never_sinks_in_a_strong_updraft` (`tools/check_playtest_campaign.py`) fails on
+the old planner, whose room and mini-boss floors there drop from 40 to 39 and 4 to 3. Game
+finding, not changed here: if the solver is right that depths_05 can only be entered from
+depths_01, that cluster (depths_05 to depths_10 and Lanternjaw) cannot be entered in the game.

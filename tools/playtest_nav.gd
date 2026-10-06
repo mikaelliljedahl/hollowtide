@@ -12,6 +12,8 @@ const TILE := 64.0
 const CENTER_PX := 10.0
 ## Steering dead zone while a grounded hop drops to a lower cell.
 const DROP_PX := 1.0
+## Rock this close (px) above her head stops a rise.
+const CAP_PROBE := 4.0
 ## A frozen frost floater can hold her feet up to 34 px into the row below the solver's resting
 ## row (heur-r1 stood still at vaults_02 (28, 13) with her feet 34 px in, read off the route,
 ## until the floater thawed under her, five times). Feet on real ground sit 64 px into their row.
@@ -307,7 +309,16 @@ class Navigator:
 		# Standing on a ledge's lip above a drop in the next column, the feet can sit within
 		# CENTER_PX of the target column and still be held up: step on until she falls.
 		var drop: bool = grounded and target[0] == room and int(target[2]) > cell.y
-		if absf(dx) > (DROP_PX if drop else CENTER_PX):
+		# Rising under rock that stops the body: the column's centre clears it (the body is 56 px
+		# in a 64 px column). Round 12: the kiln_01 steam held her head 5 px under the shaft's west
+		# wall, 9 px from the centre, for 940 s (r12-full-s1b).
+		var capped: bool = (
+			not grounded
+			and target[0] == room
+			and int(target[2]) < cell.y
+			and player.test_move(player.global_transform, Vector2(0, -CAP_PROBE))
+		)
+		if absf(dx) > (DROP_PX if drop or capped else CENTER_PX):
 			held.append(&"move_right" if dx > 0.0 else &"move_left")
 		_press_jump(held, where, player, rises, dx, edge)
 		var want_ball := bool(target[3])

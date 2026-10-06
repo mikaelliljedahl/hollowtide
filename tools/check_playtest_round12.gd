@@ -13,6 +13,8 @@ extends RefCounted
 ## kiln_08: from under the rock slab over columns 20 to 24 her standing muzzle is inside it, yet
 ## the forward shot was offered (a Jev room run fired 676 bolts there for 240 s); the approach
 ## from the east pocket now rolls under the slab.
+## kiln_01: rising through the steam from the ledge at (13, 10), her head stopped 5 px under the
+## shaft's west wall, inside the steering dead zone, for 940 s (r12-full-s1b).
 ## nexus_09: r12-full-s1 fought the Tollwing there for over 1,000 s after its objective timed out,
 ## on the way to later objectives; a boss the route's goal is not is passed by.
 
@@ -89,6 +91,33 @@ const KILN06_FIELD := {
 		]
 	],
 }
+## The route's hop up the kiln_01 steam into nexus_03 (full sweep, objective 34) and its frames.
+const KILN01_FIELD := {
+	"kiln_01:13:10:0":
+	[
+		30,
+		[
+			["kiln_01", 13, 10, 0, 1],
+			["kiln_01", 13, 9, 0, 1],
+			["kiln_01", 13, 8, 0, 1],
+			["kiln_01", 13, 7, 0, 0],
+			["kiln_01", 14, 7, 0, 0],
+			["kiln_01", 14, 6, 0, 0],
+			["kiln_01", 14, 5, 0, 0],
+			["kiln_01", 14, 4, 0, 0],
+			["kiln_01", 14, 3, 0, 0],
+			["kiln_01", 14, 2, 0, 0],
+			["kiln_01", 14, 1, 0, 0],
+			["kiln_01", 14, 0, 0, 0],
+			["nexus_03", 14, 16, 0, 1],
+			["nexus_03", 14, 15, 0, 1],
+			["nexus_03", 13, 15, 0, 1],
+			["nexus_03", 13, 15, 0, 0],
+		]
+	],
+	"nexus_03:13:15:0": [0, []],
+}
+const KILN01_FRAMES := 400
 ## kiln_03 floor columns the refill trip starts from (west of the Warden, and east of it) and the
 ## lava pit east of the arena wall (room-local x).
 const REFILL_COLUMNS := [12, 40, 47]
@@ -120,6 +149,7 @@ func run() -> void:
 	await _test_slam_then_rockfall()
 	for cell: Vector2i in KILN06_STARTS:
 		await _test_kiln06_west(cell)
+	await _test_kiln01_steam()
 	for column: int in REFILL_COLUMNS:
 		await _test_refill_over_wall(column)
 	GameState.unlock_ability(&"wave_beam")
@@ -194,17 +224,32 @@ func _dodge(attack: String) -> Dictionary:
 
 ## Follows the route's own program from `cell` (every decision takes the route), as Jev did.
 func _test_kiln06_west(cell: Vector2i) -> void:
-	_write_route()
+	var arrived := await _follow(KILN06_FIELD, "kiln_02", "kiln_06", cell, KILN06_FRAMES)
+	_check(arrived, "kiln_06 %s: the route back west reaches kiln_02" % cell)
+
+
+func _test_kiln01_steam() -> void:
+	var arrived := await _follow(
+		KILN01_FIELD, "nexus_03", "kiln_01", Vector2i(13, 10), KILN01_FRAMES
+	)
+	_check(arrived, "kiln_01 (13, 10): the route up the steam reaches nexus_03")
+
+
+## True when the route's own programs from `cell` in `room` bring her into `goal_room`.
+func _follow(
+	field: Dictionary, goal_room: String, room: String, cell: Vector2i, limit: int
+) -> bool:
+	_write_route(field, goal_room)
 	GameState.reset_health()
-	_root.call("teleport", "kiln_06", Vector2((cell.x + 0.5) * TILE, (cell.y + 1) * TILE))
+	_root.call("teleport", room, Vector2((cell.x + 0.5) * TILE, (cell.y + 1) * TILE))
 	await _frames(30)
 	var campaign := CampaignMode.new()
 	campaign.setup(ProjectSettings.globalize_path(DIRECTORY), _root, _player)
 	campaign.progress.current = 0
 	var driver := Programs.Driver.new()
 	var arrived := false
-	for _frame in KILN06_FRAMES:
-		if String(_root.get("current_room_id")) == "kiln_02":
+	for _frame in limit:
+		if String(_root.get("current_room_id")) == goal_room:
 			arrived = true
 			break
 		GameState.reset_health()
@@ -219,20 +264,20 @@ func _test_kiln06_west(cell: Vector2i) -> void:
 	driver.release_all()
 	# kiln_02's crushers measure their travel two frames after it loads; leaving sooner errors.
 	await _frames(30)
-	_check(arrived, "kiln_06 %s: the route back west reaches kiln_02" % cell)
+	return arrived
 
 
-func _write_route() -> void:
+func _write_route(field: Dictionary, goal_room: String) -> void:
 	var directory := ProjectSettings.globalize_path(DIRECTORY)
 	DirAccess.make_dir_recursive_absolute(directory)
 	var file := FileAccess.open(directory.path_join("field_0.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(KILN06_FIELD))
+	file.store_string(JSON.stringify(field))
 	file.close()
 	var objective := {
 		"index": 0,
 		"kind": "pickup",
 		"target": "check.kiln06",
-		"room": "kiln_02",
+		"room": goal_room,
 		"cells": [],
 		"grants": "",
 		"abilities": [],
