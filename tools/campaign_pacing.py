@@ -12,7 +12,7 @@ room and the hub are exempt: the fight, the epilogue and the crossroads set thei
 from __future__ import annotations
 
 from campaign_ambush import ambush_box
-from campaign_layout import Room
+from campaign_layout import Room, link_doors
 from campaign_shortcuts import HUB_AREA
 
 PACING_SPAN = 24
@@ -34,7 +34,15 @@ ROUTE_WALKS = (
     ("fringe_03", 7, 13, 50),
     ("vaults_02", 14, 39, 57),
     ("nexus_07", 12, 13, 24),
+    # Round 12: fringe_06's walk west from the water lift to the fringe_01 tunnel met only the bat
+    # swarm overhead; a Hopper on the block and a Spitter on the ledge above it cover both landings.
+    ("fringe_06", 13, 16, 20),
+    ("fringe_06", 10, 10, 13),
 )
+# Dead ends whose way back was a long climb out through a shaft already walked: (room, room below)
+# needs a door down from the first into the second. Jev round 11 rated the fringe_02 revisit from
+# Root Cistern boring and navigation confusing (121 s, 6 Crawler hits on the way down the shaft).
+DROP_SHORTCUTS = (("fringe_07", "fringe_03"),)
 
 
 def pacing_errors(rooms: dict[str, Room]) -> list[str]:
@@ -93,3 +101,13 @@ def dodge_room_errors(rooms: dict[str, Room]) -> list[str]:
                 f"{room_id}: no enemy on the route walk, row {row} columns {first}..{last}"
             )
     return errors
+
+
+def revisit_errors(rooms: dict[str, Room]) -> list[str]:
+    doors, _ = link_doors(rooms)
+    drops = {(door.room, door.target) for door in doors if door.edge == "south"}
+    return [
+        f"{room_id}: no drop down into {below}; the way back climbs through an old shaft"
+        for room_id, below in DROP_SHORTCUTS
+        if (room_id, below) not in drops
+    ]

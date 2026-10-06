@@ -48,6 +48,7 @@ func _run() -> void:
 	await _case_fringe_03_ledges()
 	await _case_fringe_04_steps()
 	await _case_fringe_04_bomb_floor()
+	await _case_fringe_07_drain()
 	await _case_nexus_steps()
 	await _case_nexus_chimney_to_fringe()
 	await _case_nexus_high_jump_crack()
@@ -137,6 +138,19 @@ func _case_fringe_04_bomb_floor() -> void:
 	await _tap(&"fire_beam")
 	await _frames(150)
 	_expect_room("fringe_04 bombed floor -> nexus_01", "nexus_01")
+
+
+## Jev round 12: the way back from Root Cistern drops through its floor into Echo Gallery instead
+## of climbing out through the Drip Shaft; the alcove under it is too high to jump back up.
+func _case_fringe_07_drain() -> void:
+	if not _wanted("fringe_07_drain"):
+		return
+	await _setup("fringe_07", Vector2i(12, 15), [&"beam", &"slipstream", &"bombs", &"missiles"])
+	await _walk(-1, Vector2i(8, 0))
+	await _frames(90)
+	_expect_row("fringe_07 floor hole -> fringe_03 ledge B", "fringe_03", 8, 8, 12)
+	await _jump(0)
+	_expect_room("fringe_03 ledge B jump stays below the cistern", "fringe_03")
 
 
 func _case_nexus_steps() -> void:
@@ -380,6 +394,8 @@ func _case_route_threats() -> void:
 		["vaults_05", Vector2i(8, 14), 6.0],
 		["vaults_09", Vector2i(8, 14), 6.0],
 		["nexus_03", Vector2i(5, 15), 6.0],
+		["fringe_06", Vector2i(20, 13), 6.0],
+		["fringe_06", Vector2i(12, 10), 6.0],
 	]
 	for entry in cases:
 		var room_id: String = entry[0]

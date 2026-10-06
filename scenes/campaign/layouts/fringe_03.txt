@@ -2,7 +2,7 @@ id: fringe_03
 area: fringe
 name: Echo Gallery
 origin: 60 34
-# beam_trial: seals the west Ball tunnel and the door behind the missile gate right after the beam.
+# beam_trial: seals the west Ball tunnel, the door behind the missile gate and the cistern drop right after the beam.
 ambush: 1 1 58 14 wave=hopper,hopper wave2=hopper,hopper,ceiling_diver trigger=10,10,11,5 spawns=8,9,24,6 id=beam_trial
 legend:
   1 pickup beam beam
@@ -18,7 +18,7 @@ legend:
   v stalactite
   q pickup glyph_quickstring quickstring
 grid:
-############################################################
+########..##################################################
 ####.........###############################################
 ####.........###############################################
 ####................#...v..#..c....#.....v.....#...#.....###
