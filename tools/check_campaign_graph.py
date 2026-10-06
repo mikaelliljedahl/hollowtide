@@ -15,6 +15,10 @@ Each branch boss room must hold a shortcut back to the hub: a flag gate on that 
 door into a hub room, sealed before the fight and walkable once the boss is down.
 Intended sequence breaks (tools/campaign_breaks.py) join the solver as explicit edges; the campaign
 must also finish without them, and their reward pickups may only be reachable through them.
+Optional mini-bosses are fights like the bosses: entering a mini-boss arena with a quiver sets
+`mini:<id>` and opens its reward gate. The no-optional run fights none (nothing required sits behind
+a `mini:` gate); the any-order run must reach every pickup, and names any mini-boss arena it never
+reaches.
 
 Movement model (deliberately conservative versus the real player): standing body is 1x3 cells,
 ball 1x1, jumps rise 3 cells (High Jump 5) with at most 3 cells of sideways drift while rising,
@@ -62,6 +66,10 @@ BOSS_NEEDS = {
     "tidal_heart": {"missiles", "ice_beam", "wave_beam"},
 }
 REGIONAL = {"stone_guardian", "furnace_mother"}
+# Optional mini-bosses (docs/features/mini-bosses.md): stage 2 takes the Harpoon only, so every
+# fight needs a quiver; the room itself decides the rest (Emberkite's heat, Lanternjaw's depths).
+# A win sets `mini:<id>`, which opens the room's reward gate.
+MINI_NEEDS = {"missiles"}
 GATE_NEEDS = {
     "missile": "missiles",
     "bomb": "bombs",
@@ -95,6 +103,7 @@ class World:
         self.saves: set[tuple[str, int, int]] = set()
         self.refills: dict[str, int] = {}
         self.bosses: dict[str, tuple[str, tuple[int, int, int, int]]] = {}
+        self.minis: dict[str, tuple[str, tuple[int, int, int, int]]] = {}
         self.endings: set[tuple[str, int, int]] = set()
         self.floaters: dict[str, set[tuple[int, int]]] = {}
         self.heat: dict[str, set[tuple[int, int]]] = {}
@@ -154,6 +163,9 @@ class World:
                 elif entry.kind == "boss":
                     ax, ay, aw, ah = (int(part) for part in entry.options["arena"].split(","))
                     self.bosses[entry.args[0]] = (room.room_id, (ax, ay, aw, ah))
+                elif entry.kind == "miniboss":
+                    ax, ay, aw, ah = (int(part) for part in entry.options["arena"].split(","))
+                    self.minis[entry.args[0]] = (room.room_id, (ax, ay, aw, ah))
                 elif entry.kind == "ending":
                     for x, y in cells:
                         self.endings.add((room.room_id, x, y))
@@ -436,11 +448,11 @@ def progress(
     label: str,
     crumble_gone: bool = True,
     breaks: bool = True,
-    seed_flags: frozenset[str] = frozenset(),
 ):
-    """Runs progression to a fixpoint. Returns (errors, stages)."""
+    """Runs progression to a fixpoint. Returns (errors, stages). Mini-bosses are fought only
+    when optional content is (`skip_optional` off), like the pickups behind their gates."""
     abilities: set[str] = set()
-    flags: set[str] = set(seed_flags)
+    flags: set[str] = set()
     collected: set[str] = set()
     start_room, sx, sy = world.start
     start = (start_room, sx, sy, False, 0, 0)
@@ -480,6 +492,13 @@ def progress(
                 if boss in REGIONAL:
                     flags.add(f"regional:{boss}")
                 changed = True
+        for mini, (room_id, arena) in world.minis.items():
+            flag = f"mini:{mini}"
+            if skip_optional or flag in flags or not MINI_NEEDS <= abilities:
+                continue
+            if any(room == room_id and in_rect(x, y, arena) for room, x, y in cells):
+                flags.add(flag)
+                changed = True
         if not changed:
             break
     finished = "boss:tidal_heart" in flags and any(cell in world.endings for cell in cells)
@@ -488,6 +507,11 @@ def progress(
             f"[{label}] campaign not completable: abilities={sorted(abilities)} flags={sorted(flags)}"
         )
     return errors, stages, collected
+
+
+def in_rect(x: int, y: int, rect: tuple[int, int, int, int]) -> bool:
+    ax, ay, aw, ah = rect
+    return ax <= x < ax + aw and ay <= y < ay + ah
 
 
 def softlock_errors(world: World, stages, label: str) -> list[str]:
@@ -645,22 +669,13 @@ def main() -> int:
         if label == "any-order":
             missing = sorted(all_pickups - collected)
             if missing:
-                # mini:* flaggates guard optional fights (docs/features/mini-bosses.md): a pickup
-                # behind one is reachable when the fight is won. The solver stays strict elsewhere.
-                minis = frozenset(
-                    flag
-                    for room in world.rooms.values()
-                    for entry in room.legend.values()
-                    if entry.kind == "flaggate"
-                    for flag in entry.args[0].split(",")
-                    if flag.startswith("mini:")
-                )
-                _errs, _stages, with_minis = progress(
-                    world, blocked_until, skip_optional, label, seed_flags=minis
-                )
-                missing = sorted(all_pickups - with_minis)
-            if missing:
                 errors.append(f"[{label}] unreachable pickups: {missing}")
+            unfought = sorted(mini for mini in world.minis if f"mini:{mini}" not in stages[-1][1])
+            if unfought:
+                # Reported, not failed: the reward behind each mini gate is still checked as a
+                # pickup above, and the layouts have their own owner (the playtest route skips
+                # an unreachable fight and says so).
+                print(f"campaign-graph: WARN [{label}] mini-boss arenas never reached: {unfought}")
         if label == "no-breaks":
             break_only = sorted(tide_pickups - collected)
             if break_only:

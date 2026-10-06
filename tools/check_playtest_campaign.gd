@@ -52,6 +52,7 @@ func run() -> void:
 	_test_door_route()
 	_test_progress_timeout()
 	_test_optional_upgrade_left_behind()
+	_test_sweep_kinds()
 	_test_heuristic_prefers_the_route()
 	_test_shots_that_can_land()
 	_test_floater_sag()
@@ -247,6 +248,27 @@ func _test_optional_upgrade_left_behind() -> void:
 	GameState.reset_progress()
 
 
+## Round 10 sweep: a mini-boss is done by its `mini:` flag and a visit by entering the room; an
+## optional objective times out after its route budget.
+func _test_sweep_kinds() -> void:
+	var mini := _objective(0, "mini", "fernmaw", "mini:fernmaw", [], [])
+	var visit := _objective(1, "visit", "nexus_07", "", [], [])
+	GameState.reset_progress()
+	_check(not Route.is_done(mini, false) and not Route.is_done(visit, false), "sweep kinds open")
+	GameState.set_world_flag("mini:fernmaw")
+	GameState.discover_room("nexus_07")
+	_check(Route.is_done(mini, false), "a mini-boss is done by its flag")
+	_check(Route.is_done(visit, false), "a visit is done once the room is entered")
+	_check(
+		Route.describe(mini).begins_with("defeat the mini-boss Fernmaw"),
+		"a mini-boss reads by name (%s)" % Route.describe(mini)
+	)
+	visit["optional"] = true
+	visit["seconds"] = 150.0
+	_check(Progress.time_budget(visit) == 150.0, "an optional objective gets its route budget")
+	GameState.reset_progress()
+
+
 func _test_heuristic_prefers_the_route() -> void:
 	var goal := {"kind": "pickup", "gate_ahead": null}
 	var route := [
@@ -426,6 +448,7 @@ func _test_in_a_real_room() -> void:
 	_root.set("current_room", room)
 	_root.set("current_room_id", ROOM_ID)
 	await _test_navigator_climbs(room)
+	await _test_fallen_hop_restarts(room)
 	await _test_gate_is_opened(room)
 	room.queue_free()
 	await _frames(2)
@@ -434,6 +457,45 @@ func _test_in_a_real_room() -> void:
 	_root.set("current_room_id", old_id)
 	_player.reset_for_spawn(old_feet)
 	await _frames(10)
+
+
+## PR 12 review (s1-full): the jump from under the nexus_07 shaft peaked at the nexus_01 floor,
+## fell back onto its start, and stood there 225 s: the hop kept its progress past the shaft's
+## cells, so its next cell was the next room's and no jump was pressed. Landing back on the hop's
+## start restarts it, and the next frame jumps again.
+func _test_fallen_hop_restarts(room: CampaignRoom) -> void:
+	_player.reset_for_spawn(WorldFxTestbed.feet(room, START))
+	await _frames(10)
+	var hop := [
+		[ROOM_ID, START.x, START.y - 1, 0, 1],
+		[ROOM_ID, START.x, START.y - 2, 0, 1],
+		[ROOM_ID, START.x, START.y - 3, 0, 1],
+		["campaign_check_above", START.x, 9, 0, 1],
+		["campaign_check_above", START.x + 1, 9, 0, 0],
+	]
+	var route := _route(
+		[_objective(0, "pickup", "check.none", "", [], [])],
+		[{"%s:%d:%d:0" % [ROOM_ID, START.x, START.y]: [6, hop]}]
+	)
+	var nav := Nav.Navigator.new(route)
+	var rest := Nav.Navigator.locate(_root, _player)
+	_check(nav.refresh(rest, 0) == "on_field", "the shaft hop is read at its start")
+	for row in range(1, 4):
+		var flying := rest.duplicate()
+		flying["grounded"] = false
+		flying["cell"] = START - Vector2i(0, row)
+		nav.control(flying, _player)
+	_check(nav.progress == 3, "the climb passed the shaft's cells (%d)" % nav.progress)
+	for _frame in 8:
+		# Falling back down the shaft: the jump press is let go.
+		var falling := rest.duplicate()
+		falling["grounded"] = false
+		falling["cell"] = START - Vector2i(0, 1)
+		nav.control(falling, _player)
+	nav.refresh(rest, 0)
+	_check(nav.progress == 0, "landing back on the start restarts the hop (%d)" % nav.progress)
+	var held := nav.control(rest, _player)
+	_check(held.has(&"jump"), "and jumps again at once (%s)" % [held])
 
 
 ## A hand-made flow field in the solver's format: walk right to the block, rise three rows

@@ -136,4 +136,8 @@ static func _harmful(hazard: Node2D) -> bool:
 	# A shattered spike keeps its fallen length until it regrows, but nothing is there.
 	if hazard is Stalactite:
 		return (hazard as Stalactite).state != Stalactite.State.GONE
+	# Heat drains nothing with the Pressure Seal (scripts/campaign/heat_zone.gd); r10 credited
+	# 26 of 27 Emberkite hits in kiln_08's sealed heat to the heat.
+	if hazard.is_in_group(&"campaign_heat"):
+		return not GameState.has_ability(&"pressure_seal") and GameState.health > 0
 	return true

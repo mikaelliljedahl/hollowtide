@@ -5,11 +5,17 @@ extends RefCounted
 ## report who hit the player), so "unknown" can appear.
 
 const BossPatterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Assist = preload("res://scripts/progression/assist.gd")
+const HeatZone = preload("res://scripts/campaign/heat_zone.gd")
 const Hazards = preload("res://tools/playtest_hazards.gd")
 const TILE := 64.0
 const SAMPLE_SECONDS := 0.5
 const STUCK_WINDOW := 3.0
 const STUCK_SPREAD := 48.0
+## A longer window in which every sample's feet cell lies within two adjacent cells is a stall too:
+## an updraft bobbing her 78 px at the nexus_07 lip never fit STUCK_SPREAD (r10-run3, 580 s, no
+## episode recorded).
+const STUCK_CELL_WINDOW := 6.0
 const SHOT_RADIUS := 170.0
 const CONTACT_RADIUS := 280.0
 ## Pixels between the player's hitbox and a hazard's body (not its origin) that still credit it.
@@ -18,6 +24,10 @@ const BOSS_ATTACK_MEMORY := 3.0
 const KILLER_MEMORY := 1.5
 const BREAK_RADIUS := 1.5
 const BREAK_KINDS := ["jump", "jump_over", "wall_jump", "dash_through"]
+## A boss record that ends by leaving the room this soon, with no attack seen and no damage, was a
+## pass through the arena's edge, not an attempt (r10: 0.7 s Emberkite "attempts" while the kiln_06
+## steam carried her in and out through kiln_08's floor opening).
+const BOUNCE_SECONDS := 1.5
 
 var now := 0.0
 var room := ""
@@ -42,6 +52,7 @@ var _root: Node
 var _health := -1
 var _last_hit := {}
 var _samples: Array = []
+var _cell_samples: Array = []
 var _stuck: Dictionary = {}
 var _ambush: Dictionary = {}
 var _boss: Dictionary = {}
@@ -170,6 +181,7 @@ func _on_room_changed(room_id: String) -> void:
 	_finish_boss("left_room")
 	_finish_stuck()
 	_samples.clear()
+	_cell_samples.clear()
 	_alive.clear()
 	room = room_id
 	var tree := _player.get_tree()
@@ -189,7 +201,7 @@ func _on_health_changed(current: int, _maximum: int) -> void:
 	_health = current
 	if lost <= 0 or _player == null:
 		return
-	var source := _source()
+	var source := _source(lost)
 	damage[source] = int(damage.get(source, 0)) + lost
 	var cell := current_cell()
 	hits.append(
@@ -333,6 +345,14 @@ func _track_boss() -> void:
 func _finish_boss(outcome: String) -> void:
 	if _boss.is_empty():
 		return
+	if (
+		outcome == "left_room"
+		and now - float(_boss["start"]) < BOUNCE_SECONDS
+		and (_boss["attacks"] as Dictionary).is_empty()
+		and (_boss["damage_by_source"] as Dictionary).is_empty()
+	):
+		_boss = {}
+		return
 	_on_boss_stage(int(_boss["stage"]), null)
 	var boss = _boss["node"]
 	var health := 0
@@ -413,11 +433,34 @@ func _track_stuck(moving: bool) -> void:
 	for sample in _samples:
 		bounds = bounds.expand(sample["pos"])
 	var stuck := window_full and all_moving and bounds.size.length() < STUCK_SPREAD
+	var window := STUCK_WINDOW
+	if _stuck_in_cells(moving):
+		stuck = true
+		window = STUCK_CELL_WINDOW
 	if stuck and _stuck.is_empty():
 		var cell := current_cell()
-		_stuck = {"room": room, "cell": [cell.x, cell.y], "start": now - STUCK_WINDOW}
+		_stuck = {"room": room, "cell": [cell.x, cell.y], "start": now - window}
 	elif not stuck:
 		_finish_stuck()
+
+
+## Samples the feet cell; true when for STUCK_CELL_WINDOW every sample was moving and its cells
+## fit in two adjacent ones.
+func _stuck_in_cells(moving: bool) -> bool:
+	_cell_samples.append({"t": now, "cell": current_cell(), "moving": moving})
+	while now - float(_cell_samples[0]["t"]) > STUCK_CELL_WINDOW:
+		_cell_samples.pop_front()
+	if now - float(_cell_samples[0]["t"]) < STUCK_CELL_WINDOW - SAMPLE_SECONDS:
+		return false
+	var cells := {}
+	for sample in _cell_samples:
+		if not sample["moving"]:
+			return false
+		cells[sample["cell"]] = true
+	if cells.size() > 2:
+		return false
+	var keys := cells.keys()
+	return keys.size() < 2 or (keys[0] - keys[1]).abs() in [Vector2i(1, 0), Vector2i(0, 1)]
 
 
 func _finish_stuck() -> void:
@@ -463,16 +506,22 @@ func _reflected_count() -> int:
 	return int(dash.deflect.reflected_count)
 
 
-## Best guess at what just hurt the player: a hazard whose body overlaps hers (lava, a falling
-## spike, the flood), a nearby enemy shot (credited to a boss attack when a boss released one
-## recently), then a charging boss (its attack) or a touching one (contact), a boss attack released
-## recently, a nearby enemy, a hazard within HAZARD_RADIUS, else "unknown".
-func _source() -> String:
+## Best guess at what just hurt the player (`lost` health): a hazard whose body overlaps hers
+## (lava, a falling spike, the flood), a nearby enemy shot (credited to a boss attack when a boss
+## released one recently), then a charging boss (its attack) or a touching one (contact), a boss
+## attack released recently, a nearby enemy, a hazard within HAZARD_RADIUS, else "unknown". Heat
+## around her is an ambient drain, not a hit: it is credited first only for a loss of its own tick
+## size, else after everything else.
+func _source(lost: int) -> String:
 	var tree := _player.get_tree()
 	var center := _player.global_position + Vector2(0, -90)
 	var hazards := Hazards.near(tree, Hazards.body_rect(_player), HAZARD_RADIUS, true)
-	if not hazards.is_empty() and float(hazards[0]["gap"]) <= 0.0:
-		return "hazard:%s" % hazards[0]["kind"]
+	var tick := Assist.scale_damage(HeatZone.DAMAGE_PER_TICK)
+	for hazard in hazards:
+		if float(hazard["gap"]) > 0.0:
+			break
+		if hazard["kind"] != "heat" or lost == tick:
+			return "hazard:%s" % hazard["kind"]
 	var attack_label := _boss_attack_source()
 	var shot := _nearest(tree.get_nodes_in_group(&"enemy_shot"), center, SHOT_RADIUS)
 	if shot != null:

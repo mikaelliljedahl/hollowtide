@@ -18,6 +18,10 @@ SPLIT_MARGIN = 0.15
 DANGER_HIGH = 1.34
 DANGER_LOW = 0.67
 HIT_WINDOW = 1.5
+# Above this share of fallbacks among the decisions that asked Jev, a run is the heuristic's, not
+# Jev's: its Jev findings and critic readability are not valid (r10's three runs fell back 92-97%
+# of the time during a hosted outage and were reported as Jev runs).
+DEGRADED_FALLBACK_RATE = 0.5
 TOP = 3
 GROUPS = {
     "shoot": "attack",
@@ -231,12 +235,27 @@ def _add(into: dict[str, Any], other: dict[str, Any]) -> None:
 # --- Findings ---------------------------------------------------------------------------------
 
 
+def degraded(summary: dict[str, Any]) -> str | None:
+    """The warning for a run Jev mostly did not play, or None."""
+    rate = derived(summary)["fallback_rate"]
+    if rate is None or rate <= DEGRADED_FALLBACK_RATE:
+        return None
+    return (
+        f"RUN DEGRADED: Jev was unavailable and {rate:.0%} of its decisions fell back to the"
+        " heuristic; Jev-policy findings and critic readability are not valid for this run."
+        " Rerun when the service is healthy."
+    )
+
+
 def describe(summary: dict[str, Any], analysis: dict[str, Any]) -> list[str]:
     lines = []
     if summary["fatal"]:
         fatal = summary["fatal"]
         status = f"HTTP {fatal['status']}" if fatal["status"] else "not started"
         lines.append(f"Jev rejected the run ({status}): {fatal['message']}")
+    warning = degraded(summary)
+    if warning:
+        return [*lines, warning]
     lines += _hotspot_lines(analysis["hotspots"])
     lines += _danger_lines(analysis["danger"])
     lines += _disagreement_lines(analysis["disagreement"])
@@ -324,6 +343,7 @@ def _disagreement_lines(entry: dict[str, Any]) -> list[str]:
 
 def stats_markdown(summary: dict[str, Any], analysis: dict[str, Any], heading: str) -> str:
     extra = derived(summary)
+    warning = degraded(summary)
     reasons = ", ".join(
         f"{source.removeprefix('fallback:')} {count}"
         for source, count in sorted(summary["sources"].items())
@@ -342,7 +362,8 @@ def stats_markdown(summary: dict[str, Any], analysis: dict[str, Any], heading: s
         ("Output tokens", summary["output_tokens"]),
         ("Cost (estimate)", f"${extra['cost_usd_estimate']:.4f} at $0.042 per million input"),
     ]
-    lines = [heading, "", "| Measure | Value |", "|---|---|"]
+    lines = [heading, ""] + ([f"**{warning}**", ""] if warning else [])
+    lines += ["| Measure | Value |", "|---|---|"]
     lines += [f"| {name} | {value} |" for name, value in rows]
     lines += ["", "Jev findings (Jev reads the structured state, not the screen):", ""]
     lines += [f"- {line}" for line in describe(summary, analysis)]

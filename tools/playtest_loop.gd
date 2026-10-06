@@ -12,6 +12,10 @@ const Bridge = preload("res://tools/playtest_bridge.gd")
 const Telemetry = preload("res://tools/playtest_telemetry.gd")
 const Campaign = preload("res://tools/playtest_campaign.gd")
 const Dodge = preload("res://tools/playtest_dodge.gd")
+const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
+const TILE := 64.0
+## Route programs steer an arrival from below themselves (a shaft can go on straight up).
+const ROUTE_KINDS := ["go_to_objective", "go_to_door", "fast_travel"]
 const LOGGED_FALLBACKS := 5
 ## A streamed decision log is flushed this often, so a long run can be followed from outside.
 const LOG_FLUSH_EVERY := 200
@@ -44,6 +48,12 @@ var _seen_plan: Variant = null
 ## that keeps her standing in place, so the Harpoon is offered at once: in r6-full-s4 a
 ## stand-still Crosscurrent dodge ran on through a 2 s Tidal Heart Echo window.
 var _seen_open := false
+## Side (-1 or 1) leaned toward while she rises out of the floor opening she came up through, until
+## she stands; 0 otherwise. r10: entering kiln_08 from the kiln_06 steam, the Emberkite fight's
+## programs held no sideways move, so she dropped straight back down the opening (12 of 12 in the
+## probe; a 0.7 s "attempt" in each run). Any held direction lands her beside it.
+var _lean := 0
+var _room_seen := ""
 
 
 func _init(root: Node, player: Player, policy: String, seed_value: int, break_specs: Array) -> void:
@@ -66,14 +76,23 @@ func connect_external(port: int, hello: Dictionary) -> bool:
 ## Call once per physics frame, before the player processes.
 func physics_step(delta: float) -> void:
 	if _busy():
-		if not driver.held().is_empty():
-			driver.release_all()
-		current = {}
+		# Through a room change the held inputs stay held and the program waits: the fade-in
+		# runs the player with a north door's entry boost, and a released jump cuts it (the PR 12
+		# review and round 10 smoke runs fell back out of nexus_01 into nexus_07 for 225 s and
+		# 860 s). A respawn or death still lets go of everything.
+		if not _changing_room():
+			if not driver.held().is_empty():
+				driver.release_all()
+			current = {}
 		telemetry.tick(delta, false, "")
 		return
 	if driver.done() or _new_telegraph() or _new_opening():
 		_decide()
-	driver.step()
+	_update_lean()
+	var lean := &""
+	if _lean != 0 and not String(current.get("kind", "")) in ROUTE_KINDS:
+		lean = &"move_left" if _lean < 0 else &"move_right"
+	driver.step(lean)
 	var kind := String(current.get("kind", ""))
 	telemetry.tick(delta, kind in Actions.MOVING_KINDS, kind)
 
@@ -104,6 +123,16 @@ func _busy() -> bool:
 		or _root.get("_busy") == true
 		or _root.get("_respawning") == true
 		or _player.get_tree().paused
+	)
+
+
+## True during a room change (not a respawn, not dead) while the running program holds inputs.
+func _changing_room() -> bool:
+	return (
+		_root.get("_busy") == true
+		and _root.get("_respawning") != true
+		and GameState.health > 0
+		and not driver.held().is_empty()
 	)
 
 
@@ -170,6 +199,29 @@ func _decide() -> void:
 			_log_file.flush()
 	else:
 		decision_log.append(line)
+
+
+func _update_lean() -> void:
+	var room_id := String(_root.get("current_room_id"))
+	if room_id != _room_seen:
+		_room_seen = room_id
+		_lean = _opening_side(room_id)
+	elif _lean != 0 and _player.is_on_floor():
+		_lean = 0
+
+
+## The side of the nearer floor beside the south opening she is rising out of, or 0.
+func _opening_side(room_id: String) -> int:
+	var room := _root.get("current_room") as Node2D
+	if room == null or not Rooms.ROOMS.has(room_id) or _player.velocity.y >= 0.0:
+		return 0
+	var x := _player.global_position.x - room.global_position.x
+	for door in Rooms.ROOMS[room_id]["doors"]:
+		var left := Vector2i(door["from"]).x * TILE
+		var right := (Vector2i(door["to"]).x + 1) * TILE
+		if door["edge"] == &"south" and x >= left and x <= right:
+			return -1 if x - left < right - x else 1
+	return 0
 
 
 func _boss_plan() -> Variant:

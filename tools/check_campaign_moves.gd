@@ -6,6 +6,7 @@ extends Node
 ## godot --headless --path . res://tools/check_campaign_moves.tscn -- --test-mode
 
 const CAMPAIGN := preload("res://scenes/campaign/campaign.tscn")
+const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const TILE := 64.0
 const ACTIONS: Array[StringName] = [
 	&"move_left",
@@ -55,6 +56,11 @@ func _run() -> void:
 	await _case_vaults_02_chimney()
 	await _case_vaults_02_high_jump_bay()
 	await _case_vaults_03_steps()
+	await _case_nexus_07_door_release()
+	await _case_vaults_02_shaft_curb()
+	await _case_floor_drops()
+	await _case_vaults_02_shaft_floater()
+	await _case_route_threats()
 	_release()
 	for failure in _failures:
 		push_error("FAIL: " + failure)
@@ -232,6 +238,170 @@ func _case_vaults_03_steps() -> void:
 	_expect_row("vaults_03 mid step -> entry ledge", "vaults_03", 5, 1, 4)
 	await _hold([&"move_left"], 60)
 	_expect_room("vaults_03 ledge -> vaults_02 antechamber", "vaults_02")
+
+
+## The north-door lift (campaign_root UP_ENTRY_SPEED) carries her up into nexus_01; letting go of
+## jump right after the room change used to cut it to 40 % and drop her back into nexus_07.
+func _case_nexus_07_door_release() -> void:
+	if not _wanted("nexus_07_door"):
+		return
+	for steer in [-1, 1]:
+		await _setup("nexus_07", Vector2i(33, 3), [&"beam", &"high_jump"])
+		Input.action_press(&"jump")
+		for frame in 150:
+			if frame == 8:
+				Input.action_press(&"move_right" if steer > 0 else &"move_left")
+			if frame == 24:
+				Input.action_release(&"jump")
+			await get_tree().physics_frame
+			if _room() == "nexus_01" and _player.is_on_floor():
+				break
+		_release()
+		await _frames(12)
+		var label := "nexus_07 -> nexus_01 with jump released after the door (steer %d)" % steer
+		_expect_row(label, "nexus_01", 31, 0, 12)
+
+
+## Curbs frame the floor shaft to vaults_04 next to the Bubble Snare: walking away stops at the
+## curb, a running hop clears the pit, and stepping off the curb still drops her on purpose.
+func _case_vaults_02_shaft_curb() -> void:
+	if not _wanted("vaults_02_curb"):
+		return
+	await _setup("vaults_02", Vector2i(3, 31), [&"beam", &"ice_beam"])
+	await _hold([&"move_right"], 90)
+	_expect_row("vaults_02 walking from the Snare stops at the curb", "vaults_02", 31, 3, 6)
+	await _jump(1)
+	if _room() != "vaults_02" or _cell().x < 11 or not _player.is_on_floor():
+		_failures.append("vaults_02 hop over the pit: in %s at %s" % [_room(), _cell()])
+	else:
+		print("  ok  vaults_02 hop clears the vaults_04 pit")
+	await _setup("vaults_02", Vector2i(7, 30), [&"beam", &"ice_beam"])
+	await _hold([&"move_right"], 60)
+	await _frames(30)
+	_expect_room("vaults_02 step off the curb -> vaults_04", "vaults_04")
+
+
+## The hop over the vaults_02 shaft from its west curb, at 20 phases of the room's frost floater,
+## with her hurtable and no other enemy: the floater must never knock her into the shaft. r10: it swayed through the
+## full jump's arc over the gap, its touch threw her back over the pit, and 13 of 20 phases fell to
+## vaults_04 (a 244-step detour in run3).
+func _case_vaults_02_shaft_floater() -> void:
+	if not _wanted("vaults_02_floater"):
+		return
+	var fell: Array = []
+	_player.set("dev_invulnerable", false)
+	for phase in 20:
+		# Standing on the col 7 curb, a held full jump east over the cols 8-10 gap.
+		await _setup("vaults_02", Vector2i(7, 30), [&"beam", &"ice_beam"])
+		GameState.reset_health()
+		# Phases 8 frames apart cover the floater's sway before the room's stalker emerges at her
+		# feet (about 3 s after _setup; it is not under test).
+		await _frames(phase * 8)
+		Input.action_press(&"move_right")
+		await _jump(0, 40)
+		await _frames(60)
+		_release()
+		if _room() != "vaults_02":
+			fell.append(phase)
+	_player.set("dev_invulnerable", true)
+	if not fell.is_empty():
+		_failures.append("vaults_02 hop over the shaft fell at floater phases %s" % [fell])
+	else:
+		print("  ok  vaults_02 hop over the shaft holds at 20 floater phases")
+
+
+## Every floor opening dropped through with no input, at both ends and the middle of the door:
+## where she arrives, her standing body is never inside rock. r10: vaults_05 has rock in row 1
+## under its north opening, the arrival put her upper body in it, and she hung frozen in the air
+## for up to 3.5 s (the same shape in vaults_04 under the other vaults_02 shaft).
+func _case_floor_drops() -> void:
+	if not _wanted("floor_drops"):
+		return
+	# kiln_04's floor opening is the top of a steam shaft that lifts her up out of kiln_02 through
+	# its stack door: no one drops down it (the steam holds her), and the closed door's slab, not
+	# rock, is what a forced drop lands in.
+	const UPDRAFT_ONLY := ["kiln_04"]
+	var before := _failures.size()
+	var drops := 0
+	for room_id in Rooms.ROOMS:
+		for door in Rooms.ROOMS[room_id]["doors"]:
+			if door["edge"] != &"south" or room_id in UPDRAFT_ONLY:
+				continue
+			var height: float = Vector2(Rooms.ROOMS[room_id]["size"]).y * TILE
+			var from: int = Vector2i(door["from"]).x
+			var to: int = Vector2i(door["to"]).x
+			for x in [from * TILE + 30.0, (from + to + 1) * TILE * 0.5, (to + 1) * TILE - 30.0]:
+				_release()
+				_root.call("teleport", room_id, Vector2(x, height - 4.0))
+				var wedged := 0
+				for _frame in 60:
+					await get_tree().physics_frame
+					if not get_tree().paused and _room() == door["target"] and _in_rock():
+						wedged += 1
+				drops += 1
+				if wedged > 0:
+					_failures.append(
+						(
+							"%s drop at x %d into %s: body in rock %d frames at %s"
+							% [room_id, x, door["target"], wedged, _cell()]
+						)
+					)
+	if _failures.size() == before:
+		print("  ok  %d floor drops arrive clear of rock" % drops)
+
+
+## True when the standing body overlaps a rock tile of the current room.
+func _in_rock() -> bool:
+	var room := _root.get("current_room") as CampaignRoom
+	var feet := _player.global_position - room.global_position
+	var half := PlayerConfig.STANDING_WIDTH * 0.5
+	var top := feet.y - PlayerConfig.STANDING_HEIGHT
+	for row in range(floori((top + 1.0) / TILE), floori((feet.y - 1.0) / TILE) + 1):
+		for column in range(
+			floori((feet.x - half + 1.0) / TILE), floori((feet.x + half - 1.0) / TILE) + 1
+		):
+			if row >= 0 and room.tiles().get_cell_source_id(Vector2i(column, row)) != -1:
+				return true
+	return false
+
+
+## A threat reaches the player where she walks: standing on the route cell, some resident enemy
+## comes within REACH px in time. fringe_01 and fringe_02 come before any weapon (crawlers she
+## must jump); the corridor rooms on the lower vaults route and nexus_03 hold enemies her
+## arrival kit beats.
+func _case_route_threats() -> void:
+	if not _wanted("route_threats"):
+		return
+	const REACH := 160.0
+	var cases := [
+		["fringe_01", Vector2i(24, 14), 15.0],
+		["fringe_02", Vector2i(12, 22), 15.0],
+		["vaults_04", Vector2i(12, 14), 6.0],
+		["vaults_05", Vector2i(8, 14), 6.0],
+		["vaults_09", Vector2i(8, 14), 6.0],
+		["nexus_03", Vector2i(5, 15), 6.0],
+	]
+	for entry in cases:
+		var room_id: String = entry[0]
+		var cell: Vector2i = entry[1]
+		_release()
+		GameState.reset_progress()
+		_root.call("teleport", room_id, _feet(cell))
+		var nearest := INF
+		for frame in int(float(entry[2]) * 60.0):
+			await get_tree().physics_frame
+			var center := _player.global_position - Vector2(0.0, PlayerConfig.STANDING_HEIGHT * 0.5)
+			for enemy in get_tree().get_nodes_in_group(&"campaign_enemy"):
+				nearest = minf(nearest, (enemy as Node2D).global_position.distance_to(center))
+		if _room() != room_id or nearest > REACH:
+			_failures.append(
+				(
+					"%s: no enemy came within %d px of %s in %.0f s (nearest %.0f)"
+					% [room_id, REACH, cell, entry[2], nearest]
+				)
+			)
+		else:
+			print("  ok  %s threat reaches %s (%.0f px)" % [room_id, cell, nearest])
 
 
 # --- helpers ----------------------------------------------------------------------------------

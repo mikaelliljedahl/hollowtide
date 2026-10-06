@@ -83,7 +83,8 @@ unique pickups receive stable world IDs; if a pickup moves, it retains its ID.
 Direction: more action, fewer puzzles. No stretch of 24 columns along a room's long axis (12 rows
 in a room taller than wide, since a climb is slower than a walk) is empty of threats: each needs a resident enemy or an ambush arena's spawn area. In a room without an ambush a
 stalactite also counts, because the rooms before the first weapon (fringe_01, fringe_02) may only
-hold threats the player can dodge; every enemy must be beatable with the kit on first arrival. Boss
+hold threats the player can dodge (stalactites and Crawlers, which no early weapon harms and she
+jumps over); every other enemy must be beatable with the kit on first arrival. Boss
 rooms, the ending room and the hub are exempt. `tools/campaign_pacing.py` enforces the rule inside
 `tools/check_campaign_graph.py`.
 
@@ -97,6 +98,28 @@ Jev round 9 (2026-10-01) filled the walks the critic rated lowest (rounds 6 to 8
 | `fringe_03` Echo Gallery | Spitter on the lower floor (36, 14); Hopper past the save (52, 14) | After the beam trial the east third was an empty walk to the missile gate; a ground rusher and a ranged Spitter ask for movement and a choice of target. |
 | `fringe_04` Pulse Chimney | Vent Flyer at the top by the Pulse Bombs (10, 3); Spitter on the lower east ledge (20, 22) | The top and the lower climb were empty (rated boring and too long, no damage). |
 | `kiln_02` Furnace Shaft | Vent Flyer mid-shaft (20, 19) | Rows 9 to 25 of the heat shaft were empty between the upper flyer and the antechamber. |
+
+Round 10 (2026-10-06, from the PR 12 Jev review and rounds 5 to 9): the stalactites fell behind
+her, so the weaponless rooms still rated 0.65; the 48-room corridors on the lower vaults route and
+the hub connector rated 0.61 to 0.66 (too easy, too short). `tools/check_campaign_moves.gd` (`route_threats`) stands on a route cell of each
+room and requires a resident enemy to come within 160 px.
+
+| Room | Added | Why |
+|---|---|---|
+| `fringe_01` Surface Breach | Crawler on the pickup block (38, 8), heading west | It meets her on the block or the lower floor on the way to the shaft; she jumps it. |
+| `fringe_02` Drip Shaft | Crawlers on the ledges (13, 16) and (23, 19) | They crawl the shaft walls and ledges she drops past and reach the floor by the Slipstream. |
+| `vaults_04` Stalagmite Steps | Hopper on the floor (15, 14); Ceiling Diver over the steps (17, 1) | The drop from vaults_02 landed in an empty hall; only the exit's Armored Guard engaged. |
+| `vaults_05` Drip Basin | Hopper on the floor (9, 14); Spitter on the block (23, 12) | The walk from either entrance to the vaults_09 drop held only a Frost Floater. |
+| `vaults_09` Plumb Line | Hopper by the landing (10, 14); Spitter on the east block (29, 12); Vent Flyer before the current (36, 8) | The 36-cell floor walk held one Crawler; the refill end stays quiet. |
+| `nexus_03` Chime Gallery | Grasshopper on the floor (7, 15); Vent Flyer (15, 8); Spitter on the platform (22, 10) | The connector was empty; the hub stays exempt from the rule. |
+
+Fairness fixes in the same round: a one-tile curb on each side of the vaults_02 floor shaft to
+vaults_04 (cols 7 and 11) stops a player walking away from the Bubble Snare from dropping into the
+room below by accident; the drop stays a deliberate hop. The upward door lift
+(`campaign_root.gd`, `UP_ENTRY_SPEED`) is no longer cut by letting go of jump after the room
+change (`Player.apply_door_lift`): in a real nexus_07 probe a held High Jump cleared the nexus_01
+floor by 104 px, but a release in the first frames after the door cut the lift to 40 % and dropped
+her back.
 
 ## Saving, death, resources, and map
 

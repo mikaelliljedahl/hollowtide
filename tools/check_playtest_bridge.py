@@ -134,6 +134,26 @@ class AggregateTest(unittest.TestCase):
         self.assertIn("fell back 6 times (timeout)", text)
         self.assertTrue(aggregate.to_markdown(summary).startswith("# Playtest aggregate (3 runs)"))
 
+    def test_degraded_jev_run_is_left_out(self):
+        """r10's runs fell back 92-97% during a hosted outage and were reported as Jev runs."""
+        healthy = report("defeated", 4, "stone_guardian:rockfall", 7.0)
+        healthy["jev"] = self.jev_run([{"source": "jev"}] * 9 + [{"source": "fallback:timeout"}])
+        outage = report("died", 3, "stone_guardian:fault_slam", 6.0)
+        outage["jev"] = self.jev_run([{"source": "fallback:http_503"}] * 9)
+        summary = aggregate.aggregate([healthy, outage])
+        self.assertIn("1 of 2 runs", summary["degraded"])
+        self.assertEqual(summary["jev"]["stats"]["decisions"], 10)
+        lines = aggregate.to_markdown(summary).split("\n")
+        self.assertTrue(lines[2].startswith("**RUN DEGRADED"))
+        summary = aggregate.aggregate([outage])
+        self.assertEqual(summary["jev"]["findings"], [])
+        self.assertIn("RUN DEGRADED", jev_feedback.describe(outage["jev"]["stats"], {})[0])
+
+    @staticmethod
+    def jev_run(records: list[dict]) -> dict:
+        stats = jev_feedback.stats(records)
+        return {"stats": stats, "analysis": jev_feedback.analyze(records, [], 0.35)}
+
 
 FAKE_KEY = "ts-test-key-4f1c9a"
 GAME_STATE = {
@@ -228,6 +248,12 @@ class StubJev:
                 )
                 if stub.mode == "slow":
                     time.sleep(0.6)
+                if stub.mode == "overloaded":
+                    self._reply(529, {"error": "system_overloaded"}, {"Retry-After": "10"})
+                    return
+                if stub.mode == "unavailable":
+                    self._reply(503, {"error": "no healthy upstream"})
+                    return
                 if stub.mode == "reject":
                     # A hostile server echoing the credential back must not get it into a report.
                     self._reply(401, {"error": f"bad key {self.headers['Authorization']}"})
@@ -235,10 +261,12 @@ class StubJev:
                 keys = list(body["questions"]["action"]["criteria"])
                 self._reply(200, jev_answer(keys[2], stub.confidence, keys))
 
-            def _reply(self, status: int, payload: dict) -> None:
+            def _reply(self, status: int, payload: dict, headers: dict | None = None) -> None:
                 data = json.dumps(payload).encode()
                 try:
                     self.send_response(status)
+                    for name, value in (headers or {}).items():
+                        self.send_header(name, value)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Content-Length", str(len(data)))
                     self.end_headers()
@@ -339,6 +367,38 @@ class JevBackendTest(unittest.TestCase):
         self.assertEqual(self.decide(), "retreat")
         self.assertLess(time.monotonic() - started, 0.55)
         self.assertEqual(self.backend.records[0]["source"], "fallback:timeout")
+
+    def test_overload_cools_down_in_game_time(self):
+        """r10-run1: a 529's 10 s cooldown ran on the wall clock while the headless game ran
+        ahead, so one 529 blanked 120-200 game seconds; the cooldown is game time now."""
+        self.stub.mode = "overloaded"
+        self.decide(1.0)
+        self.stub.mode = "ok"
+        self.decide(5.0)
+        self.assertEqual(self.backend.records[1]["source"], "fallback:cooldown")
+        self.assertEqual(self.decide(11.5), "shoot:e2:forward")
+        self.assertEqual(len(self.stub.requests), 2)
+
+    def test_unavailable_backs_off(self):
+        """r10: 634 requests went into a seven-minute 503 outage, one per decision; a 503 now
+        backs off 1 s, then 2 s, and an answer resets it."""
+        self.stub.mode = "unavailable"
+        for t in (1.0, 1.5, 2.1, 3.5, 4.2):
+            self.decide(t)
+        sources = [record["source"] for record in self.backend.records]
+        self.assertEqual(
+            sources,
+            [
+                "fallback:http_503",
+                "fallback:cooldown",
+                "fallback:http_503",
+                "fallback:cooldown",
+                "fallback:http_503",
+            ],
+        )
+        self.stub.mode = "ok"
+        self.assertEqual(self.decide(8.5), "shoot:e2:forward")
+        self.assertEqual(self.backend._failures, 0)
 
     def test_low_confidence_falls_back_to_the_hint(self):
         self.stub.confidence = 0.2

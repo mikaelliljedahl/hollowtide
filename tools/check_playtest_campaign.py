@@ -2,7 +2,9 @@
 campaign graph solver's progression stages, every objective is reachable from the previous one with
 the kit owned by then, flow-field hops descend to the objective, the route's solver curls into
 Slipstream form only on a floor, the runner hands the route to the game, and Jev's compact state
-carries the objective. Run by tools/check_playtest_bridge.py (suite `playtest bridge`)."""
+carries the objective. Round 10: the route sweeps the 48-room world (every mini-boss fight and
+optional pickup the route solver can reach, the Tidal Heart and the ending last), and builds in
+under BUILD_LIMIT seconds. Run by tools/check_playtest_bridge.py (suite `playtest bridge`)."""
 
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import argparse
 import json
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -23,6 +26,10 @@ import jev_feedback  # noqa: E402
 import jev_request  # noqa: E402
 import run  # noqa: E402
 from campaign_layout import load_rooms  # noqa: E402
+from route_graph import RouteSolver  # noqa: E402
+
+# Round 9's planner took over two minutes on the 48-room world.
+BUILD_LIMIT = 20.0
 
 
 def landed(field: dict, key: str) -> str:
@@ -41,7 +48,9 @@ class CampaignRouteTest(unittest.TestCase):
         cls.world = graph.World(load_rooms())
         cls.temp = tempfile.TemporaryDirectory()
         cls.out = Path(cls.temp.name)
+        began = time.monotonic()
         cls.route = campaign_route.build(cls.out)
+        cls.seconds = time.monotonic() - began
         cls.objectives = cls.route["objectives"]
 
     @classmethod
@@ -61,15 +70,13 @@ class CampaignRouteTest(unittest.TestCase):
         bosses = set(self.world.bosses)
         self.assertEqual(set(targets[:-1]), collected | bosses)
         start = (*self.world.start, False, 0, 0)
+        explored: dict[tuple, set] = {}
         for objective in self.objectives:
-            solver = graph.Solver(
-                self.world,
-                set(objective["abilities"]),
-                set(objective["flags"]),
-                set(),
-                breaks=False,
-            )
-            seen, _edges = solver.explore([start])
+            kit = (tuple(objective["abilities"]), tuple(objective["flags"]))
+            if kit not in explored:
+                solver = graph.Solver(self.world, set(kit[0]), set(kit[1]), set(), breaks=False)
+                explored[kit] = solver.explore([start])[0]
+            seen = explored[kit]
             reached = campaign_route.targets(
                 campaign_route.Objective(
                     objective["kind"],
@@ -82,18 +89,76 @@ class CampaignRouteTest(unittest.TestCase):
             )
             self.assertTrue(reached, f"{objective['target']} unreachable with its kit")
 
-    def test_nearby_upgrades_are_optional_and_close(self):
-        """Bolt Quivers and energy tanks within the detour, only while a boss is ahead; the
-        required objectives keep the minimum-kit order."""
-        extras = [o for o in self.objectives if o["optional"]]
-        self.assertIn("vaults_02.missile_01", [o["target"] for o in extras])
-        last_boss = max(i for i, o in enumerate(self.objectives) if o["kind"] == "boss")
-        for extra in extras:
-            self.assertLess(extra["index"], last_boss, extra["target"])
-            self.assertLessEqual(extra["steps"], campaign_route.EXTRA_DETOUR, extra["target"])
-            self.assertIn(extra["grants"], ("missiles", "energy_tank"), extra["target"])
-        minimum = [o.target for o in campaign_route.plan(self.world, extras=False)]
-        self.assertEqual([o["target"] for o in self.objectives if not o["optional"]], minimum)
+    def test_build_is_fast(self):
+        """Round 9 took over two minutes to build the 48-room route."""
+        self.assertLess(self.seconds, BUILD_LIMIT)
+
+    def test_the_sweep_takes_every_reachable_optional(self):
+        """Every pickup, mini-boss and room is an objective or on a path to one, or unreachable
+        for the route solver (no timed doors, no breaks) even with every ability and flag, or a
+        trap it cannot leave; optional objectives carry a time budget."""
+        taken = {o["target"] for o in self.objectives}
+        for pickup_id, _kind in self.world.pickups.values():
+            self.assertTrue(pickup_id in taken or pickup_id in self.route["unreached"], pickup_id)
+        minis = [o for o in self.objectives if o["kind"] == "mini"]
+        self.assertGreaterEqual(len(minis), 4, [o["target"] for o in minis])
+        for mini in self.world.minis:
+            self.assertTrue(mini in taken or f"mini:{mini}" in self.route["unreached"], mini)
+        for objective in minis:
+            self.assertTrue(objective["optional"])
+            self.assertEqual(objective["grants"], f"mini:{objective['target']}")
+        every = {"missiles", "slipstream", "beam", "bombs", "ice_beam", "high_jump"}
+        every |= {"pressure_seal", "wave_beam", "undertow_dash"}
+        flags = {
+            f"{prefix}:{boss}" for boss in self.world.bosses for prefix in ("boss", "regional")
+        }
+        flags |= {f"mini:{mini}" for mini in self.world.minis}
+        solver = RouteSolver(self.world, every, flags, set(), breaks=False)
+        seen, _edges = solver.explore([(*self.world.start, False, 0, 0)])
+        for missing in self.route["unreached"]:
+            if missing.startswith("room:"):
+                # A room the solver only enters as a trap (it cannot leave again) is not swept.
+                inside = [state for state in seen if state[0] == missing[5:]]
+                escaped, _edges = solver.explore(inside)
+                self.assertFalse([s for s in escaped if s[0] != missing[5:]], missing)
+                continue
+            if missing.startswith("mini:"):
+                room, arena = self.world.minis[missing[5:]]
+                cells = campaign_route._arena_cells(arena)
+            else:
+                room, x, y = next(k for k, v in self.world.pickups.items() if v[0] == missing)
+                cells = [(x, y)]
+            objective = campaign_route.Objective("pickup", missing, room, cells, "")
+            self.assertFalse(campaign_route.targets(objective, seen), f"{missing} is reachable")
+        for objective in self.objectives:
+            self.assertEqual("seconds" in objective, objective["optional"], objective["target"])
+
+    def test_mini_rewards_follow_their_fight(self):
+        """A pickup behind a `mini:` gate comes after that fight (kiln_08's Bolt Quiver)."""
+        order = [o["target"] for o in self.objectives]
+        self.assertLess(order.index("emberkite"), order.index("kiln_08.missile_02"))
+        quiver = self.objectives[order.index("kiln_08.missile_02")]
+        self.assertIn("mini:emberkite", quiver["flags"])
+
+    def test_only_a_mini_reward_needs_the_mini_flag(self):
+        """r10-run1/run2 timed out on the optional Tollwing, and every later objective, the
+        required ones too, listed `mini:tollwing`: nothing was ready and the run ended as
+        `route_done` with 43 objectives open. Only an optional pickup behind a mini-boss reward
+        gate lists a `mini:` flag."""
+        for objective in self.objectives:
+            minis = [flag for flag in objective["flags"] if flag.startswith("mini:")]
+            if not objective["optional"] or objective["kind"] != "pickup":
+                self.assertFalse(minis, f"{objective['index']} {objective['target']}")
+
+    def test_last_boss_and_ending_come_last(self):
+        kinds = [(o["kind"], o["target"]) for o in self.objectives]
+        self.assertEqual(kinds[-2:], [("boss", "tidal_heart"), ("ending", "ending")])
+
+    def test_minimum_kit_plans_required_items_only(self):
+        minimum = campaign_route.plan(self.world, sweep=False)
+        self.assertFalse([o.target for o in minimum if o.optional or o.kind == "mini"])
+        required = [o["target"] for o in self.objectives if not o["optional"]]
+        self.assertEqual(sorted(o.target for o in minimum), sorted(required))
 
     def test_each_objective_is_ready_with_the_kit_before_it(self):
         owned: set[str] = set()
@@ -103,13 +168,17 @@ class CampaignRouteTest(unittest.TestCase):
             self.assertLessEqual(set(objective["flags"]), flags, objective["target"])
             if objective["kind"] == "pickup" and not objective["optional"]:
                 owned.add(objective["grants"])
-            elif objective["kind"] == "boss":
+            elif objective["kind"] in ("boss", "mini"):
                 flags.update(objective["grants"].split(","))
             if objective["kind"] == "boss":
                 self.assertLessEqual(graph.BOSS_NEEDS[objective["target"]], owned)
+            if objective["kind"] == "mini":
+                self.assertLessEqual(graph.MINI_NEEDS, owned)
 
     def test_hops_descend_from_the_start_to_the_first_pickup(self):
-        field = self.field(0)
+        first = next(o for o in self.objectives if o["kind"] == "pickup")
+        self.assertEqual(first["target"], "fringe_02.slipstream")
+        field = self.field(first["index"])
         start = self.world.start
         key = f"{start[0]}:{start[1]}:{start[2]}:0"
         self.assertIn(key, field)
@@ -126,24 +195,32 @@ class CampaignRouteTest(unittest.TestCase):
         self.assertEqual(key.split(":")[0], "fringe_02")
 
     def test_every_objective_starts_on_its_own_field(self):
+        """Following the fields from the start reaches every objective in turn; after a fight
+        play goes on from the planner's `rest` spot (the arena's return point when the solver
+        walks there). The walk passes most of the 48 rooms."""
         position = f"{self.world.start[0]}:{self.world.start[1]}:{self.world.start[2]}:0"
+        rooms: set[str] = set()
         for index in range(len(self.objectives)):
             field = self.field(index)
+            if index:
+                position = self.objectives[index - 1]["rest"]
             position = landed(field, position)
-            self.assertIn(position, field, f"objective {index} cannot be reached from {position}")
+            self.assertTrue(position in field, f"objective {index} unreachable from {position}")
             steps, hop = field[position]
             for _hop in range(400):
                 if steps == 0:
                     break
+                rooms.update(cell[0] for cell in hop)
                 last = hop[-1]
                 position = f"{last[0]}:{last[1]}:{last[2]}:{last[3]}"
                 if position not in field:
                     break  # the hop ends on the objective's cell in mid-air
                 steps, hop = field[position]
             self.assertTrue(steps == 0 or position not in field, f"objective {index} not reached")
+        self.assertGreaterEqual(len(rooms), 40, sorted(set(self.world.rooms) - rooms))
 
     def test_route_solver_curls_only_on_a_floor(self):
-        solver = campaign_route.solver_for(self.world, {"slipstream", "beam"}, set())
+        solver = RouteSolver(self.world, {"slipstream", "beam"}, set(), set(), breaks=False)
         seen, _edges = solver.explore([(*self.world.start, False, 0, 0)])
         airborne = [s for s in seen if not s[3] and not campaign_route.resting(solver, s)]
         self.assertTrue(airborne)

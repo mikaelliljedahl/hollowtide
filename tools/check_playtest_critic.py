@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "playtest"))
 
 import jev_backend  # noqa: E402
 import jev_critic  # noqa: E402
+import jev_feedback  # noqa: E402
 
 FAKE_KEY = "ts-test-critic-key-0123456789"
 
@@ -136,6 +137,8 @@ class Stub:
     def __init__(self) -> None:
         self.requests: list[dict] = []
         self.status = 200
+        # Statuses for the next requests, in order, before `status` applies again.
+        self.statuses: list[int] = []
         self.reply = lambda body: answer()
         stub = self
 
@@ -143,13 +146,14 @@ class Stub:
             def do_POST(self) -> None:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 stub.requests.append(body)
+                status = stub.statuses.pop(0) if stub.statuses else stub.status
                 payload = (
                     stub.reply(body)
-                    if stub.status == 200
+                    if status == 200
                     else {"error": f"bad key {self.headers['Authorization']}"}
                 )
                 data = json.dumps(payload).encode()
-                self.send_response(stub.status)
+                self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -240,6 +244,35 @@ class SegmentTest(unittest.TestCase):
         self.assertIn("attacks", request["state"]["segment"])
 
 
+class StayTest(unittest.TestCase):
+    """r10-run2 kiln_02: 56.2 s in the room over five stays (a 25 s first pass with a 12.4 s
+    ambush, three 3.75 s walks back from Cinder Warden deaths, an 18.4 s return), rated as one
+    43.8 s visit, too_long. The first traversal is rated; the rest are their own facts."""
+
+    def test_a_room_is_rated_on_its_first_traversal(self):
+        run = report()
+        entries = [("kiln_02", 0.0, "move"), ("kiln_03", 25.0, "move")]
+        for start in (100.0, 200.0, 300.0):
+            entries += [("kiln_02", start, "respawn"), ("kiln_03", start + 3.75, "move")]
+        entries += [("kiln_02", 400.0, "move"), ("kiln_06", 418.4, "move")]
+        run["campaign"]["room_entries"] = [
+            {"room": room, "t": t, "cause": cause} for room, t, cause in entries
+        ]
+        run["telemetry"]["seconds"] = 430.0
+        run["telemetry"]["room_seconds"] = {"kiln_02": 56.2}
+        run["telemetry"]["ambushes"] = [
+            dict(run["telemetry"]["ambushes"][0], id="kiln_02.ambush", room="kiln_02", t=8.0)
+        ]
+        run["telemetry"]["ambushes"][0]["seconds"] = 12.4
+        run["telemetry"]["bosses"] = []
+        cut = {(s["kind"], s["id"]): s for s in jev_critic.segments(run, [])}
+        room = cut[("room", "kiln_02")]["facts"]
+        self.assertAlmostEqual(room["seconds"], 12.6, places=1)
+        self.assertEqual(room["visits"], 5)
+        self.assertAlmostEqual(room["respawn_walk_seconds"], 11.2, delta=0.1)
+        self.assertAlmostEqual(room["revisit_seconds"], 18.4, places=1)
+
+
 class RateRunTest(unittest.TestCase):
     def setUp(self):
         self.stub = Stub()
@@ -296,6 +329,34 @@ class RateRunTest(unittest.TestCase):
         result = self.rate(budget=0.9 * 900 * jev_critic.PRICE_PER_INPUT_TOKEN)
         self.assertEqual(len(self.stub.requests), 1)
         self.assertEqual(result["segments"][1]["error"], "skipped: critic budget spent")
+
+    def test_outage_is_retried(self):
+        """r10: one 503 or 529 lost a segment for good (9 of 13 in run3)."""
+        self.stub.statuses = [503, 529]
+        with mock.patch.object(jev_critic, "RETRY_WAITS", (0.0, 0.0, 0.0)):
+            result = self.rate()
+        self.assertEqual(result["scorecard"]["rated"], 4)
+        self.assertEqual(result["segments"][0]["retries"], 2)
+
+    def test_readability_needs_rated_hits(self):
+        """r10-run2: 10 of 11 segments rated "unclear" had damage but no answered Jev rating
+        near any hit (the outage); readability is left out there, not inferred."""
+        result = self.rate()
+        room = result["segments"][0]
+        self.assertGreater(room["facts"]["damage_taken"], 0)
+        self.assertEqual(room["unjudged"], ["readability"])
+        self.assertNotIn("unclear", room["flags"])
+        self.assertNotIn("readability", room["goodness"])
+        self.assertIn(jev_critic.UNJUDGED, (self.out / jev_critic.RATINGS_MD).read_text())
+
+    def test_degraded_run_is_marked(self):
+        run = report()
+        run["jev"] = {"stats": jev_feedback.stats([{"source": "fallback:http_503"}] * 9)}
+        (self.out / "report.json").write_text(json.dumps(run), encoding="utf-8")
+        result = self.rate()
+        self.assertIn("RUN DEGRADED", result["degraded"])
+        text = (self.out / jev_critic.RATINGS_MD).read_text()
+        self.assertTrue(text.split("\n")[2].startswith("**RUN DEGRADED"))
 
     def test_missing_key_refuses(self):
         with mock.patch.dict(os.environ, {jev_backend.KEY_ENV: ""}):

@@ -46,13 +46,15 @@ to game code.
 | Boss facts | `tools/playtest_boss.gd:46` | Protection phase, open shell, opener table and arena for the state. |
 | Refill reach | `tools/playtest_reach.gd:26` | Whether the straight steer arrives at a point: climb from the floor under her, line of sight, no deep gap on the way (section 24). |
 | Boss dodges | `tools/playtest_dodge.gd:60` | The timed answer to a boss attack being telegraphed, the refill run's jump over a boss (section 20), and the enemy shot a curl or a dash answers. |
-| Tidal Heart dodges | `tools/playtest_tide.gd` | The Tidal Heart's shot lines for the state and the spot off every line, or the lane jump (section 21). |
+| Line dodges | `tools/playtest_tide.gd` | The shot lines of the Tidal Heart's and the mini-bosses' shot attacks for the state, and the spot off every line, or the lane jump (sections 21 and 29). |
+| Mini-boss probe | `tools/playtest_mini_probe.gd`, `tools/playtest_mini_probe.tscn` | Forces every mini-boss attack in its real room from several spots and plays fixed responses and the heuristic loop against it through real inputs (section 29). |
 | Hazards | `tools/playtest_hazards.gd:43` | Hazard bodies as rects, shared by the state and the damage attribution. |
 | Policies | `tools/playtest_policy.gd:62` | `heuristic` and `random`; `external` goes through the bridge. |
 | Bridge | `tools/playtest_bridge.gd:53` | TCP client for the external policy (section 7). |
 | Telemetry | `tools/playtest_telemetry.gd:61` | Signals and per-frame sampling (section 8). |
 | Report | `tools/playtest_report.gd:10` | Findings, `report.json` and `report.md`. |
 | Runner | `tools/playtest/run.py:70` | Launches Godot per seed, hosts the policy server, aggregates. |
+| Route planner | `tools/playtest/campaign_route.py`, `tools/playtest/route_graph.py` | Campaign mode's objective order and flow fields over the graph check's solver, the movement graph cached per room across kits (sections 19 and 29). |
 | Policy server | `tools/playtest/policy_server.py:57` | Serves one game connection with a backend. |
 | Jev backend | `tools/playtest/jev_backend.py:156` | Hosted Jev or any `/v1/systemone` server (section 12). |
 | Jev request | `tools/playtest/jev_request.py:282` | Jev's compact state, the legal candidate filter, the rubric and the three questions (section 12). |
@@ -62,7 +64,8 @@ to game code.
 
 Decisions happen when the current program ends, at most every 6 physics frames (10 Hz at 60 Hz).
 A jump is committed for 28 frames, so the effective rate is 3 to 10 Hz. While the tree is paused
-(room fade, respawn) or the player is dead, all inputs are released and no decision is made.
+(room fade, respawn) or the player is dead, no decision is made and all inputs are released, except
+through a room change, where the running program's inputs stay held (section 29).
 
 ## 4. State
 
@@ -75,7 +78,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `room` | `id`, `area`, `size` in px. |
 | `player` | `pos`, `cell`, `vel`, `health`, `max_health`, `grounded`, `on_wall`, `facing`, `form` (standing, crouching, ball), `dash_ready`. |
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
-| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) `platform` (campaign mode: a frost floater an upcoming route hop stands on, frozen or not; it gets no fight options and Jev reads it as `route_platform`) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the Tidal Heart's lines: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish, `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
+| `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) `platform` (campaign mode: a frost floater an upcoming route hop stands on, frozen or not; it gets no fight options and Jev reads it as `route_platform`) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the lines of the Tidal Heart's and the mini-bosses' shot attacks: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish (every mini-boss in stage 2), `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
 | `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
@@ -92,7 +95,7 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | Key | Offered when | Program |
 |---|---|---|
 | `approach:<id>` | An enemy exists | Walk toward it; jump when a wall blocks, it is above (under a low ceiling, first walk out to open sky) or floor lava or fire lies one step ahead; wall-jump when clinging below it. From outside a live boss's arena: walk toward the boss to enter it. For a boss: walk, never jump, to the spot where a grounded bolt lines up with its opener point while the shell is closed, else with its body (320 px off a level target, along the 45 degree aim for a higher one), but no closer than 48 px to the arena's edge; while the opener is out of sight, steer to its `spot_rel` instead, climbing to it. |
-| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20); for the Tidal Heart while any of its lines still crosses the floor within 348 px of her | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket, standing still, or for the Tidal Heart a step to the nearest spot off every line (standing, else curled) or a jump over a low Crosscurrent lane with a curl under the high one. |
+| `dodge:<attack>` | Standing (not curled) on the ground in a live boss's arena while it telegraphs or releases an attack with a known answer (section 20); for the Tidal Heart while any of its lines still crosses the floor within 348 px of her | Wait for the moment the answer needs, then play it: a jump in place, a double jump in desperation, a walk to the nearest gap between locked columns, a curl and roll under a low roof, a curl in place until a fan has passed, a run into the wall's pocket (every charge, the mini-bosses' included), a run against Lanternjaw's Undertow Pull, standing still, or for the Tidal Heart's and the mini-bosses' shot attacks a step to the nearest spot off every line (standing, else curled) or a jump over a low lane with a curl under a high one. |
 | `retreat` | An enemy within 420 px and no wall 24 px behind the player; for a live boss only while its arena reaches at least 160 px behind the player | Run away from it for 12 frames. |
 | `open_boss:<id>:<aim>` | The player inside the boss's arena, a closed boss with its opening unspent, a Harpoon left, the opener beam owned and equipped, the opener point in sight, and an aim whose bolt passes within 100 px of its body (Snare) or 72 px of its grate's centre (Echo) | Fire the opener along that aim. |
 | `shoot:<id>:<aim>` | Beam owned, not in ball form, not at a boss from outside its arena, target within 1100 px and an aim reaches it (none when the player is grounded and the target is more than 160 px below the feet, none level at a target more than 80 px above the crossbow or at a `low` one, none whose bolt line passes more than 120 px from an ordinary enemy, none at a frost floater the route is freezing; for a boss the bolt line must pass within 100 px of its centre) | Face it, hold the aim (forward, up, diag_up, and down or diag_down in the air), tap `fire_beam`. |
@@ -399,6 +402,15 @@ local server that ignores it.
   desperation attack exports its lines, and the heuristic loop answers with `dodge:<attack>` and
   takes no damage; against the round 3 dodge it picks `approach` all four times and the
   Crosscurrent hits it.
+- Round 10 (section 29): `tools/check_playtest_campaign.py` builds the sweep route and checks the
+  build time (under 20 s), that every pickup, mini-boss and room is an objective, crossed, or out of
+  the route solver's reach, mini-boss rewards after their fight, the Tidal Heart and the ending
+  last, and the minimum-kit plan. `tools/check_playtest_campaign.gd` adds the mini-boss and visit
+  objective kinds, the per-objective time budget, and a hop restarted after a jump falls back onto
+  its start. `tools/check_playtest_mini.gd` (suite `playtest boss rooms`) forces four mini-boss
+  attacks in their real rooms and checks the loop's dodge takes no damage, and a stage 2 mini-boss
+  exports its punish-window opener. `tools/check_playtest_shaft.gd` (same suite) plays the campaign
+  loop up the nexus_07 shaft into nexus_01.
 - The refusal without `--test-mode` was run by hand: exit code 2 and the message "refusing to run
   without --test-mode (it would write to the real save)".
 
@@ -519,12 +531,11 @@ picks the move. While a gate or a floater on the route can be handled from where
 stands, `go_to_objective` is not offered, since following the route cannot get past it; while it
 is offered, the route's own `go_to_door` plays the same route-following program. An
 objective has 300 game seconds; a timed-out objective is set aside, a second timeout ends the run
-(`tools/playtest_progress.gd:30`). Deaths do not end a campaign run; the 2,700 s cap does.
-Like a player, the route also takes a Bolt Quiver or an energy tank lying within 50 solver steps
-while a boss is still ahead (`EXTRA_DETOUR` in `tools/playtest/campaign_route.py`; on the current
-map the vaults_02 quiver, the kiln_01 energy tank and the kiln_02 quiver, 16 objectives in all).
-Such an objective is `optional`: it gets 120 s and is left behind after one timeout. `run.py
---minimum-kit` plans the required items only (13 objectives), the question round 1 left open.
+(`tools/playtest_progress.gd:30`). Deaths do not end a campaign run; the 5,400 s cap does (2,700 s
+before round 10). Since round 10 the route sweeps the whole world: mini-bosses, optional pickups
+and room visits, each `optional` with its own time budget and left behind after one timeout
+(section 29). `run.py --minimum-kit` plans the required items and bosses only, the question round
+1 left open.
 
 Navigation fixes from the first full runs (`tools/playtest_nav.gd`): a jump peaking below a target
 straight overhead steers into the nearer shaft wall so the wall jump the solver planned happens
@@ -972,3 +983,95 @@ Rated run r9-min-s1 (seed 1, minimum kit, Jev and critic): ending 13/13 at 652.1
 1 contact hit (24, was 72), from the probed Rockfall step at x 306 with the Guardian 170 px away,
 not a jump; Cinder Warden no contact and no death; one Tidal Heart death (Crosscurrent). Critic
 overall 0.753 (round 8: 0.747 and 0.749), Guardian 0.93 (0.81 to 0.86).
+
+## 29. Harness round 10 (2026-10-06)
+
+The PR 12 review (48 rooms, five mini-bosses) found that the campaign route still played the
+16-room objective list, never targeted a mini-boss, visited new rooms only when a shortest path
+crossed them, took over two minutes to build, and stood 225 s under the nexus_07 shaft to nexus_01.
+
+**Solver: mini-boss fights.** `tools/check_campaign_graph.py` reads the `miniboss` layout entries
+and fights them like bosses: entering an arena with a quiver (`MINI_NEEDS`, line 72; stage 2 takes
+the Harpoon only) sets `mini:<id>` and opens its reward gate. The no-optional run fights none, so
+nothing required can sit behind a `mini:` gate; the any-order run now collects the Emberkite quiver
+through its fight instead of seeding every `mini:` flag. An arena the any-order run never reaches is
+printed as a warning: vaults_08 (Rimeweaver) is one, see the findings below.
+
+**Route: the full sweep.** `tools/playtest/campaign_route.py` plans every required pickup and boss,
+every mini-boss (kind `mini`), every optional pickup, and a visit (kind `visit`, done once the room
+is discovered) to each room no planned path crosses, nearest first; a visit is taken on the way
+within 60 weighted steps (`VISIT_DETOUR`), else once no pickup or fight is left, and the Tidal Heart
+and the ending come last. After a fight the plan goes on from the arena's return point, after a
+mid-air pickup or entry from where she lands (`rest` in `route.json`). An optional objective after
+which nothing is reachable is a solver trap and is dropped (vaults_07, below). What the route cannot
+reach is listed in `unreached`. On the current world: 74 objectives (9 required pickups, 3 bosses,
+4 mini-bosses, 24 optional pickups, 33 visits, the ending); unreached are the Rimeweaver and
+vaults_08, vaults_07, three pickups behind sequence breaks and vaults_01's timed-door quiver. An
+optional objective gets `seconds` (60 s plus half a second per weighted step, 120 to 300 s; a
+mini-boss 300 s; `tools/playtest_progress.gd:58`). `--minimum-kit` is unchanged (required items and
+bosses). The runner's campaign cap is now 5,400 game seconds.
+
+**Route: build time.** The solver's moves from a state depend only on its own room, the rooms its
+exits lead into, and two kit-wide abilities, so `tools/playtest/route_graph.py` caches them per room
+under a key of just the kit items that room can feel (line 120); kits with the same key share one
+graph (`moves_key`), states are numbered once per kit, and the searches use a bucket queue
+(`_buckets`, line 260) since step costs are small integers. Fields are written as each objective
+joins the plan. The 74-objective sweep builds in about 13 s here; round 9's planner took 27.9 s for its
+16 objectives on the same machine (over two minutes in the PR 12 review).
+
+**Overhead door stall.** Two harness defects. First, in the PR 12 review run s1-full the jump from
+nexus_07 (33, 3) up the shaft fell back onto its start, and the navigator kept the hop's progress
+past the shaft's cells: its next cell was nexus_01's, `_rises` read false and no jump was pressed,
+so the same door was chosen 448 times. Standing on the hop's own start again now restarts it
+(`tools/playtest_nav.gd:117`). Second, the first round 10 smoke run then jumped and fell back for
+860 s: the loop let go of every input while the room changed, but the room fades in with the player
+already moving and a north door's entry boost (`UP_ENTRY_SPEED` in
+`scripts/campaign/campaign_root.gd`), and the released jump cut that boost at the nexus_01 floor
+line. Through a room change the loop now keeps the running program's inputs held and resumes it
+(`_changing_room` in `tools/playtest_loop.gd`); a respawn or death still releases everything.
+`tools/check_playtest_shaft.gd` plays the campaign loop itself from (33, 3) with and without the
+High Jump: both reach nexus_01 now and both fell back before.
+
+**Mini-bosses in the agent.** They were already in the state (group `bosses`). A stage 2 mini-boss
+now exports its opener as the punish window (`MINI_OPENERS`, `tools/playtest_boss.gd:30`), and the
+heuristic refills Harpoons for a `mini` objective as for a boss. Their shot attacks (Spore Lob, Root
+Burst, Toll Ring, Shard Drop, Peal Lane, Needle Line, Icicle Drop, Frost Ring, Cinder Rain, Lure
+Pulse, Dark Lance) are lines like the Tidal Heart's and get the same answer: the nearest spot off
+every line, standing or curled (only with the Slipstream), or a low-lane jump
+(`tools/playtest_tide.gd:60`). Every charge (Pounce, Swoop, Wall Skitter, Flare Dive, Bite Lunge)
+gets the wall-pocket run, and the clearance filter's charge rule now covers them. Lanternjaw's
+Undertow Pull gets a run away from the jaw until the current ends (`tools/playtest_dodge.gd:156`);
+before it the loop approached into the jaw. The Emberkite reuses the Ember Fan and Vent Burst
+answers.
+
+**Probe.** `tools/playtest_mini_probe.tscn` forces each attack in its real room (full kit, boss at
+its spawn) from up to six spots on quiet floor (no damage standing there for 2 s), answered by six
+fixed responses at five start times and by the heuristic loop; run data in
+`/Volumes/Personal/Tools/hollowtide-runs/r10/probe/`. Over the trials where the attack was released
+at an engaged player, the loop took no damage in 83 of 86; standing still was hit at Shard Drop (30
+of 30), Needle Line (20 of 20), Ember Fan (19 of 20), Icicle Drop (15 of 20), Peal Lane (22 of 30)
+and Swoop (15 of 30), and the loop cleared all of them. The three loop hits (7 each: Fernmaw's Pounce
+from 512 and 528 px west of its spawn, Root Burst from 256 px east) came from `approach` after the
+attack, with no dodge picked. A first probe started the campaign without a checkpoint, which begins a new game and
+drops the kit; with no Slipstream the line answer chose curls that never happened (the Peal Lane and
+Needle Line hit every time), so a curl is now offered only with the Slipstream owned.
+
+**Smoke runs** (heuristic, seed 1, new game, full sweep; `/Volumes/Personal/Tools/hollowtide-runs/r10/`).
+The first, before the room-change fix, reached 16 of 74 objectives and stopped at 955.9 s in nexus_07
+(33, 3), jumping into nexus_01 and falling back for 860 s. The second, with it, crossed the shaft at
+90.6 s and reached 24 of 74 (11 pickups, 13 visits) by 905.3 s; it stopped at the Cinder Warden
+(`objective_failed`, 0 of 7 attempts, 6 deaths, stage 4, Heat Ring 240 of 782 damage). The sweep
+brings her there before the High Jump, the Snare and any Heart Pearl; the heuristic's Heat Ring
+answer in stage 4 is the open lead.
+
+**Findings for the game (not changed here).**
+
+- vaults_08 (Rimeweaver) cannot be entered: its only entrance from below, the vaults_06 north opening
+  at columns 13 to 15, has rock at vaults_06 row 2 right under it, and the fringe_01 side is a timed
+  door opened from inside. The solver reaches no cell of the room.
+- vaults_07 can be entered only through a solver shortcut: its north opening (columns 21 to 23) has
+  rock at row 1, and the solver's south exit puts the body at row 3 of the room below without
+  checking rows 0 to 2. The room's save shrine hides this from the softlock check.
+- The arena's floor line misses part of the real floor: standing there leaves the mini-boss frozen
+  and unhurt. Fernmaw 7 of 28 floor spots (feet 13 to 35 px below the arena), Rimeweaver 3 of 27,
+  Emberkite 2 of 25 (all 35 px); Tollwing and Lanternjaw none.

@@ -1,116 +1,139 @@
 """Campaign route for the playtest agent's campaign mode (docs/features/playtest-agent.md).
 
-    python3 tools/playtest/campaign_route.py --out <dir>
+    python3 tools/playtest/campaign_route.py --out <dir> [--minimum-kit]
 
-Plans the progression order with the campaign graph solver (tools/check_campaign_graph.py): from
-the start with an empty kit it repeatedly takes the nearest objective the solver can reach with the
-kit owned at that moment (a required pickup, a boss, finally the ending), exactly the order in which
-the solver's stages unlock the world, but one objective at a time. Intended sequence breaks and
-timed doors are left out: they are skilled or optional moves, and the campaign finishes without
-them (the graph check's "no-breaks" run). Like a player, the route also takes a Bolt Quiver or an
-energy tank that lies within EXTRA_DETOUR solver steps while a boss is still ahead; such an
-objective is `optional` (the agent drops it after one timeout). `--minimum-kit` plans the required
-items only.
+Plans the play order with the campaign graph solver (tools/check_campaign_graph.py): from the start
+with an empty kit it repeatedly takes the nearest objective the solver can reach with the kit owned
+at that moment. The full route is a sweep of the whole world: every required pickup and boss, every
+mini-boss (a fight sets `mini:<id>` and opens its reward gate), every optional pickup (Bolt
+Quivers, Heart Pearls, the Long Beam, Tide Sockets and Glyphs) and a visit to every room no other
+objective's path crosses, with the Tidal Heart and then the ending last. Optional objectives are
+`optional`: the agent leaves one behind after its time budget (`seconds`). `--minimum-kit` plans
+the required items and bosses only. Intended sequence breaks and timed doors are left out: they are
+skilled moves, and the campaign finishes without them (the graph check's "no-breaks" run). What the
+route cannot reach is listed in `unreached`.
 
 For every objective it writes a flow field over the solver's movement graph at that point: for each
 resting state (feet on a floor or a frozen floater, not mid-jump) the number of solver steps to the
 objective and the cells to the next resting state on a shortest path. The agent follows it through
 inputs (tools/playtest_nav.gd); the planner only picks the goal. Output: `route.json` (objectives
-and their order) and `field_<n>.json` per objective, read by tools/playtest_route.gd.
+and their order) and `field_<n>.json` per objective, read by tools/playtest_route.gd. The movement
+graph is cached per room across kits (tools/playtest/route_graph.py).
 """
 
 from __future__ import annotations
 
 import argparse
-import heapq
 import json
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tools" / "playtest"))
 
 from campaign_layout import load_rooms  # noqa: E402
 from check_campaign_graph import (  # noqa: E402
     BOSS_NEEDS,
+    MINI_NEEDS,
     OPTIONAL_KINDS,
     REGIONAL,
     REQUIRED_MISSILE_TANK,
-    Solver,
     World,
     covered_cells,
 )
+from route_graph import UNREACHED, Kit, RouteGraph, resting  # noqa: E402
 
 FORMAT = 1
 # Solver steps a resting state may lie from its next resting state before the path is cut there
 # (a long fall is one hop; a hop never needs more).
 MAX_HOP_STEPS = 64
-# Extra cost per solver step in Slipstream form, per change of form, and per step on a lava basin.
-BALL_COST = 3
-TOGGLE_COST = 2
-LAVA_COST = 20
-# Health and Harpoon upgrades the route picks up when they lie this close (solver steps) while a
-# boss is still ahead. Round 3 (2026-09-29): with the minimum kit (100 health, 5 Harpoons) every
-# Stone Guardian refill trip from the west pocket crosses the boss; the vaults_02 quiver is 13
-# steps off the route.
-EXTRA_KINDS = {"missile_tank", "energy_tank"}
-EXTRA_DETOUR = 50
+# The boss whose flag opens the ending; the sweep fights it only when nothing else is left.
+FINAL_BOSS = "tidal_heart"
+# A room visit is taken on the way when it lies within this many weighted steps, else only once
+# no pickup or fight is left.
+VISIT_DETOUR = 60
+# Game seconds an optional objective gets: a base plus a share per weighted solver step from the
+# previous objective, within these bounds; a mini-boss gets the most (walk in plus a ~30 s fight).
+OPTIONAL_SECONDS = 60.0
+SECONDS_PER_STEP = 0.5
+OPTIONAL_MIN_SECONDS = 120.0
+OPTIONAL_MAX_SECONDS = 300.0
 
 State = tuple[str, int, int, bool, int, int]
 
 
 @dataclass
 class Objective:
-    kind: str  # "pickup", "boss" or "ending"
-    target: str  # pickup id, boss id or "ending"
+    kind: str  # "pickup", "boss", "mini", "visit" or "ending"
+    target: str  # pickup id, boss or mini-boss id, room id (visit) or "ending"
     room: str
     cells: list[tuple[int, int]]
     grants: str  # ability id, flag list or ""
     abilities: list[str] = field(default_factory=list)  # owned when the objective starts
     flags: list[str] = field(default_factory=list)
-    steps: int = 0  # solver steps from the previous objective
-    optional: bool = False  # a nearby upgrade, not needed to finish
+    steps: int = 0  # weighted solver steps from the previous objective
+    optional: bool = False  # not needed to finish
+    final: bool = False  # only once nothing else is reachable (the last boss, the ending)
+    rest: State | None = None  # where the plan goes on from once it is reached
+    path: list[State] = field(default_factory=list)  # the planned states to it
 
 
 def required_pickups(world: World) -> dict[str, tuple[str, str, int, int]]:
     """pickup id -> (kind, room, x, y) for pickups the campaign cannot finish without."""
     result = {}
     for (room_id, x, y), (pickup_id, kind) in world.pickups.items():
-        if kind in OPTIONAL_KINDS:
-            continue
-        if kind == "missile_tank" and pickup_id != REQUIRED_MISSILE_TANK:
-            continue
-        result[pickup_id] = (kind, room_id, x, y)
+        if not is_optional_pickup(pickup_id, kind):
+            result[pickup_id] = (kind, room_id, x, y)
     return result
 
 
-def _candidates(world: World, abilities: set[str], flags: set[str], taken: set[str]):
-    for pickup_id, (kind, room_id, x, y) in sorted(required_pickups(world).items()):
-        if pickup_id not in taken:
-            ability = "missiles" if kind == "missile_tank" else kind
-            yield Objective("pickup", pickup_id, room_id, [(x, y)], ability)
-    for boss, (room_id, (ax, ay, aw, ah)) in sorted(world.bosses.items()):
+def is_optional_pickup(pickup_id: str, kind: str) -> bool:
+    return kind in OPTIONAL_KINDS or (kind == "missile_tank" and pickup_id != REQUIRED_MISSILE_TANK)
+
+
+def _arena_cells(rect: tuple[int, int, int, int]) -> list[tuple[int, int]]:
+    ax, ay, aw, ah = rect
+    return [(x, y) for y in range(ay, ay + ah) for x in range(ax, ax + aw)]
+
+
+def candidates(
+    world: World, abilities: set[str], flags: set[str], taken: set[str], sweep: bool, seen: set[str]
+):
+    """Objectives not yet taken whose kit is owned (reachability is the search's job); `seen`
+    holds the rooms the route has crossed (the ending's room is visited by the ending)."""
+    for (room_id, x, y), (pickup_id, kind) in sorted(world.pickups.items()):
+        if pickup_id in taken:
+            continue
+        optional = is_optional_pickup(pickup_id, kind)
+        if optional and not sweep:
+            continue
+        grants = "missiles" if kind == "missile_tank" else kind
+        yield Objective("pickup", pickup_id, room_id, [(x, y)], grants, optional=optional)
+    for boss, (room_id, arena) in sorted(world.bosses.items()):
         flag = f"boss:{boss}"
         if flag in flags or not BOSS_NEEDS[boss] <= abilities:
             continue
-        cells = [(x, y) for y in range(ay, ay + ah) for x in range(ax, ax + aw)]
         grants = [flag] + ([f"regional:{boss}"] if boss in REGIONAL else [])
-        yield Objective("boss", boss, room_id, cells, ",".join(grants))
-    if "boss:tidal_heart" in flags:
+        cells = _arena_cells(arena)
+        yield Objective("boss", boss, room_id, cells, ",".join(grants), final=boss == FINAL_BOSS)
+    for mini, (room_id, arena) in sorted(world.minis.items()) if sweep else ():
+        flag = f"mini:{mini}"
+        if flag in flags or mini in taken or not MINI_NEEDS <= abilities:
+            continue
+        yield Objective("mini", mini, room_id, _arena_cells(arena), flag, optional=True)
+    ending_rooms = {room for room, _x, _y in world.endings}
+    for room_id, room in sorted(world.rooms.items()) if sweep else ():
+        if room_id not in seen and room_id not in taken and room_id not in ending_rooms:
+            cells = [(x, y) for y in range(room.height) for x in range(room.width)]
+            yield Objective("visit", room_id, room_id, cells, "", optional=True)
+    if f"boss:{FINAL_BOSS}" in flags:
         room_id = sorted(world.endings)[0][0]
         cells = sorted((x, y) for room, x, y in world.endings if room == room_id)
-        yield Objective("ending", "ending", room_id, cells, "")
-
-
-def _extras(world: World, flags: set[str], taken: set[str]):
-    """Health and Harpoon upgrades not yet taken, while a boss is still to be fought."""
-    if all(f"boss:{boss}" in flags for boss in world.bosses):
-        return
-    for (room_id, x, y), (pickup_id, kind) in sorted(world.pickups.items()):
-        if kind in EXTRA_KINDS and pickup_id not in taken and pickup_id != REQUIRED_MISSILE_TANK:
-            grants = "missiles" if kind == "missile_tank" else kind
-            yield Objective("pickup", pickup_id, room_id, [(x, y)], grants, optional=True)
+        yield Objective("ending", "ending", room_id, cells, "", final=True)
 
 
 def targets(objective: Objective, states) -> set[State]:
@@ -118,148 +141,194 @@ def targets(objective: Objective, states) -> set[State]:
     return {state for state in states if wanted.intersection(covered_cells(state))}
 
 
-class RouteSolver(Solver):
-    """The graph check's solver, minus a move the game does not allow: the player curls into
-    Slipstream form only standing on a floor (scripts/player/player.gd, _handle_slip_input)."""
+def _nearest(kit: Kit, position: State, offered: list[Objective]):
+    """(steps, objective, path) for the objective to play next, or None: the nearest pickup or
+    fight, or a room visit within VISIT_DETOUR; else the nearest visit; else a `final` one."""
+    tiers = (
+        [o for o in offered if not o.final],
+        [o for o in offered if o.kind == "visit"],
+        [o for o in offered if o.final],
+    )
+    for number, tier in enumerate(tiers):
+        by_cell: dict[tuple[str, int, int], Objective] = {}
+        for objective in tier:
+            for x, y in objective.cells:
+                by_cell.setdefault((objective.room, x, y), objective)
+        found: list[Objective] = []
 
-    def neighbours(self, state):
-        result = super().neighbours(state)
-        if state[3] or resting(self, state):
-            return result
-        return [nxt for nxt in result if not nxt[3]]
+        def wanted(state: State, steps: int) -> bool:
+            for cell in covered_cells(state):
+                hit = by_cell.get(cell)
+                if hit is not None and (number or hit.kind != "visit" or steps <= VISIT_DETOUR):
+                    found.append(hit)
+                    return True
+            return False
 
-
-def solver_for(world: World, abilities: set[str], flags: set[str]) -> Solver:
-    return RouteSolver(world, set(abilities), set(flags), set(), crumble_gone=True, breaks=False)
-
-
-def step_cost(solver: Solver, state: State, nxt: State) -> int:
-    """Solver steps weighted the way a player moves: Slipstream form only where it is needed (it
-    cannot shoot), and never along a lava basin when there is another way."""
-    cost = 1
-    if nxt[3]:
-        cost += BALL_COST
-    if nxt[3] != state[3]:
-        cost += TOGGLE_COST
-    room = solver.world.rooms[nxt[0]]
-    if solver.lava(room, nxt[1], nxt[2] + 1) or solver.lava(room, nxt[1], nxt[2]):
-        cost += LAVA_COST
-    return cost
-
-
-def forward_distances(solver: Solver, starts: list[State]) -> dict[State, int]:
-    distance = {state: 0 for state in starts}
-    queue = [(0, state) for state in starts]
-    while queue:
-        cost, state = heapq.heappop(queue)
-        if cost > distance[state]:
-            continue
-        for nxt in solver.neighbours(state):
-            if not solver.inside(nxt):
-                continue
-            total = cost + step_cost(solver, state, nxt)
-            if total < distance.get(nxt, total + 1):
-                distance[nxt] = total
-                heapq.heappush(queue, (total, nxt))
-    return distance
+        reached = kit.nearest(position, wanted) if tier else None
+        if reached is not None:
+            return reached[0], found[-1], reached[1]
+    return None
 
 
-def plan(world: World, extras: bool = True) -> list[Objective]:
-    """Objectives in play order: each time the nearest one the current kit can reach, or first a
-    nearby upgrade (`extras`) within EXTRA_DETOUR steps."""
+def plan(
+    world: World,
+    sweep: bool = True,
+    graph: RouteGraph | None = None,
+    taken_hook: Callable[[int, Objective, Kit, Kit | None], None] | None = None,
+) -> list[Objective]:
+    """Objectives in play order (see `_nearest`). An optional objective after which nothing is
+    reachable is a trap of the solver's (a door it drops through into a sealed notch): it is
+    dropped and the plan goes on from before it. `taken_hook(index, objective, kit, base)` runs
+    for each objective as it joins the order, with the kit's graph reached from the start and
+    `base`, the same kit without the mini-boss flags (None when they change no move).
+
+    A mini-boss fight is optional: the agent may leave it after its time budget, its `mini:` flag
+    unset and its reward gate shut. So the flags won there (`won`) open the way for the planner's
+    search, but an objective lists them only when it cannot be reached without them (the reward
+    behind the gate); every other objective, and every required one, lists boss flags only.
+    r10-run1 and run2 timed out on the Tollwing, and every later objective, the required ones
+    included, listed `mini:tollwing`: nothing was ready and the run ended as `route_done`."""
+    graph = graph or RouteGraph(world)
+    start: State = (*world.start, False, 0, 0)
     abilities: set[str] = set()
     flags: set[str] = set()
+    won: set[str] = set()
+    kits: dict[frozenset[str], Kit] = {}
     taken: set[str] = set()
-    start: State = (*world.start, False, 0, 0)
-    position = [start]
+    position = start
+    seen = {position[0]}
+    trapped: set[str] = set()
     order: list[Objective] = []
+    history: list[tuple] = []
+    kit: Kit | None = None
     while True:
-        solver = solver_for(world, abilities, flags)
-        distance = forward_distances(solver, position)
-        best: tuple[int, Objective, State] | None = None
-        for objective in _candidates(world, abilities, flags, taken):
-            reached = targets(objective, distance)
-            if not reached:
-                continue
-            state = min(reached, key=lambda s: (distance[s], s))
-            if best is None or distance[state] < best[0]:
-                best = (distance[state], objective, state)
-        for extra in _extras(world, flags, taken) if extras and best is not None else ():
-            reached = targets(extra, distance)
-            if not reached:
-                continue
-            state = min(reached, key=lambda s: (distance[s], s))
-            if distance[state] <= EXTRA_DETOUR and (
-                not best[1].optional or distance[state] < best[0]
-            ):
-                best = (distance[state], extra, state)
+        if kit is None or kit.key != graph.moves_key(abilities, flags | won):
+            kit = _reached(graph, kits, abilities, flags | won, start)
+        searcher = kit
+        if position not in kit.index:
+            # A frozen floater can shut a spot the previous kit stood on.
+            searcher = graph.kit(abilities, flags | won)
+            searcher.reach(position)
+        offered = list(candidates(world, abilities, flags | won, taken | trapped, sweep, seen))
+        best = _nearest(searcher, position, offered)
         if best is None:
+            if order and order[-1].optional:
+                trapped.add(order.pop().target)
+                abilities, flags, won, taken, seen, position = history.pop()
+                continue
             break
-        steps, objective, state = best
+        steps, objective, path = best
+        objective.path = path
+        history.append((set(abilities), set(flags), set(won), set(taken), set(seen), position))
+        seen.update(state[0] for state in path)
+        base = None
+        if graph.moves_key(abilities, flags) != kit.key:
+            base = _reached(graph, kits, abilities, flags, start)
+        # Only the kits in use stay (each holds the whole world's states).
+        for stale in set(kits) - {kit.key, base.key if base else kit.key}:
+            del kits[stale]
         objective.abilities = sorted(abilities)
-        objective.flags = sorted(flags)
+        needs_won = base is not None and not base.covering(objective.room, set(objective.cells))
+        objective.flags = sorted(flags | won if needs_won else flags)
         objective.steps = steps
         order.append(objective)
+        if taken_hook is not None:
+            taken_hook(len(order) - 1, objective, kit, base)
         if objective.kind == "ending":
             break
         taken.add(objective.target)
+        position = path[-1]
         if objective.kind == "boss":
             flags.update(objective.grants.split(","))
+            position = _after_fight(world, searcher, objective, position)
+        elif objective.kind == "mini":
+            won.add(objective.grants)
+            position = _after_fight(world, searcher, objective, position)
         elif not objective.optional:
             abilities.add(objective.grants)
-        position = [state]
+        # A pickup grabbed in a jump or a room entered mid-air: go on from where she lands.
+        landing = searcher.nearest(position, lambda state, _steps: resting(searcher.solver, state))
+        if landing is not None:
+            position = landing[1][-1]
+        objective.rest = position
     return order
 
 
-def resting(solver: Solver, state: State) -> bool:
-    room_id, x, y, _ball, up, side = state
-    return up == 0 and side == 0 and solver.platform(solver.world.rooms[room_id], x, y + 1)
+def _reached(
+    graph: RouteGraph, kits: dict[frozenset[str], Kit], abilities: set[str], flags: set[str], start
+) -> Kit:
+    """The kit for `abilities` and `flags`, reached from `start`, built once per moves key."""
+    found = kits.get(graph.moves_key(abilities, flags))
+    if found is None:
+        found = kits[graph.moves_key(abilities, flags)] = graph.kit(abilities, flags)
+        found.reach(start)
+    return found
 
 
-def flow_field(world: World, objective: Objective) -> dict[str, list]:
+def _after_fight(world: World, kit: Kit, objective: Objective, entered: State) -> State:
+    """Where the next objective starts after a fight: the arena's return point (where the game
+    puts the checkpoint), standing, when the solver gets there from where she entered; else that
+    entry (the first arena cell is often the door, in mid-air)."""
+    room = world.rooms[objective.room]
+    for entry in room.legend.values():
+        if entry.kind in ("boss", "miniboss") and entry.args[0] == objective.target:
+            spot = entry.options.get("return")
+            if spot is None:
+                break
+            x, y = (int(part) for part in spot.split(","))
+            state: State = (objective.room, x, y, False, 0, 0)
+            if kit.nearest(entered, lambda reached, _steps: reached == state):
+                return state
+    return entered
+
+
+def unreached(world: World, order: list[Objective], sweep: bool) -> list[str]:
+    """Pickups, mini-bosses (`mini:<id>`) and rooms (`room:<id>`) the sweep never takes or
+    crosses."""
+    if not sweep:
+        return []
+    taken = {objective.target for objective in order}
+    missing = [pickup_id for pickup_id, _kind in world.pickups.values() if pickup_id not in taken]
+    missing += [f"mini:{mini}" for mini in world.minis if mini not in taken]
+    crossed = {objective.room for objective in order}
+    for objective in order:
+        crossed.update(state[0] for state in objective.path)
+    missing += [f"room:{room}" for room in world.rooms if room not in crossed]
+    return sorted(missing)
+
+
+def flow_field(kit: Kit, objective: Objective, known: dict | None = None) -> dict[str, list]:
     """'room:x:y:b' -> [steps, hop] for every resting state that can reach the objective, where
     hop is the list of [room, x, y, ball, rising] cells up to the next resting state, which may lie
-    in the next room."""
-    solver = solver_for(world, set(objective.abilities), set(objective.flags))
-    start: State = (*world.start, False, 0, 0)
-    seen, edges = solver.explore([start])
-    goal = targets(objective, seen)
-    distance = {state: 0 for state in goal}
-    queue = [(0, state) for state in goal]
-    while queue:
-        cost, state = heapq.heappop(queue)
-        if cost > distance[state]:
-            continue
-        for previous in edges.get(state, []):
-            total = cost + step_cost(solver, previous, state)
-            if total < distance.get(previous, total + 1):
-                distance[previous] = total
-                heapq.heappush(queue, (total, previous))
-    result: dict[str, list] = {}
-    for state, steps in distance.items():
-        if not resting(solver, state):
-            continue
-        result[key(state)] = [steps, hop(solver, state, distance)]
+    in the next room. `kit` is reached from the start. Entries already in `known` are kept as
+    they are."""
+    states = kit.states
+    distance = kit.distances_to(kit.covering(objective.room, set(objective.cells)))
+    result: dict[str, list] = dict(known or {})
+    for number, steps in enumerate(distance):
+        if steps != UNREACHED and kit.rest[number]:
+            name = key(states[number])
+            if name not in result:
+                result[name] = [steps, hop(kit, number, distance)]
     return result
 
 
-def hop(solver: Solver, state: State, distance: dict[State, int]) -> list[list]:
+def hop(kit: Kit, number: int, distance: list[int]) -> list[list]:
+    states = kit.states
     cells: list[list] = []
-    current = state
+    here = number
     for _ in range(MAX_HOP_STEPS):
-        if distance[current] == 0:
+        if distance[here] == 0:
             break
-        here = current
         options = [
-            n
-            for n in solver.neighbours(here)
-            if n in distance and distance[n] + step_cost(solver, here, n) == distance[here]
+            after for after, cost in kit.moves(here) if distance[after] + cost == distance[here]
         ]
         # Deterministic, and prefer staying on the ground over starting a jump when both are
         # shortest.
-        current = min(options, key=lambda n: (n[4] > 0 or n[5] > 0, n))
-        cells.append([current[0], current[1], current[2], int(current[3]), int(current[4] > 0)])
-        if resting(solver, current):
+        here = min(options, key=lambda n: (states[n][4] > 0 or states[n][5] > 0, states[n]))
+        state = states[here]
+        cells.append([state[0], state[1], state[2], int(state[3]), int(state[4] > 0)])
+        if kit.rest[here]:
             break
     return cells
 
@@ -268,32 +337,61 @@ def key(state: State) -> str:
     return f"{state[0]}:{state[1]}:{state[2]}:{int(state[3])}"
 
 
-def build(out: Path, extras: bool = True) -> dict:
+def seconds_for(objective: Objective) -> float | None:
+    """Time budget of an optional objective (None: the agent's default for required ones)."""
+    if not objective.optional:
+        return None
+    if objective.kind == "mini":
+        return OPTIONAL_MAX_SECONDS
+    budget = OPTIONAL_SECONDS + objective.steps * SECONDS_PER_STEP
+    return min(max(budget, OPTIONAL_MIN_SECONDS), OPTIONAL_MAX_SECONDS)
+
+
+def build(out: Path, sweep: bool = True) -> dict:
     world = World(load_rooms())
-    order = plan(world, extras)
     out.mkdir(parents=True, exist_ok=True)
+    fields: dict[int, int] = {}
+
+    def write_field(index: int, objective: Objective, kit: Kit, base: Kit | None) -> None:
+        # A trap the plan backs out of is overwritten by the objective that takes its place.
+        # Where the way on needs no mini-boss flag, follow that way: a reward gate the live run
+        # left shut is never on it. Spots only an open gate leads to take the full kit's way.
+        data = flow_field(kit, objective, flow_field(base, objective) if base else None)
+        text = json.dumps(data, separators=(",", ":"))
+        (out / f"field_{index}.json").write_text(text, encoding="utf-8")
+        fields[index] = len(data)
+
+    order = plan(world, sweep, RouteGraph(world), write_field)
     objectives = []
     for index, objective in enumerate(order):
-        name = f"field_{index}.json"
-        field_data = flow_field(world, objective)
-        (out / name).write_text(json.dumps(field_data, separators=(",", ":")), encoding="utf-8")
-        objectives.append(
-            {
-                "index": index,
-                "kind": objective.kind,
-                "target": objective.target,
-                "room": objective.room,
-                "cells": [list(cell) for cell in objective.cells[:64]],
-                "grants": objective.grants,
-                "abilities": objective.abilities,
-                "flags": objective.flags,
-                "steps": objective.steps,
-                "optional": objective.optional,
-                "field": name,
-                "states": len(field_data),
-            }
-        )
-    route = {"format": FORMAT, "start": list(world.start), "objectives": objectives}
+        entry = {
+            "index": index,
+            "kind": objective.kind,
+            "target": objective.target,
+            "room": objective.room,
+            "cells": [list(cell) for cell in objective.cells],
+            "grants": objective.grants,
+            "abilities": objective.abilities,
+            "flags": objective.flags,
+            "steps": objective.steps,
+            "optional": objective.optional,
+            "field": f"field_{index}.json",
+            "states": fields[index],
+            "rest": key(objective.rest) if objective.rest else None,
+        }
+        budget = seconds_for(objective)
+        if budget is not None:
+            entry["seconds"] = budget
+        objectives.append(entry)
+    for stale in out.glob("field_*.json"):
+        if int(stale.stem.split("_")[1]) >= len(order):
+            stale.unlink()
+    route = {
+        "format": FORMAT,
+        "start": list(world.start),
+        "objectives": objectives,
+        "unreached": unreached(world, order, sweep),
+    }
     (out / "route.json").write_text(json.dumps(route, indent=1), encoding="utf-8")
     return route
 
@@ -303,12 +401,16 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="directory for route.json")
     parser.add_argument("--minimum-kit", action="store_true", help="required items only")
     args = parser.parse_args()
+    began = time.monotonic()
     route = build(args.out, not args.minimum_kit)
     for objective in route["objectives"]:
         print(
             f"{objective['index']:2d} {objective['kind']:7s} {objective['target']:26s} "
             f"{objective['room']:10s} {objective['steps']:5d} steps, {objective['states']} states"
         )
+    if route["unreached"]:
+        print(f"unreached: {', '.join(route['unreached'])}")
+    print(f"{len(route['objectives'])} objectives in {time.monotonic() - began:.1f} s")
     return 0
 
 

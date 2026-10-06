@@ -13,11 +13,14 @@ const FORMAT := 1
 const GATE_ABILITY := {
 	"missile": "missiles", "bomb": "bombs", "wave": "wave_beam", "undertow": "undertow_dash"
 }
+const Catalog = preload("res://scripts/progression/content_catalog.gd")
 const OBJECTIVE_NAMES := {
 	"slipstream": "the Slipstream",
 	"beam": "the Seed Crossbow",
 	"missiles": "a Bolt Quiver",
 	"energy_tank": "an energy tank",
+	"long_beam": "the Long Beam",
+	"tide_socket": "a Tide Socket",
 	"bombs": "the Resonance Pulse",
 	"ice_beam": "the Bubble Snare",
 	"high_jump": "the Updraft Cloak",
@@ -29,8 +32,8 @@ const OBJECTIVE_NAMES := {
 	"tidal_heart": "the Tidal Heart",
 }
 
-## Objectives in play order: {index, kind (pickup, boss, ending), target, room, cells, grants,
-## abilities, flags, steps, field}.
+## Objectives in play order: {index, kind (pickup, boss, mini, visit, ending), target, room, cells,
+## grants, abilities, flags, steps, optional, seconds (an optional one's time budget), field}.
 var objectives: Array = []
 var directory := ""
 var _fields: Dictionary = {}
@@ -47,47 +50,65 @@ func load_dir(path: String) -> String:
 	return "" if not objectives.is_empty() else "the route in %s is empty" % path
 
 
-## True once `objective` is reached in the live game: the pickup collected, the boss flag set, the
-## ending playing (`ending`).
+## True once `objective` is reached in the live game: the pickup collected, the boss or mini-boss
+## flag set, the room entered (`visit`), the ending playing (`ending`).
 static func is_done(objective: Dictionary, ending: bool) -> bool:
 	match String(objective["kind"]):
 		"pickup":
 			return GameState.collected_pickup_ids.has(String(objective["target"]))
 		"boss":
 			return GameState.has_world_flag("boss:%s" % objective["target"])
+		"mini":
+			return GameState.has_world_flag("mini:%s" % objective["target"])
+		"visit":
+			return GameState.discovered_rooms.has(String(objective["target"]))
 	return ending
 
 
-## True when the kit and flags the solver planned `objective` with are all owned now.
-static func is_ready(objective: Dictionary) -> bool:
+## True when the kit and flags the solver planned `objective` with are all owned now; a flag in
+## `waived` is not needed.
+static func is_ready(objective: Dictionary, waived: Dictionary = {}) -> bool:
 	for ability in objective["abilities"]:
 		if not GameState.has_ability(StringName(ability)):
 			return false
 	for flag in objective["flags"]:
-		if not GameState.has_world_flag(String(flag)):
+		if not GameState.has_world_flag(String(flag)) and not waived.has(String(flag)):
 			return false
 	return true
 
 
 ## Index of the objective to play now: the first in route order that is not done, is ready and
 ## not `skipped` (objectives that timed out); then the first skipped one that is ready again, never
-## an `optional` one (a nearby upgrade); -1 when every objective is done.
+## an `optional` one (a nearby upgrade); -1 when every objective is done or none is ready.
+## A required objective never waits on a mini-boss fight that was left behind: its `mini:` flag
+## is waived (the planner lists none on required objectives; r10-run1 and run2 had every
+## objective after the timed-out Tollwing listing `mini:tollwing`, and the run ended there).
 func next_index(ending: bool, skipped: Dictionary) -> int:
+	var waived := {}
+	for objective in objectives:
+		if objective["kind"] == "mini" and skipped.has(int(objective["index"])):
+			waived[String(objective["grants"])] = true
 	var fallback := -1
 	for objective in objectives:
 		if is_done(objective, ending):
 			continue
 		var index := int(objective["index"])
-		if is_ready(objective) and not skipped.has(index):
+		var optional: bool = objective.get("optional", false)
+		var ready := is_ready(objective, {} if optional else waived)
+		if ready and not skipped.has(index):
 			return index
 		# An optional upgrade that timed out is left behind for good.
-		if (
-			fallback < 0
-			and not objective.get("optional", false)
-			and (is_ready(objective) or skipped.has(index))
-		):
+		if fallback < 0 and not optional and (ready or skipped.has(index)):
 			fallback = index
 	return fallback
+
+
+## True while a required objective is not done: with no objective to play, the run is blocked
+## rather than through the route.
+func required_open(ending: bool) -> bool:
+	return objectives.any(
+		func(o: Dictionary) -> bool: return not o.get("optional", false) and not is_done(o, ending)
+	)
 
 
 ## Plain-language objective ("collect the Slipstream in fringe_02").
@@ -95,10 +116,18 @@ static func describe(objective: Dictionary) -> String:
 	var target := String(objective["target"])
 	match String(objective["kind"]):
 		"pickup":
-			var name: String = OBJECTIVE_NAMES.get(String(objective["grants"]), target)
+			var grants := String(objective["grants"])
+			var name: String = OBJECTIVE_NAMES.get(grants, target)
+			if grants.begins_with("glyph_"):
+				name = "a Tide Glyph"
 			return "collect %s in %s" % [name, objective["room"]]
 		"boss":
 			return "defeat %s in %s" % [OBJECTIVE_NAMES.get(target, target), objective["room"]]
+		"mini":
+			var mini: String = Catalog.DISPLAY_NAMES.get(StringName(target), target)
+			return "defeat the mini-boss %s in %s (optional)" % [mini, objective["room"]]
+		"visit":
+			return "explore %s (optional)" % target
 	return "walk into the light in %s (the ending)" % objective["room"]
 
 

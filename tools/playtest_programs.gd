@@ -264,13 +264,16 @@ class Driver:
 		return bool(program.get("finished"))
 
 	## Applies the next frame's held set; call once per physics frame before the player runs.
-	func step() -> void:
+	## `lean` (move_left or move_right) is added to a frame that holds no sideways move.
+	func step(lean: StringName = &"") -> void:
 		var wanted: Array = []
 		if program is Array:
 			wanted = program[frame] if frame < (program as Array).size() else []
 		elif not bool(program.get("finished")):
 			wanted = program.call(&"next")
 		frame += 1
+		if not lean.is_empty() and not wanted.has(&"move_left") and not wanted.has(&"move_right"):
+			wanted = wanted + [lean]
 		for action in _held.keys():
 			if not wanted.has(action):
 				_send(action, false)

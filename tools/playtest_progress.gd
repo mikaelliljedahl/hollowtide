@@ -3,7 +3,10 @@ extends RefCounted
 ## docs/features/playtest-agent.md): objective attempts in order with their times, deaths, damage and stalls, rooms
 ## in the order first entered, deaths with the shrine the player came back at, and where and why
 ## the run stopped. An objective that takes longer than OBJECTIVE_TIMEOUT game seconds is recorded
-## as failed and set aside while another objective is ready; a second timeout ends the run.
+## as failed and set aside while another objective is ready; a second timeout ends the run. An
+## optional one gets its route budget (`seconds`) and is left behind after one timeout. With no
+## objective left to play the run ends as `route_done`, or `route_blocked` while a required one is
+## still open (nothing it needs can be had any more).
 
 const Route = preload("res://tools/playtest_route.gd")
 const OBJECTIVE_TIMEOUT := 300.0
@@ -20,6 +23,9 @@ var current := -1
 var attempts: Array = []
 var timeouts: Dictionary = {}
 var rooms: Array = []
+## Every room entry in order: room, t, cause ("respawn" after a death, else "move"). The critic
+## rates a room's first traversal from these, not the run's summed time in it.
+var room_entries: Array = []
 var respawns: Array = []
 var _now := 0.0
 var _open: Dictionary = {}
@@ -40,18 +46,27 @@ func update(now: float, route: Route, telemetry: RefCounted, steps: int, ending:
 		_close("done" if done else "switched", telemetry)
 	current = index
 	if index < 0:
-		return "goal_ending" if ending else "route_done"
+		if ending:
+			return "goal_ending"
+		# A required objective still open but none ready: say so instead of "route_done".
+		return "route_blocked" if route.required_open(ending) else "route_done"
 	if _open.is_empty():
 		_start(route.objectives[index], telemetry, steps)
 	_track_steps(steps)
-	var optional: bool = route.objectives[index].get("optional", false)
-	if now - float(_open["start"]) < (OPTIONAL_TIMEOUT if optional else OBJECTIVE_TIMEOUT):
+	if now - float(_open["start"]) < time_budget(route.objectives[index]):
 		return ""
 	timeouts[index] = int(timeouts.get(index, 0)) + 1
 	_close("timeout", telemetry)
 	if int(timeouts[index]) >= MAX_TIMEOUTS:
 		return "objective_failed"
 	return ""
+
+
+## Game seconds `objective` gets before it times out.
+static func time_budget(objective: Dictionary) -> float:
+	if not objective.get("optional", false):
+		return OBJECTIVE_TIMEOUT
+	return float(objective.get("seconds", OPTIONAL_TIMEOUT))
 
 
 ## Objectives reached so far.
@@ -103,6 +118,7 @@ func finish(
 		"objectives": objectives,
 		"attempts": attempts,
 		"rooms_visited": rooms,
+		"room_entries": room_entries,
 		"deaths": respawns,
 		"end":
 		{
@@ -167,6 +183,17 @@ func _track_rooms(telemetry: RefCounted) -> void:
 		return
 	if rooms.is_empty() or not rooms.any(func(r: Dictionary) -> bool: return r["room"] == room):
 		rooms.append({"room": room, "t": snappedf(_now, 0.1)})
+	if room_entries.is_empty() or room_entries[-1]["room"] != room:
+		var died: Array = telemetry.get("deaths")
+		# The first room change after a death is the respawn's.
+		var respawn := (
+			not died.is_empty()
+			and not room_entries.is_empty()
+			and float(died[-1]["t"]) >= float(room_entries[-1]["t"])
+		)
+		room_entries.append(
+			{"room": room, "t": snappedf(_now, 0.1), "cause": "respawn" if respawn else "move"}
+		)
 	if not _open.is_empty() and not (_open["rooms"] as Array).has(room):
 		_open["rooms"].append(room)
 

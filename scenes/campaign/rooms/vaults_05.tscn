@@ -37,6 +37,20 @@ enemy_id = &"frost_floater"
 bounds = Rect2(224, 416, 384, 256)
 travel_direction = 1
 
+[node name="Enemy02" type="Marker2D" parent="Entities"]
+position = Vector2(608, 928)
+script = ExtResource("4_enemy")
+enemy_id = &"hopper"
+bounds = Rect2(224, 736, 768, 288)
+travel_direction = 1
+
+[node name="Enemy03" type="Marker2D" parent="Entities"]
+position = Vector2(1504, 800)
+script = ExtResource("4_enemy")
+enemy_id = &"spitter"
+bounds = Rect2(1248, 672, 512, 256)
+travel_direction = 1
+
 [node name="TimedDoor_nexus_cut" type="Node2D" parent="Entities"]
 position = Vector2(1824, 864)
 script = ExtResource("5_timeddoor")

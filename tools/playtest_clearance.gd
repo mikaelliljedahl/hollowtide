@@ -8,11 +8,12 @@ extends RefCounted
 ## the Fault Slam dodge and landed on the Stone Guardian (2 of its 3 contact hits per run), and
 ## `jump_over` from the alcove during the Shoulder Charge telegraph (the third); a first round 9
 ## run, filtering the telegraph only, jumped off the roof onto it while the rocks fell; the Warden's
-## Scuttle Rush hits in r8-min-s1 came from `approach` walking into the running rush.
+## Scuttle Rush hits in r8-min-s1 came from `approach` walking into the running rush. Every charge
+## counts, the mini-bosses' included (scripts/enemies/boss_patterns.gd `is_charge`).
 
+const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
 ## The boss's contact area (scenes/enemies/boss.tscn, PlayerDetector).
 const CONTACT_RADIUS := 112.0
-const CHARGES := ["shoulder_charge", "scuttle_rush"]
 ## An attack from its telegraph to the end of its recovery: the body stands (a charge runs).
 const ATTACK_PHASES := ["telegraph", "active", "recover"]
 ## A move whose path ends more than this far (px) closer to a charging boss walks into the charge.
@@ -37,7 +38,9 @@ static func keep_clear(candidates: Array, state: Dictionary, player: Player) -> 
 	var centre := feet + rel
 	if touches(feet, centre):
 		return candidates
-	var charge: bool = String(boss["attack"]) in CHARGES and boss["attack_state"] != "recover"
+	var charge: bool = (
+		Patterns.is_charge(StringName(boss["attack"])) and boss["attack_state"] != "recover"
+	)
 	var toward := 1.0 if rel.x > 0.0 else -1.0
 	return candidates.filter(
 		func(entry: Dictionary) -> bool:
