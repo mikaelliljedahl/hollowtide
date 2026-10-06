@@ -68,6 +68,13 @@ bounds = Rect2(1568, 416, 768, 512)
 travel_direction = 1
 
 [node name="Enemy03" type="Marker2D" parent="Entities"]
+position = Vector2(2144, 480)
+script = ExtResource("6_enemy")
+enemy_id = &"hopper"
+bounds = Rect2(1888, 352, 512, 256)
+travel_direction = 1
+
+[node name="Enemy04" type="Marker2D" parent="Entities"]
 position = Vector2(3360, 928)
 script = ExtResource("6_enemy")
 enemy_id = &"hopper"
@@ -81,7 +88,14 @@ gate_kind = &"missile"
 flag_id = "fringe_03.gate.missile_1"
 gate_size = Vector2(64, 192)
 
-[node name="Enemy04" type="Marker2D" parent="Entities"]
+[node name="Enemy05" type="Marker2D" parent="Entities"]
+position = Vector2(3040, 480)
+script = ExtResource("6_enemy")
+enemy_id = &"spitter"
+bounds = Rect2(2720, 352, 640, 256)
+travel_direction = 1
+
+[node name="Enemy06" type="Marker2D" parent="Entities"]
 position = Vector2(2336, 928)
 script = ExtResource("6_enemy")
 enemy_id = &"spitter"

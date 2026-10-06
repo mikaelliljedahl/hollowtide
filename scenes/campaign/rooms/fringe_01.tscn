@@ -71,6 +71,20 @@ flag_id = "fringe_01.gate.bomb_1"
 gate_size = Vector2(64, 64)
 
 [node name="Enemy01" type="Marker2D" parent="Entities"]
+position = Vector2(1056, 224)
+script = ExtResource("7_enemy")
+enemy_id = &"drop_spider"
+bounds = Rect2(672, 64, 768, 416)
+travel_direction = 1
+
+[node name="Enemy02" type="Marker2D" parent="Entities"]
+position = Vector2(1760, 224)
+script = ExtResource("7_enemy")
+enemy_id = &"drop_spider"
+bounds = Rect2(1376, 64, 768, 416)
+travel_direction = 1
+
+[node name="Enemy03" type="Marker2D" parent="Entities"]
 position = Vector2(2464, 544)
 script = ExtResource("7_enemy")
 enemy_id = &"crawler"
@@ -89,7 +103,7 @@ position = Vector2(2400, 672)
 instance_id = "fringe_01.deep_pulse"
 kind = &"glyph_deep_pulse"
 
-[node name="Enemy02" type="Marker2D" parent="Entities"]
+[node name="Enemy04" type="Marker2D" parent="Entities"]
 position = Vector2(3680, 736)
 script = ExtResource("7_enemy")
 enemy_id = &"mimic_lure"

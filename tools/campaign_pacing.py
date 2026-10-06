@@ -21,6 +21,20 @@ PACING_SPAN = 24
 CLIMB_SPAN = 12
 EXEMPT_KINDS = ("boss", "miniboss", "ending")
 THREAT_KINDS = ("enemy", "floater")
+# Rooms before the first weapon: only threats she outlasts or jumps. Round 10's Crawlers hit her
+# unforeseen (Jev round 11: readability 0.02, "unclear warning"); a Drop Spider twitches and draws
+# its drop line first and re-arms, so each room needs one (docs/phase-2-campaign.md).
+WEAPONLESS_ROOMS = ("fringe_01", "fringe_02")
+WEAPONLESS_ENEMIES = ("crawler", "drop_spider", "mimic_lure")
+TELEGRAPHED_ENEMY = "drop_spider"
+# Floor stretches the route walks (a heuristic seed 1 trace, Jev round 11) that rated "too easy"
+# with no enemy within 180 px: (room, row, first column, last column) needs a resident enemy
+# standing on that row inside the span.
+ROUTE_WALKS = (
+    ("fringe_03", 7, 13, 50),
+    ("vaults_02", 14, 39, 57),
+    ("nexus_07", 12, 13, 24),
+)
 
 
 def pacing_errors(rooms: dict[str, Room]) -> list[str]:
@@ -50,4 +64,32 @@ def pacing_errors(rooms: dict[str, Room]) -> list[str]:
                     f"(every {span} cells need one)"
                 )
                 break
+    return errors
+
+
+def _enemy_cells(room: Room) -> list[tuple[str, tuple[int, int]]]:
+    return [
+        (entry.args[0], cell)
+        for char, entry in room.legend.items()
+        if entry.kind == "enemy" and entry.args
+        for cell in room.cells_of(char)
+    ]
+
+
+def dodge_room_errors(rooms: dict[str, Room]) -> list[str]:
+    errors = []
+    for room_id in WEAPONLESS_ROOMS:
+        enemies = [enemy for enemy, _ in _enemy_cells(rooms[room_id])]
+        unbeatable = sorted({e for e in enemies if e not in WEAPONLESS_ENEMIES})
+        if unbeatable:
+            errors.append(f"{room_id}: no weapon yet, but it holds {unbeatable}")
+        if TELEGRAPHED_ENEMY not in enemies:
+            errors.append(f"{room_id}: no weapon yet and no telegraphed {TELEGRAPHED_ENEMY}")
+    for room_id, row, first, last in ROUTE_WALKS:
+        if not any(
+            cell[1] == row and first <= cell[0] <= last for _, cell in _enemy_cells(rooms[room_id])
+        ):
+            errors.append(
+                f"{room_id}: no enemy on the route walk, row {row} columns {first}..{last}"
+            )
     return errors
