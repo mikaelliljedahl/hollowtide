@@ -11,6 +11,7 @@ const Crouch = preload("res://tools/playtest_crouch.gd")
 const Reach = preload("res://tools/playtest_reach.gd")
 const Clearance = preload("res://tools/playtest_clearance.gd")
 const Arena = preload("res://tools/playtest_arena.gd")
+const Tide = preload("res://tools/playtest_tide.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
@@ -411,12 +412,15 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var kit: Dictionary = state["kit"]
 	# Not while an engaged boss winds up or runs an attack: in r10-run2 a refill run started as a
 	# Scuttle Rush ended carried her onto the kiln_03 step into the chained Heat Ring, three
-	# identical deaths. Its idle and punish times are left for the run.
+	# identical deaths. Its idle and punish times are left for the run. A line attack's answer is
+	# its dodge, offered first: r11-min-s1 stood 500 s at a 25-health stage 4 Tidal Heart with no
+	# Harpoon, its chained attacks leaving no idle time long enough to reach the refill.
 	for enemy in state["enemies"]:
 		if (
 			enemy["is_boss"]
 			and enemy.get("engaged", false)
 			and enemy.get("attack_state", "") in ["telegraph", "active"]
+			and not Tide.answers(StringName(enemy.get("attack", "")))
 		):
 			return {}
 	var short: Array = []

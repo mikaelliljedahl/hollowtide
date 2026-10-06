@@ -1112,5 +1112,12 @@ stay clear, else backs off, else stands. Same probe: 0 contact in 15 of 15.
 real rooms: 9 checks fail on the old harness (both kiln_02 cells, 5 of 6 Warden refill runs, the
 Heart chain at columns 36 and 37).
 
+**Refill run in a Tidal Heart attack.** The first rated run (r11-min-s1) brought the Heart to 25
+health in stage 4 with an empty quiver at 849 s and stood there until the 600 s objective limit:
+the round 10 rule offers no refill run while an engaged boss telegraphs or attacks, and stage 4's
+chained attacks left only idle gaps too short for the run to the refill 1,000 px away (83 refill
+picks in idle, none arrived). A line attack (`Tide.answers`) no longer withholds it; its dodge is
+offered first. `_test_heart_refill` fails on the old harness.
+
 Open: every kiln_03 refill trip still lands once in the two-tile lava pit east of the arena wall (9
 damage): the steer's jump over the wall at columns 49 and 50 comes down into it.

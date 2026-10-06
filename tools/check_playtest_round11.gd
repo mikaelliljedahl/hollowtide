@@ -61,6 +61,7 @@ func run() -> void:
 		GameState.unlock_ability(id)
 	for column: int in HEART_COLUMNS:
 		await _test_heart_chain(column)
+	await _test_heart_refill()
 
 
 func _check(condition: bool, label: String) -> void:
@@ -190,6 +191,32 @@ func _test_heart_chain(column: int) -> void:
 			"depths_02 column %d: stage 4 Crosscurrent then Surge Lance costs nothing (%d)"
 			% [column, health - GameState.health]
 		)
+	)
+
+
+## r11-min-s1: at 25 health in stage 4 the Heart chains attacks back to back, and with no refill
+## run during a telegraph she stood 500 s on an empty quiver. A line attack leaves it to the dodge.
+func _test_heart_refill() -> void:
+	var boss := _player.get_tree().get_first_node_in_group(&"campaign_boss") as Node2D
+	if boss == null:
+		return
+	var room := _root.get("current_room") as Node2D
+	_player.global_position = room.global_position + Vector2(14.5 * TILE, 15 * TILE)
+	_player.velocity = Vector2.ZERO
+	await _frames(20)
+	while GameState.spend_missile():
+		pass
+	var chain: Array[StringName] = [&"crosscurrent"]
+	boss.set("_attack_chain", chain)
+	boss.call(&"_start_telegraph")
+	await _frames(2)
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	var kinds: Array = Actions.candidates(state, _player).map(
+		func(entry: Dictionary) -> String: return entry["kind"]
+	)
+	_check(
+		kinds.has("go_to_refill"),
+		"an empty quiver in a Tidal Heart telegraph offers the refill run (%s)" % [kinds]
 	)
 
 
