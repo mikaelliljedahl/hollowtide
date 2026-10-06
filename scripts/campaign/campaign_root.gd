@@ -33,6 +33,10 @@ const TOP_EXIT := 40.0
 const BOTTOM_EXIT := 8.0
 const SIDE_ENTRY := 72.0
 const TOP_ENTRY := 200.0
+## A drop through a floor opening lands the feet at TOP_ENTRY, or lower in steps of this while the
+## standing body would sit in rock there, at most ENTRY_DROP_LIMIT below it.
+const ENTRY_DROP_STEP := 16.0
+const ENTRY_DROP_LIMIT := 384.0
 const BOTTOM_ENTRY := 24.0
 const UP_ENTRY_SPEED := 1180.0
 
@@ -363,13 +367,14 @@ func _leave_room(edge: StringName, local: Vector2) -> void:
 			entry.x = target_size.x - SIDE_ENTRY
 		&"south":
 			entry.y = TOP_ENTRY
+			entry.x = _within_door(target_data, current_room_id, entry.x)
 		&"north":
 			entry.y = target_size.y - BOTTOM_ENTRY
 			player.apply_door_lift(UP_ENTRY_SPEED)
-	_transition(target, entry)
+	_transition(target, entry, edge == &"south")
 
 
-func _transition(target: String, entry: Vector2) -> void:
+func _transition(target: String, entry: Vector2, drop := false) -> void:
 	_busy = true
 	_generation += 1
 	var generation := _generation
@@ -378,11 +383,56 @@ func _transition(target: String, entry: Vector2) -> void:
 	if generation != _generation:
 		return
 	_load_room(target)
-	_place_player(entry, false)
+	_place_player(clear_drop_entry(entry) if drop else entry, false)
 	await get_tree().process_frame
 	get_tree().paused = false
 	await _fade_to(0.0, FADE_SECONDS)
 	_busy = false
+
+
+## `x` kept inside the north opening of `room` that leads up to `from`, so the standing body fits
+## between its side walls (a drop from a wider shaft above lands under the opening).
+static func _within_door(room: Dictionary, from: String, x: float) -> float:
+	var best := x
+	var gap := INF
+	for door in room["doors"]:
+		if door["edge"] != &"north" or door["target"] != from:
+			continue
+		var low: float = Vector2i(door["from"]).x * TILE + PlayerConfig.STANDING_WIDTH * 0.5
+		var high: float = (Vector2i(door["to"]).x + 1) * TILE - PlayerConfig.STANDING_WIDTH * 0.5
+		var kept := clampf(x, low, high)
+		if absf(kept - x) < gap:
+			gap = absf(kept - x)
+			best = kept
+	return best
+
+
+## Feet for an arrival through the current room's ceiling at `entry`: as given, or lower while the
+## standing body would overlap a rock tile there. vaults_05 has rock in row 1 under its north
+## opening, and TOP_ENTRY put her upper body into it: she hung frozen in the air for up to 3.5 s.
+func clear_drop_entry(entry: Vector2) -> Vector2:
+	var tiles := current_room.tiles()
+	if tiles == null:
+		return entry
+	var feet := entry
+	while feet.y <= entry.y + ENTRY_DROP_LIMIT:
+		if not _body_in_rock(tiles, feet):
+			return feet
+		feet.y += ENTRY_DROP_STEP
+	return entry
+
+
+## True when the standing body with its feet at `feet` (room-local) overlaps a tile.
+static func _body_in_rock(tiles: TileMapLayer, feet: Vector2) -> bool:
+	var half := PlayerConfig.STANDING_WIDTH * 0.5
+	var top := feet.y - PlayerConfig.STANDING_HEIGHT
+	for row in range(floori(top / TILE), floori((feet.y - 1.0) / TILE) + 1):
+		for column in range(
+			floori((feet.x - half) / TILE), floori((feet.x + half - 1.0) / TILE) + 1
+		):
+			if row >= 0 and tiles.get_cell_source_id(Vector2i(column, row)) != -1:
+				return true
+	return false
 
 
 func _load_room(room_id: String) -> void:

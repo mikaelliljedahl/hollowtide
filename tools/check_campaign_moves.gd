@@ -6,6 +6,7 @@ extends Node
 ## godot --headless --path . res://tools/check_campaign_moves.tscn -- --test-mode
 
 const CAMPAIGN := preload("res://scenes/campaign/campaign.tscn")
+const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const TILE := 64.0
 const ACTIONS: Array[StringName] = [
 	&"move_left",
@@ -57,6 +58,7 @@ func _run() -> void:
 	await _case_vaults_03_steps()
 	await _case_nexus_07_door_release()
 	await _case_vaults_02_shaft_curb()
+	await _case_floor_drops()
 	await _case_route_threats()
 	_release()
 	for failure in _failures:
@@ -276,6 +278,61 @@ func _case_vaults_02_shaft_curb() -> void:
 	await _hold([&"move_right"], 60)
 	await _frames(30)
 	_expect_room("vaults_02 step off the curb -> vaults_04", "vaults_04")
+
+
+## Every floor opening dropped through with no input, at both ends and the middle of the door:
+## where she arrives, her standing body is never inside rock. r10: vaults_05 has rock in row 1
+## under its north opening, the arrival put her upper body in it, and she hung frozen in the air
+## for up to 3.5 s (the same shape in vaults_04 under the other vaults_02 shaft).
+func _case_floor_drops() -> void:
+	if not _wanted("floor_drops"):
+		return
+	# kiln_04's floor opening is the top of a steam shaft that lifts her up out of kiln_02 through
+	# its stack door: no one drops down it (the steam holds her), and the closed door's slab, not
+	# rock, is what a forced drop lands in.
+	const UPDRAFT_ONLY := ["kiln_04"]
+	var before := _failures.size()
+	var drops := 0
+	for room_id in Rooms.ROOMS:
+		for door in Rooms.ROOMS[room_id]["doors"]:
+			if door["edge"] != &"south" or room_id in UPDRAFT_ONLY:
+				continue
+			var height: float = Vector2(Rooms.ROOMS[room_id]["size"]).y * TILE
+			var from: int = Vector2i(door["from"]).x
+			var to: int = Vector2i(door["to"]).x
+			for x in [from * TILE + 30.0, (from + to + 1) * TILE * 0.5, (to + 1) * TILE - 30.0]:
+				_release()
+				_root.call("teleport", room_id, Vector2(x, height - 4.0))
+				var wedged := 0
+				for _frame in 60:
+					await get_tree().physics_frame
+					if not get_tree().paused and _room() == door["target"] and _in_rock():
+						wedged += 1
+				drops += 1
+				if wedged > 0:
+					_failures.append(
+						(
+							"%s drop at x %d into %s: body in rock %d frames at %s"
+							% [room_id, x, door["target"], wedged, _cell()]
+						)
+					)
+	if _failures.size() == before:
+		print("  ok  %d floor drops arrive clear of rock" % drops)
+
+
+## True when the standing body overlaps a rock tile of the current room.
+func _in_rock() -> bool:
+	var room := _root.get("current_room") as CampaignRoom
+	var feet := _player.global_position - room.global_position
+	var half := PlayerConfig.STANDING_WIDTH * 0.5
+	var top := feet.y - PlayerConfig.STANDING_HEIGHT
+	for row in range(floori((top + 1.0) / TILE), floori((feet.y - 1.0) / TILE) + 1):
+		for column in range(
+			floori((feet.x - half + 1.0) / TILE), floori((feet.x + half - 1.0) / TILE) + 1
+		):
+			if row >= 0 and room.tiles().get_cell_source_id(Vector2i(column, row)) != -1:
+				return true
+	return false
 
 
 ## A threat reaches the player where she walks: standing on the route cell, some resident enemy
