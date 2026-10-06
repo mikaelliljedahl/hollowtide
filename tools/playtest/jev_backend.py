@@ -34,6 +34,11 @@ ENDPOINT = "/v1/systemone"
 REQUESTS_PER_MINUTE = 1200
 ERROR_TEXT_LIMIT = 300
 RETRY_AFTER_CAP = 10.0
+# Backoff after a transient failure (502/503/504, timeout, network), in game seconds: doubles per
+# failure in a row from 1 s up to this cap, and resets on an answer. r10 sent 634 requests into a
+# seven-minute "no healthy upstream" outage, one per decision.
+TRANSIENT_STATUSES = (502, 503, 504)
+BACKOFF_CAP = 15.0
 MOVING_KINDS = (
     "approach",
     "go_to_exit",
@@ -167,7 +172,11 @@ class JevBackend(Backend):
         # use the hint without calling. Holds status and a scrubbed message, never the key.
         self.fatal: dict[str, Any] | None = None
         self._last_call_t = -1e9
-        self._cooldown_until = 0.0
+        # Game time (state["t"]) before which no request is sent. Game time, not wall time: the
+        # headless game runs as fast as the policy answers, so a 10 s wall-clock cooldown after a
+        # 529 cost r10-run1 120-200 game seconds of play (1363 of 2549 decisions).
+        self._cooldown_until_t = 0.0
+        self._failures = 0
         self._sent: deque[float] = deque()
         self._last: dict[str, Any] = {}
         self._input_tokens = 0
@@ -225,9 +234,9 @@ class JevBackend(Backend):
         budget = self.config.budget_usd
         if budget is not None and self._input_tokens * PRICE_PER_INPUT_TOKEN >= budget:
             return "skip:budget"
-        now = time.monotonic()
-        if now < self._cooldown_until:
+        if game_t < self._cooldown_until_t:
             return "fallback:cooldown"
+        now = time.monotonic()
         while self._sent and now - self._sent[0] > 60.0:
             self._sent.popleft()
         if len(self._sent) >= REQUESTS_PER_MINUTE:
@@ -252,9 +261,11 @@ class JevBackend(Backend):
             self.fatal = {"status": None, "message": str(error)}
             return self._fallback(record, "missing_key", hint)
         except TimeoutError:
+            self._back_off(record)
             return self._fallback(record, "timeout", hint, started)
         except (OSError, http.client.HTTPException) as error:
             record["error"] = scrub(type(error).__name__)
+            self._back_off(record)
             return self._fallback(record, "network", hint, started)
         record["latency_ms"] = round((time.perf_counter() - started) * 1000.0, 1)
         if status != 200:
@@ -275,14 +286,27 @@ class JevBackend(Backend):
                 wait = float(headers.get("retry-after", "2"))
             except ValueError:
                 wait = 2.0
-            self._cooldown_until = time.monotonic() + min(RETRY_AFTER_CAP, max(0.5, wait))
+            self._cool_down(record, min(RETRY_AFTER_CAP, max(0.5, wait)))
+            return self._fallback(record, f"http_{status}", hint)
+        if status in TRANSIENT_STATUSES:
+            self._back_off(record)
             return self._fallback(record, f"http_{status}", hint)
         if 400 <= status < 500:
             self.fatal = {"status": status, "message": message}
         return self._fallback(record, f"http_{status}", hint)
 
+    def _cool_down(self, record: dict[str, Any], seconds: float) -> None:
+        """No request for `seconds` of game time from this decision's."""
+        self._cooldown_until_t = float(record.get("t") or 0.0) + seconds
+        record["cooldown_s"] = round(seconds, 2)
+
+    def _back_off(self, record: dict[str, Any]) -> None:
+        self._failures += 1
+        self._cool_down(record, min(BACKOFF_CAP, 2.0 ** (self._failures - 1)))
+
     def _read_answer(self, answer: dict, record: dict[str, Any], keys: set[str], hint: str) -> str:
         answers = answer["answers"]
+        self._failures = 0
         action = answers[QUESTION_ACTION]
         probabilities = {k: round(float(v), 4) for k, v in action["probabilities"].items()}
         choice = action["choice"]
