@@ -65,36 +65,50 @@ static func is_done(objective: Dictionary, ending: bool) -> bool:
 	return ending
 
 
-## True when the kit and flags the solver planned `objective` with are all owned now.
-static func is_ready(objective: Dictionary) -> bool:
+## True when the kit and flags the solver planned `objective` with are all owned now; a flag in
+## `waived` is not needed.
+static func is_ready(objective: Dictionary, waived: Dictionary = {}) -> bool:
 	for ability in objective["abilities"]:
 		if not GameState.has_ability(StringName(ability)):
 			return false
 	for flag in objective["flags"]:
-		if not GameState.has_world_flag(String(flag)):
+		if not GameState.has_world_flag(String(flag)) and not waived.has(String(flag)):
 			return false
 	return true
 
 
 ## Index of the objective to play now: the first in route order that is not done, is ready and
 ## not `skipped` (objectives that timed out); then the first skipped one that is ready again, never
-## an `optional` one (a nearby upgrade); -1 when every objective is done.
+## an `optional` one (a nearby upgrade); -1 when every objective is done or none is ready.
+## A required objective never waits on a mini-boss fight that was left behind: its `mini:` flag
+## is waived (the planner lists none on required objectives; r10-run1 and run2 had every
+## objective after the timed-out Tollwing listing `mini:tollwing`, and the run ended there).
 func next_index(ending: bool, skipped: Dictionary) -> int:
+	var waived := {}
+	for objective in objectives:
+		if objective["kind"] == "mini" and skipped.has(int(objective["index"])):
+			waived[String(objective["grants"])] = true
 	var fallback := -1
 	for objective in objectives:
 		if is_done(objective, ending):
 			continue
 		var index := int(objective["index"])
-		if is_ready(objective) and not skipped.has(index):
+		var optional: bool = objective.get("optional", false)
+		var ready := is_ready(objective, {} if optional else waived)
+		if ready and not skipped.has(index):
 			return index
 		# An optional upgrade that timed out is left behind for good.
-		if (
-			fallback < 0
-			and not objective.get("optional", false)
-			and (is_ready(objective) or skipped.has(index))
-		):
+		if fallback < 0 and not optional and (ready or skipped.has(index)):
 			fallback = index
 	return fallback
+
+
+## True while a required objective is not done: with no objective to play, the run is blocked
+## rather than through the route.
+func required_open(ending: bool) -> bool:
+	return objectives.any(
+		func(o: Dictionary) -> bool: return not o.get("optional", false) and not is_done(o, ending)
+	)
 
 
 ## Plain-language objective ("collect the Slipstream in fringe_02").

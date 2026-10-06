@@ -4,7 +4,9 @@ extends RefCounted
 ## in the order first entered, deaths with the shrine the player came back at, and where and why
 ## the run stopped. An objective that takes longer than OBJECTIVE_TIMEOUT game seconds is recorded
 ## as failed and set aside while another objective is ready; a second timeout ends the run. An
-## optional one gets its route budget (`seconds`) and is left behind after one timeout.
+## optional one gets its route budget (`seconds`) and is left behind after one timeout. With no
+## objective left to play the run ends as `route_done`, or `route_blocked` while a required one is
+## still open (nothing it needs can be had any more).
 
 const Route = preload("res://tools/playtest_route.gd")
 const OBJECTIVE_TIMEOUT := 300.0
@@ -41,7 +43,10 @@ func update(now: float, route: Route, telemetry: RefCounted, steps: int, ending:
 		_close("done" if done else "switched", telemetry)
 	current = index
 	if index < 0:
-		return "goal_ending" if ending else "route_done"
+		if ending:
+			return "goal_ending"
+		# A required objective still open but none ready: say so instead of "route_done".
+		return "route_blocked" if route.required_open(ending) else "route_done"
 	if _open.is_empty():
 		_start(route.objectives[index], telemetry, steps)
 	_track_steps(steps)

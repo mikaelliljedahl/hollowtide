@@ -140,6 +140,16 @@ class CampaignRouteTest(unittest.TestCase):
         quiver = self.objectives[order.index("kiln_08.missile_02")]
         self.assertIn("mini:emberkite", quiver["flags"])
 
+    def test_only_a_mini_reward_needs_the_mini_flag(self):
+        """r10-run1/run2 timed out on the optional Tollwing, and every later objective, the
+        required ones too, listed `mini:tollwing`: nothing was ready and the run ended as
+        `route_done` with 43 objectives open. Only an optional pickup behind a mini-boss reward
+        gate lists a `mini:` flag."""
+        for objective in self.objectives:
+            minis = [flag for flag in objective["flags"] if flag.startswith("mini:")]
+            if not objective["optional"] or objective["kind"] != "pickup":
+                self.assertFalse(minis, f"{objective['index']} {objective['target']}")
+
     def test_last_boss_and_ending_come_last(self):
         kinds = [(o["kind"], o["target"]) for o in self.objectives]
         self.assertEqual(kinds[-2:], [("boss", "tidal_heart"), ("ending", "ending")])

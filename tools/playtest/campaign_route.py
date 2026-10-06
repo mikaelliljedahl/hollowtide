@@ -174,16 +174,26 @@ def plan(
     world: World,
     sweep: bool = True,
     graph: RouteGraph | None = None,
-    taken_hook: Callable[[int, Objective, Kit], None] | None = None,
+    taken_hook: Callable[[int, Objective, Kit, Kit | None], None] | None = None,
 ) -> list[Objective]:
     """Objectives in play order (see `_nearest`). An optional objective after which nothing is
     reachable is a trap of the solver's (a door it drops through into a sealed notch): it is
-    dropped and the plan goes on from before it. `taken_hook(index, objective, kit)` runs for each
-    objective as it joins the order, with the kit's graph reached from the start."""
+    dropped and the plan goes on from before it. `taken_hook(index, objective, kit, base)` runs
+    for each objective as it joins the order, with the kit's graph reached from the start and
+    `base`, the same kit without the mini-boss flags (None when they change no move).
+
+    A mini-boss fight is optional: the agent may leave it after its time budget, its `mini:` flag
+    unset and its reward gate shut. So the flags won there (`won`) open the way for the planner's
+    search, but an objective lists them only when it cannot be reached without them (the reward
+    behind the gate); every other objective, and every required one, lists boss flags only.
+    r10-run1 and run2 timed out on the Tollwing, and every later objective, the required ones
+    included, listed `mini:tollwing`: nothing was ready and the run ended as `route_done`."""
     graph = graph or RouteGraph(world)
     start: State = (*world.start, False, 0, 0)
     abilities: set[str] = set()
     flags: set[str] = set()
+    won: set[str] = set()
+    kits: dict[frozenset[str], Kit] = {}
     taken: set[str] = set()
     position = start
     seen = {position[0]}
@@ -192,38 +202,47 @@ def plan(
     history: list[tuple] = []
     kit: Kit | None = None
     while True:
-        if kit is None or kit.key != graph.moves_key(abilities, flags):
-            kit = graph.kit(abilities, flags)
-            kit.reach(start)
+        if kit is None or kit.key != graph.moves_key(abilities, flags | won):
+            kit = _reached(graph, kits, abilities, flags | won, start)
         searcher = kit
         if position not in kit.index:
             # A frozen floater can shut a spot the previous kit stood on.
-            searcher = graph.kit(abilities, flags)
+            searcher = graph.kit(abilities, flags | won)
             searcher.reach(position)
-        offered = list(candidates(world, abilities, flags, taken | trapped, sweep, seen))
+        offered = list(candidates(world, abilities, flags | won, taken | trapped, sweep, seen))
         best = _nearest(searcher, position, offered)
         if best is None:
             if order and order[-1].optional:
                 trapped.add(order.pop().target)
-                abilities, flags, taken, seen, position = history.pop()
+                abilities, flags, won, taken, seen, position = history.pop()
                 continue
             break
         steps, objective, path = best
         objective.path = path
-        history.append((set(abilities), set(flags), set(taken), set(seen), position))
+        history.append((set(abilities), set(flags), set(won), set(taken), set(seen), position))
         seen.update(state[0] for state in path)
+        base = None
+        if graph.moves_key(abilities, flags) != kit.key:
+            base = _reached(graph, kits, abilities, flags, start)
+        # Only the kits in use stay (each holds the whole world's states).
+        for stale in set(kits) - {kit.key, base.key if base else kit.key}:
+            del kits[stale]
         objective.abilities = sorted(abilities)
-        objective.flags = sorted(flags)
+        needs_won = base is not None and not base.covering(objective.room, set(objective.cells))
+        objective.flags = sorted(flags | won if needs_won else flags)
         objective.steps = steps
         order.append(objective)
         if taken_hook is not None:
-            taken_hook(len(order) - 1, objective, kit)
+            taken_hook(len(order) - 1, objective, kit, base)
         if objective.kind == "ending":
             break
         taken.add(objective.target)
         position = path[-1]
-        if objective.kind in ("boss", "mini"):
+        if objective.kind == "boss":
             flags.update(objective.grants.split(","))
+            position = _after_fight(world, searcher, objective, position)
+        elif objective.kind == "mini":
+            won.add(objective.grants)
             position = _after_fight(world, searcher, objective, position)
         elif not objective.optional:
             abilities.add(objective.grants)
@@ -233,6 +252,17 @@ def plan(
             position = landing[1][-1]
         objective.rest = position
     return order
+
+
+def _reached(
+    graph: RouteGraph, kits: dict[frozenset[str], Kit], abilities: set[str], flags: set[str], start
+) -> Kit:
+    """The kit for `abilities` and `flags`, reached from `start`, built once per moves key."""
+    found = kits.get(graph.moves_key(abilities, flags))
+    if found is None:
+        found = kits[graph.moves_key(abilities, flags)] = graph.kit(abilities, flags)
+        found.reach(start)
+    return found
 
 
 def _after_fight(world: World, kit: Kit, objective: Objective, entered: State) -> State:
@@ -267,16 +297,19 @@ def unreached(world: World, order: list[Objective], sweep: bool) -> list[str]:
     return sorted(missing)
 
 
-def flow_field(kit: Kit, objective: Objective) -> dict[str, list]:
+def flow_field(kit: Kit, objective: Objective, known: dict | None = None) -> dict[str, list]:
     """'room:x:y:b' -> [steps, hop] for every resting state that can reach the objective, where
     hop is the list of [room, x, y, ball, rising] cells up to the next resting state, which may lie
-    in the next room. `kit` is reached from the start."""
+    in the next room. `kit` is reached from the start. Entries already in `known` are kept as
+    they are."""
     states = kit.states
     distance = kit.distances_to(kit.covering(objective.room, set(objective.cells)))
-    result: dict[str, list] = {}
+    result: dict[str, list] = dict(known or {})
     for number, steps in enumerate(distance):
         if steps != UNREACHED and kit.rest[number]:
-            result[key(states[number])] = [steps, hop(kit, number, distance)]
+            name = key(states[number])
+            if name not in result:
+                result[name] = [steps, hop(kit, number, distance)]
     return result
 
 
@@ -319,9 +352,11 @@ def build(out: Path, sweep: bool = True) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     fields: dict[int, int] = {}
 
-    def write_field(index: int, objective: Objective, kit: Kit) -> None:
+    def write_field(index: int, objective: Objective, kit: Kit, base: Kit | None) -> None:
         # A trap the plan backs out of is overwritten by the objective that takes its place.
-        data = flow_field(kit, objective)
+        # Where the way on needs no mini-boss flag, follow that way: a reward gate the live run
+        # left shut is never on it. Spots only an open gate leads to take the full kit's way.
+        data = flow_field(kit, objective, flow_field(base, objective) if base else None)
         text = json.dumps(data, separators=(",", ":"))
         (out / f"field_{index}.json").write_text(text, encoding="utf-8")
         fields[index] = len(data)

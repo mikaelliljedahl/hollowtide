@@ -15,6 +15,7 @@ extends Node
 ## Campaign mode (tools/check_playtest_campaign.gd): objective order, door routing, timeouts, the
 ## heuristic's route choices, and a flow field followed and a gate opened through real inputs.
 ## Echo grate (tools/check_playtest_grate.gd): no opener at a grate behind the muzzle.
+## Round 10 review (tools/check_playtest_round10.gd): route blocks, updraft stalls, heat credit.
 ## godot --headless --path . res://tools/check_playtest_agent.tscn -- --test-mode
 
 const Loop = preload("res://tools/playtest_loop.gd")
@@ -28,6 +29,7 @@ const DodgeCheck = preload("res://tools/check_playtest_dodge.gd")
 const CrouchCheck = preload("res://tools/check_playtest_crouch.gd")
 const ReachCheck = preload("res://tools/check_playtest_reach.gd")
 const GrateCheck = preload("res://tools/check_playtest_grate.gd")
+const Round10Check = preload("res://tools/check_playtest_round10.gd")
 const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/combat/enemy_projectile.tscn")
 const STATE_KEYS := [
 	"tick",
@@ -174,6 +176,7 @@ func _run() -> void:
 	await CampaignCheck.new(self).run()
 	await ReachCheck.new(self).run()
 	await GrateCheck.new(self).run()
+	await Round10Check.new(self).run()
 	await _test_bridge_round_trip()
 	await _test_timeout_falls_back()
 	await _test_missing_server_falls_back()
