@@ -111,6 +111,13 @@ bounds = Rect2(800, 1568, 384, 256)
 travel_direction = 1
 
 [node name="Enemy08" type="Marker2D" parent="Entities"]
+position = Vector2(3232, 928)
+script = ExtResource("5_enemy")
+enemy_id = &"hopper"
+bounds = Rect2(2976, 800, 512, 256)
+travel_direction = 1
+
+[node name="Enemy09" type="Marker2D" parent="Entities"]
 position = Vector2(1312, 2016)
 script = ExtResource("5_enemy")
 enemy_id = &"stalker"
@@ -122,14 +129,14 @@ position = Vector2(3424, 922)
 script = ExtResource("6_station")
 station_kind = &"save"
 
-[node name="Enemy09" type="Marker2D" parent="Entities"]
+[node name="Enemy10" type="Marker2D" parent="Entities"]
 position = Vector2(928, 2016)
 script = ExtResource("5_enemy")
 enemy_id = &"shard_turret"
 bounds = Rect2(544, 1824, 768, 288)
 travel_direction = 1
 
-[node name="Enemy10" type="Marker2D" parent="Entities"]
+[node name="Enemy11" type="Marker2D" parent="Entities"]
 position = Vector2(2720, 1696)
 script = ExtResource("5_enemy")
 enemy_id = &"bat_swarm"

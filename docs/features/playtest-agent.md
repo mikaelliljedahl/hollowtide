@@ -80,7 +80,7 @@ player's own position is room-local. Built by `tools/playtest_state.gd:44`.
 | `kit` | `abilities` (internal ids), the equipped `beam` and the owned `beams` in `cycle_beam` order (GameState ids `base`, `ice`, `wave`), `missiles`, `max_missiles`, `harpoons_flying` (fired Harpoons still in the air). |
 | `enemies` | Up to 6, nearest first: stable per-run `id` (`e1`, ...), `type`, `rel`, `dist`, `health`, `max_health`, `is_boss`, `telegraph` (wind-up showing, a surprise enemy's wind-up glow and the surface eel's boiling liquid included), `ambush`, `hurt_by` (damage kinds usable on it now, from the enemy's own `is_vulnerable_to`: the equipped beam kind, `missile` only while a shot's worth of Harpoons is left, `bomb`, `undertow`), `switch_to` (an owned, unequipped beam that hurts it when the equipped one does not, else ""), `visible` (no tile on the line from the crossbow; a grate the Harpoon passes right now does not count), `span_rel` (top and bottom y of what a shot hits on it, its art's projectile hurtbox, relative to the feet) `platform` (campaign mode: a frost floater an upcoming route hop stands on, frozen or not; it gets no fight options and Jev reads it as `route_platform`) and `low` (a level shot from her standing crossbow, 161 px up, passes over that span while a crouched one, 72 px up, hits it; `tools/playtest_crouch.gd:24`). A surprise or combat enemy winding up adds `wind_up_left` (seconds). Bosses add `stage`, `attack`, `attack_state`, `attack_left` (telegraph seconds left), `attack_elapsed` (seconds since the release), `columns_rel` (the floor columns Rockfall and Vent Burst locked when their telegraph began, x relative to the feet), `shots_rel` (the lines of the Tidal Heart's and the mini-bosses' shot attacks: every shot of its locked plan while it telegraphs, then the shots still to come and every enemy shot in flight within 1,600 px, each as origin x and y relative to the feet, direction x and y, seconds until it flies, speed and lifetime; `tools/playtest_tide.gd`), `engaged`, `phase` (protection phase), `opening` (the current opening still takes damage, boss-rework R8), `open` (the Harpoon hurts it now: shell open and opening unspent), `opener` (null, or `beam`, `via` body, grate or punish (every mini-boss in stage 2), `owned`, `point_rel`: where the opener must land, `visible`: the opener bolt reaches it from here, and while it does not, `spot_rel`: the nearest standing spot in the arena it lines up from in sight) and `arena_rel` (the arena rect as x0, y0, x1, y1 relative to the feet). |
 | `projectiles` | Up to 8 enemy shots within 900 px: `rel`, `vel`, `style`. |
-| `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel`, `inside`. |
+| `ambush` | The room's arena or null: `id`, `state` (armed, sealing, fighting, cleared, intermission), `wave`, `waves`, `alive`, `trigger_rel` (the bottom centre of the trigger, where her feet stand in it), `inside`. |
 | `exits` | Doors from the room index: `id` (`edge:target`), `rel`, `gated`, `gate` kind. |
 | `pickups` | Up to 4 uncollected progression pickups: `id`, `kind`, `rel`. |
 | `hazards` | Up to 4 hazards within 1200 px of the player's hitbox, measured to the hazard's body rect (`tools/playtest_hazards.gd:43`): `kind` (lava, fire, steam from the `dev_hazard` group; stalactite, crusher, crumble, heat, rising_lava, rising_water), `rel` (nearest point of the body), `size`, `gap` (px between the hitboxes, 0 when touching) and `state` (a spike's, flood's or crusher's phase). |
@@ -109,7 +109,7 @@ the nearest visible enemy the kit can hurt, bosses always included (`tools/playt
 | `dash_through` | Undertow Dash ready, a shot flying at the player within 420 px, and a live boss's arena reaching at least 384 px that way | Dash into the shot (the deflect window). |
 | `wall_jump_up` | Airborne against a wall | Push in, jump away, steer back. |
 | `go_to_refill:<kind>` | Out of Harpoons (with a quiver) or below a third of health, and a refill in `refills` restores it that the steer arrives at: no more than 320 px above the floor under her, not behind rock at crossbow height and at a jump's apex, and no gap on the way whose floor lies more than 320 px below it (section 24) | Steer to it, running; with a live boss standing between on the floor and 240 px of free air above its body, run and jump over it. |
-| `go_to_ambush` | Armed arena, player not at its trigger; in campaign mode only with the trigger within 160 px of her height (the route leads there otherwise) | Steer to the trigger centre. |
+| `go_to_ambush` | Armed arena, player not at its trigger; in campaign mode only with the trigger's floor within 160 px of her height (the route leads there otherwise) | Steer to the trigger's floor until the arena seals, she stands in it or stalls (`tools/playtest_arena.gd`). |
 | `pick_up:<id>` | Up to two pickups, each only where the steer arrives (as for `go_to_refill`) | Steer to it. |
 | `go_to_exit:<edge:target>` | Up to three ungated exits the steer arrives at (as for `go_to_refill`), none while a boss is alive in the room (a boss room's goal is the fight) | Steer to the door, running. |
 | `jump:left`, `jump:right` | Always | Plain jumps, used to break a stall. |
@@ -1075,3 +1075,56 @@ answer in stage 4 is the open lead.
 - The arena's floor line misses part of the real floor: standing there leaves the mini-boss frozen
   and unhurt. Fernmaw 7 of 28 floor spots (feet 13 to 35 px below the arena), Rimeweaver 3 of 27,
   Emberkite 2 of 25 (all 35 px); Tollwing and Lanternjaw none.
+
+## 30. Harness round 11 (2026-10-06)
+
+**kiln_02 ambush loop.** r8-full-s2 spent 150 s at cells 13 to 17, 31 switching between
+`go_to_ambush` and `go_to_objective`. Each `go_to_ambush` was one 12-frame steer before the next
+decision, so the route's pull west undid it; and it steered at the trigger's centre, 160 px above its
+floor, which the steer read as a ledge and jumped at under the rock block over columns 16 to 20. The
+state's `trigger_rel` is now the trigger's floor point (bottom centre; every campaign trigger lies on
+its floor), and `go_to_ambush` (`tools/playtest_arena.gd`) walks there until the arena seals, she
+stands in it, stalls (45 frames) or 300 frames pass. Picked between two 30-frame walks west, from
+(13, 31) and (15, 31) it seals at the first pick; before, not in four.
+
+**Tidal Heart stage 4 Crosscurrent then Surge Lance.** A probe in the real depths_02 arena (stage
+4, the chain forced, a 999-health player to count damage, six floor spots, lanes answered by a jump
+or a curl as the beads arrive, then 22 Lance responses) found a no-damage answer at every spot:
+leave the Lance's line by running 24 or more frames (columns 10, 14, 37) or jump it (columns 21 to
+29, under the ledge every response cleared). So no game change. The harness missed it twice: the
+lanes of the first link still fly through the Lance's telegraph and after its recovery, and `shots`
+exported in-flight shots only during a recovery; and no spot clears a lane and a crossing line at
+once. Now `Tide.shots` adds every shot in flight in every attack state, and with no spot clear of all
+lines the Lance's spot is chosen from the crossing lines alone; `Shelter` jumps a low horizontal
+shot and curls under a high one on the way or at the spot (`LANE_LEAD`, `tools/playtest_tide.gd`).
+
+**Refill run past the Cinder Warden.** The round 8 death's killing hit came from a `go_to_refill`
+run past the Warden outside any attack. A kiln_03 probe (attacks held, empty quiver, stages 1, 3
+and 4, five floor columns west of the boss) met its body in 13 of 15 runs: `JumpOver` took off 230
+px short of where the body stood when the run began, but the Warden patrols, turning every 1.15 to
+1.55 s. `JumpOver` (`tools/playtest_dodge.gd`) now predicts the patrol (its timer, direction, stage
+speed and arena edges; any other boss keeps its velocity) and her path (`Clearance.path`, which now
+uses the Updraft Cloak's jump impulse when owned) every frame on the floor: it jumps once a running
+jump from within 420 px clears the contact circle and lands past it, runs on while 8 frames of running
+stay clear, else backs off, else stands. Same probe: 0 contact in 15 of 15.
+
+`tools/check_playtest_round11.gd` (run by the `playtest boss rooms` suite) plays all three in the
+real rooms: 9 checks fail on the old harness (both kiln_02 cells, 5 of 6 Warden refill runs, the
+Heart chain at columns 36 and 37).
+
+**Arena the kit cannot start.** A rooms run chose `go_to_ambush` 1,288 times at fringe_03's beam
+trial before the beam: an arena with no winnable wave never seals, and its trigger centre lay exactly
+160 px above her (the floor check took `<= 160`, the arrival check `< 160`). `go_to_ambush` is now
+offered only when `plan_waves()` keeps a wave, and the floor check is strict like the others.
+`_test_unstartable_arena` (Slipstream only, beside and inside the trigger) fails beside it on the
+previous commit; inside it the trigger-floor point already fixed it.
+
+**Refill run in a Tidal Heart attack.** The first rated run (r11-min-s1) brought the Heart to 25
+health in stage 4 with an empty quiver at 849 s and stood there until the 600 s objective limit:
+the round 10 rule offers no refill run while an engaged boss telegraphs or attacks, and stage 4's
+chained attacks left only idle gaps too short for the run to the refill 1,000 px away (83 refill
+picks in idle, none arrived). A line attack (`Tide.answers`) no longer withholds it; its dodge is
+offered first. `_test_heart_refill` fails on the old harness.
+
+Open: every kiln_03 refill trip still lands once in the two-tile lava pit east of the arena wall (9
+damage): the steer's jump over the wall at columns 49 and 50 comes down into it.

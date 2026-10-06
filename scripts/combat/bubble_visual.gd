@@ -29,11 +29,17 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-func _draw() -> void:
-	var center := rect.get_center()
+## Resting ellipse (before wobble) in the host's local space; its top is the rim she stands on.
+func ellipse_rect() -> Rect2:
 	# Mostly round: a bubble only hints at the trapped silhouette's aspect.
 	var mean := (rect.size.x + rect.size.y) * 0.25
 	var radii := Vector2(lerpf(mean, rect.size.x * 0.5, 0.25), lerpf(mean, rect.size.y * 0.5, 0.25))
+	return Rect2(rect.get_center() - radii, radii * 2.0)
+
+
+func _draw() -> void:
+	var center := rect.get_center()
+	var radii := ellipse_rect().size * 0.5
 	var wobble := 0.03 + 0.05 * warning
 	var squash := Vector2(1.0 + wobble * sin(_age * 5.3), 1.0 + wobble * sin(_age * 5.3 + PI * 0.5))
 	var tremble := Vector2(sin(_age * 61.0), cos(_age * 53.0)) * 2.0 * warning

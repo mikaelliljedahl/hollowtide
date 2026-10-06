@@ -52,6 +52,12 @@ const JUMP_LEAD := 0.2
 const JUMP_HOLD := 40
 const BEAD_SPREAD := 0.14
 const FPS := 60.0
+## A horizontal shot this many seconds from her body is answered on the way to a spot: below
+## LANE_SPLIT px above the feet by a jump, above it (standing) by curling under.
+const LANE_LEAD := 0.2
+const LANE_SPLIT := 80.0
+const LOW_LANE := 1
+const HIGH_LANE := 2
 ## Shots in flight farther than this from her feet are left out of the lines.
 const IN_FLIGHT := 1600.0
 
@@ -77,15 +83,14 @@ static func shots(boss: Node2D, feet: Vector2) -> Array:
 		var release := float(boss.get("_telegraph_remaining"))
 		for shot: Dictionary in Attacks.emissions(boss, attack, plan):
 			result.append(_line(shot, release + float(shot["at"]), shot["lifetime"], feet))
-		return result
-	if state == &"active":
+	elif state == &"active":
 		var elapsed := float(boss.get("_active_elapsed"))
 		for shot: Dictionary in boss.get("_emissions"):
 			result.append(
 				_line(shot, maxf(float(shot["at"]) - elapsed, 0.0), shot["lifetime"], feet)
 			)
-	elif state != &"recover":
-		return []
+	# Shots of an earlier link still fly through the next telegraph and after the recovery: the
+	# desperation Crosscurrent's lanes cross the arena for about 4 s (round 11 probe).
 	for node in boss.get_tree().get_nodes_in_group(&"enemy_shot"):
 		var flying := node as EnemyProjectile
 		if flying == null or flying.global_position.distance_to(feet) > IN_FLIGHT:
@@ -132,6 +137,11 @@ static func candidate(boss: Dictionary, player: Player) -> Dictionary:
 		return {}
 	var until := roundi(minf(_passed(lines), MAX_WAIT) * FPS)
 	var spot: Variant = safe_spot(lines, player, boss)
+	var crossing := lines.filter(func(line: Array) -> bool: return absf(float(line[3])) > 0.01)
+	if spot == null and not crossing.is_empty() and crossing.size() < lines.size():
+		# No spot clears both a lane and a crossing line (a Surge Lance while an earlier
+		# Crosscurrent's lanes still fly): leave the crossing lines; Shelter answers the lanes.
+		spot = safe_spot(crossing, player, boss)
 	if spot is Array:
 		var offset := float(spot[0])
 		var curl := bool(spot[1])
@@ -290,7 +300,10 @@ static func _entry(attack: String, label: String, program: Variant) -> Dictionar
 
 
 ## Walks to `offset` px from where she stands, curls up there when `curl`, holds until frame
-## `until`, then stands up.
+## `until`, then stands up. A horizontal shot about to reach her on the way or there (a Crosscurrent
+## lane of an earlier link) is jumped when low and curled under when high: round 11 probe in
+## depths_02, stage 4 Crosscurrent then Surge Lance, the lanes answered so and the Lance by leaving
+## its line cleared every probed spot.
 class Shelter:
 	extends RefCounted
 
@@ -302,6 +315,7 @@ class Shelter:
 	var _frame := 0
 	var _curled_at := -1
 	var _stand_at := -1
+	var _jump_left := 0
 
 	func _init(player: Player, offset: float, curl: bool, until: int) -> void:
 		_player = player
@@ -315,19 +329,50 @@ class Shelter:
 			finished = _frame - _stand_at >= 2 + Programs.SLIP_FRAMES
 			return [&"slipstream"] if _frame - _stand_at < 2 else []
 		var gap := _target - _player.global_position.x
-		if _curled_at < 0 and absf(gap) >= Programs.NEAR_TARGET and _frame < _until:
-			return [Programs.move_action(-1 if gap < 0.0 else 1)]
+		var walk: Array = []
+		if absf(gap) >= Programs.NEAR_TARGET and _frame < _until:
+			walk = [Programs.move_action(-1 if gap < 0.0 else 1)]
+		var lane := _lane()
+		if _jump_left > 0 or (lane == LOW_LANE and _player.is_on_floor()):
+			_jump_left = JUMP_HOLD if _jump_left <= 0 else _jump_left - 1
+			return walk + [&"jump"]
+		if lane == HIGH_LANE and not _player.is_ball and _curled_at < 0:
+			_curl = true
+		if _curled_at >= 0 and _frame - _curled_at < 2:
+			return [&"slipstream"]
+		if (_curled_at < 0 or _player.is_ball) and not walk.is_empty() and lane != HIGH_LANE:
+			return walk
 		if _curl and _curled_at < 0:
 			_curled_at = _frame
-		if _curl and _frame - _curled_at < 2:
 			return [&"slipstream"]
 		if _frame < _until:
-			return []
+			return walk if _player.is_ball else []
 		if _curl:
 			_stand_at = _frame
 			return [&"slipstream"]
 		finished = true
 		return []
+
+	## LOW_LANE or HIGH_LANE when a horizontal enemy shot reaches her body within LANE_LEAD s at
+	## that height above the feet; 0 otherwise.
+	func _lane() -> int:
+		var feet := _player.global_position
+		for node in _player.get_tree().get_nodes_in_group(&"enemy_shot"):
+			var shot := node as EnemyProjectile
+			if shot == null or absf(shot.direction.y) > 0.01:
+				continue
+			var dx := shot.global_position.x - feet.x
+			var gap := absf(dx) - HALF_WIDTH
+			if dx * shot.direction.x >= 0.0 or gap > shot.speed * LANE_LEAD:
+				continue
+			var height := feet.y - shot.global_position.y
+			if height < 0.0 or height > STAND_HEIGHT:
+				continue
+			if height < LANE_SPLIT:
+				return LOW_LANE
+			if not _player.is_ball:
+				return HIGH_LANE
+		return 0
 
 
 ## Waits until frame `jump_at`, jumps in place, and when `stand_at` is set, curls up on landing

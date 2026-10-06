@@ -182,7 +182,9 @@ func _test_bubble_snare() -> void:
 	_check(hopper.is_frozen, "Bubble Snare traps the enemy")
 	_check((hopper.collision_layer & 32) != 0, "bubble is a standable platform")
 	_check(hopper.get_node_or_null("BubbleSnare") != null, "bubble visual attached")
-	await _frames(60)
+	await _frames(2)
+	_check_bubble_matches_body(hopper)
+	await _frames(58)
 	var rise := start_y - hopper.global_position.y
 	_check(
 		rise > 20.0 and rise <= Catalog.BUBBLE_MAX_RISE + 0.5, "bubble drifts upward (%.1f)" % rise
@@ -213,6 +215,37 @@ func _test_bubble_snare() -> void:
 	hopper.queue_free()
 	tunnel.queue_free()
 	await _frames(2)
+
+
+## The drawn bubble is what she stands on: its rim must sit on the body collider's top (the
+## floater heights the campaign graph uses) and the trapped sprite must fit inside it.
+func _check_bubble_matches_body(enemy: CombatEnemy) -> void:
+	var ellipse := (enemy.get_node("BubbleSnare") as BubbleVisual).ellipse_rect()
+	var shape := enemy.get_node("CollisionShape2D") as CollisionShape2D
+	var body_size := (shape.shape as RectangleShape2D).size
+	var body := Rect2(shape.position - body_size * 0.5, body_size)
+	_check(
+		absf(ellipse.position.y - body.position.y) <= 4.0,
+		(
+			"bubble rim sits on the standable top (rim %.1f, body top %.1f, size %s)"
+			% [ellipse.position.y, body.position.y, ellipse.size]
+		)
+	)
+	_check(
+		ellipse.size.x <= body.size.x + 40.0,
+		"bubble is not much wider than the body (%.1f)" % ellipse.size.x
+	)
+	var sprite := enemy._sprite
+	var used := Rect2(sprite.texture.get_image().get_used_rect())
+	used.position -= sprite.texture.get_size() * 0.5
+	if sprite.flip_h:
+		used.position.x = -used.end.x
+	var scale := sprite.scale.abs()
+	var drawn := Rect2(sprite.position + used.position * scale, used.size * scale)
+	_check(
+		ellipse.grow(4.0).encloses(drawn),
+		"trapped sprite fits inside the bubble (%s in %s)" % [drawn, ellipse]
+	)
 
 
 # --- Undertow Dash ------------------------------------------------------------------------

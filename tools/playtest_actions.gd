@@ -10,6 +10,8 @@ const Dodge = preload("res://tools/playtest_dodge.gd")
 const Crouch = preload("res://tools/playtest_crouch.gd")
 const Reach = preload("res://tools/playtest_reach.gd")
 const Clearance = preload("res://tools/playtest_clearance.gd")
+const Arena = preload("res://tools/playtest_arena.gd")
+const Tide = preload("res://tools/playtest_tide.gd")
 const MAX_CANDIDATES := 14
 const SHOT_RANGE := 1100.0
 const THREAT_RANGE := 420.0
@@ -37,8 +39,6 @@ const RETREAT_REACH := 160.0
 ## into a shot is not offered when it would leave a live boss's arena (a probe dashed out of the
 ## depths_02 door at the arena edge and lost the fight).
 const DASH_REACH := 384.0
-## A trigger this far (px) above or below the feet is not on her floor.
-const AMBUSH_FLOOR := 160.0
 ## The boss approach stops this far (px) inside the arena's edge.
 const ARENA_MARGIN := 48.0
 ## A firing spot this far above her feet (px) is climbed to from its ledge's climb point, which
@@ -126,24 +126,9 @@ static func candidates(state: Dictionary, player: Player, route: Array = []) -> 
 	var refill := _refill(state, player)
 	if not refill.is_empty():
 		result.append(refill)
-	var arena = state["ambush"]
-	# In campaign mode only on the trigger's own floor: the route reaches it otherwise, and a straight
-	# steer at a trigger far below stood still on the ledge above it (jev-r3 spent 550 s in fringe_03).
-	var trigger := _vec(arena["trigger_rel"]) if arena != null else Vector2.ZERO
-	if (
-		arena != null
-		and arena["state"] == "armed"
-		and not _near(trigger)
-		and (route.is_empty() or absf(trigger.y) <= AMBUSH_FLOOR)
-	):
-		result.append(
-			_entry(
-				"go_to_ambush",
-				"go_to_ambush",
-				"walk into the arena",
-				Programs.steer(player, trigger, false)
-			)
-		)
+	var ambush := Arena.candidate(state, player, not route.is_empty())
+	if not ambush.is_empty():
+		result.append(ambush)
 	# Like the refill run, a pickup and a room-mode exit are straight steers: offered only where
 	# they arrive (a room probe steered 161 of 161 decisions at a vaults_02 tank behind a wall).
 	for pickup in (state["pickups"] as Array).slice(0, 2):
@@ -427,12 +412,15 @@ static func _refill(state: Dictionary, player: Player) -> Dictionary:
 	var kit: Dictionary = state["kit"]
 	# Not while an engaged boss winds up or runs an attack: in r10-run2 a refill run started as a
 	# Scuttle Rush ended carried her onto the kiln_03 step into the chained Heat Ring, three
-	# identical deaths. Its idle and punish times are left for the run.
+	# identical deaths. Its idle and punish times are left for the run. A line attack's answer is
+	# its dodge, offered first: r11-min-s1 stood 500 s at a 25-health stage 4 Tidal Heart with no
+	# Harpoon, its chained attacks leaving no idle time long enough to reach the refill.
 	for enemy in state["enemies"]:
 		if (
 			enemy["is_boss"]
 			and enemy.get("engaged", false)
 			and enemy.get("attack_state", "") in ["telegraph", "active"]
+			and not Tide.answers(StringName(enemy.get("attack", "")))
 		):
 			return {}
 	var short: Array = []

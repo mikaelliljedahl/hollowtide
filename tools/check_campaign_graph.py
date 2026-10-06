@@ -50,7 +50,7 @@ from campaign_layout import (  # noqa: E402
     overlap_errors,
     room_at_world,
 )
-from campaign_pacing import pacing_errors  # noqa: E402
+from campaign_pacing import dodge_room_errors, pacing_errors  # noqa: E402
 from campaign_shortcuts import shortcut_errors  # noqa: E402
 from campaign_walk_in import lava_errors  # noqa: E402
 
@@ -556,6 +556,7 @@ def static_errors(rooms: dict[str, Room]) -> list[str]:
     errors += lava_errors(rooms)
     errors += pursuit_refill_errors(rooms)
     errors += pacing_errors(rooms)
+    errors += dodge_room_errors(rooms)
     for door in doors:
         if door.target is None or door.edge in ("north", "south"):
             continue
