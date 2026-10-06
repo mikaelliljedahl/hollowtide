@@ -13,8 +13,11 @@ extends RefCounted
 ## kiln_08: from under the rock slab over columns 20 to 24 her standing muzzle is inside it, yet
 ## the forward shot was offered (a Jev room run fired 676 bolts there for 240 s); the approach
 ## from the east pocket now rolls under the slab.
+## nexus_09: r12-full-s1 fought the Tollwing there for over 1,000 s after its objective timed out,
+## on the way to later objectives; a boss the route's goal is not is passed by.
 
 const Actions = preload("res://tools/playtest_actions.gd")
+const Policy = preload("res://tools/playtest_policy.gd")
 const Programs = preload("res://tools/playtest_programs.gd")
 const State = preload("res://tools/playtest_state.gd")
 const CampaignMode = preload("res://tools/playtest_campaign.gd")
@@ -122,6 +125,7 @@ func run() -> void:
 	GameState.unlock_ability(&"wave_beam")
 	GameState.set_active_beam(&"wave")
 	await _test_kite_pocket()
+	await _test_pass_tollwing()
 
 
 func _check(condition: bool, label: String) -> void:
@@ -324,6 +328,36 @@ func _test_kite_pocket() -> void:
 	_check(
 		x < SLAB_WEST and not _player.is_ball,
 		"kiln_08: the approach from the east pocket passes under the slab and stands (x %d)" % x
+	)
+
+
+func _test_pass_tollwing() -> void:
+	GameState.reset_health()
+	_root.call("teleport", "nexus_09", Vector2(21.5 * TILE, 16 * TILE))
+	await _frames(30)
+	var boss := _player.get_tree().get_first_node_in_group(&"bosses") as Node2D
+	if boss == null:
+		_check(false, "the nexus_09 Tollwing spawned")
+		return
+	var room := _root.get("current_room") as Node2D
+	for _frame in 5:
+		boss.set("_attack_timer", 99.0)
+		boss.global_position = room.global_position + Vector2(18.5 * TILE, 15 * TILE)
+		await _player.get_tree().physics_frame
+	var state := State.new().snapshot(_root, _player, 1, 0.0)
+	var route := [{"key": "go_to_objective", "kind": "go_to_objective", "label": "", "program": []}]
+	var offered := Actions.public(Actions.candidates(state, _player, route))
+	var policy := Policy.new(1)
+	state["goal"] = {"kind": "visit", "target": "nexus_05", "room": "nexus_05", "gate_ahead": null}
+	var passing := policy.heuristic(state, offered, false)
+	state["goal"] = {"kind": "mini", "target": "tollwing", "room": "nexus_09", "gate_ahead": null}
+	var fighting := policy.heuristic(state, offered, false)
+	_check(
+		passing == "go_to_objective" and fighting != "go_to_objective",
+		(
+			"nexus_09: the Tollwing is passed on the way elsewhere (%s) and fought as the goal (%s)"
+			% [passing, fighting]
+		)
 	)
 
 

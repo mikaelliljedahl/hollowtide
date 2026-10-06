@@ -166,6 +166,17 @@ func _refill_wanted(state: Dictionary, key: String) -> bool:
 
 ## Fight a target that is visible and not given up on, and always fight a sealed arena's enemies.
 func _engage(state: Dictionary, target: Dictionary) -> bool:
+	# A boss the route's goal is not was set aside (a mini-boss objective that timed out): pass it.
+	# r12-full-s1 fought the Tollwing in nexus_09 with an empty quiver for over 1,000 s on the way
+	# to later objectives.
+	var goal = state.get("goal")
+	if (
+		goal is Dictionary
+		and not (goal as Dictionary).is_empty()
+		and bool(target["is_boss"])
+		and String(target["type"]) != String(goal.get("target", ""))
+	):
+		return false
 	var now := float(state["t"])
 	if float(_ignored.get(target["id"], -1.0)) > now:
 		return false

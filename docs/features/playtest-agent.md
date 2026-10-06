@@ -1178,3 +1178,14 @@ needs one; a standing body cannot pass under the slab, so the approach rolls thr
 low to stand in (`Reach.low_passage`, `Programs.RollThrough`). From the east pocket the heuristic
 then won in 33.9 s (it died at stage 1 before, 190 Flare Dive damage); the Jev room run won in
 33.7 s with 20 damage.
+
+**A boss that is not the goal.** The first rated run of this round (`r12-full-s1`, seed 1) stood
+in nexus_09 from about 740 s to 2,050 s at 30 of 74. The Tollwing objective had timed out and been
+left behind, but the next objectives led through its arena, where the agent kept fighting it: an
+empty quiver against its Harpoon-only stage 2 (its refill sits behind its own reward gate), 1,430
+idles and 164 route moves, dying and coming back. The heuristic engaged any visible boss. Now a boss
+the route's goal is not is passed by: the heuristic does not engage it (`_engage`,
+`tools/playtest_policy.gd`), and while a route move is offered the Jev filter drops idle and the
+fight moves against it, keeping the dodges (`_passing_boss`, `tools/playtest/jev_request.py`).
+`test_passing_a_boss_that_is_not_the_goal` (`tools/check_playtest_bridge.py`) and the nexus_09 case
+of `tools/check_playtest_round12.gd` fail on the old code.

@@ -87,12 +87,28 @@ def range_word(distance_tiles: float) -> str:
     return "far"
 
 
+# Route moves, and what is dropped while she passes a boss that is not the goal (`_passing_boss`).
+ROUTE_KINDS = ("go_to_objective", "go_to_door", "fast_travel")
+PASSING_DROPPED = (
+    "idle",
+    "approach",
+    "shoot",
+    "jump_shoot",
+    "crouch_shot",
+    "harpoon",
+    "open_boss",
+    "select_beam",
+    "jump_over",
+)
+
+
 def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) -> list[dict]:
     """Drops candidates the current state makes impossible; the hint always stays."""
     player = state.get("player") or {}
     kit = state.get("kit") or {}
     enemies = {enemy.get("id"): enemy for enemy in state.get("enemies", [])}
     refill_first = _refill_first(candidates, state)
+    passing = _passing_boss(candidates, state)
     arena = state.get("ambush") or {}
     running = arena.get("state") in ("sealing", "fighting", "intermission")
     in_fight = running and bool(arena.get("inside"))
@@ -114,10 +130,25 @@ def legal(candidates: list[dict[str, Any]], state: dict[str, Any], hint: str) ->
             # r6-min-s1: in the fringe_03 beam trial Jev followed the route up to the Bolt Quiver
             # ledge, shot at hoppers out of sight below for 38 s, and the arena's stall abort reset it.
             or (kind in ("go_to_objective", "go_to_door", "fast_travel") and in_fight)
+            or (passing and kind in PASSING_DROPPED)
         )
         if not blocked or candidate.get("key") == hint:
             kept.append(candidate)
     return kept
+
+
+def _passing_boss(candidates: list[dict[str, Any]], state: dict[str, Any]) -> bool:
+    """True while a boss is in the room that the route's goal is not, and a route move is offered:
+    the fight was set aside (a mini-boss objective that timed out), so she only passes through.
+    r12-full-s1: later objectives led through the Tollwing's nexus_09 arena, and with an empty
+    quiver against its Harpoon-only stage 2 Jev idled and shot there for over 1,000 s (1,430 idles,
+    164 route moves), dying and coming back."""
+    goal = state.get("goal") or {}
+    if not goal or not any(c.get("kind") in ROUTE_KINDS for c in candidates):
+        return False
+    return any(
+        e.get("is_boss") and e.get("type") != goal.get("target") for e in state.get("enemies", [])
+    )
 
 
 def _refill_first(candidates: list[dict[str, Any]], state: dict[str, Any]) -> bool:

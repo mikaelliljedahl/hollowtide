@@ -560,6 +560,29 @@ class JevRoundThreeStateTest(unittest.TestCase):
         self.assertEqual(keys, ["approach:e1", "retreat", hint])
         self.assertNotIn("quiver", jev_request.compact_state(state, {})["facts"])
 
+    def test_passing_a_boss_that_is_not_the_goal(self):
+        # r12-full-s1: after the Tollwing objective timed out, later objectives led through its
+        # arena and Jev idled and shot there for over 1,000 s with an empty quiver.
+        state = self.state()
+        state["enemies"][0].update(type="tollwing", stage=2)
+        state["goal"] = {"kind": "visit", "target": "nexus_05", "room": "nexus_05"}
+        candidates = [
+            {"key": "idle", "kind": "idle", "label": "stand still"},
+            {"key": "go_to_objective", "kind": "go_to_objective", "label": "follow the route"},
+            {"key": "dodge:swoop", "kind": "dodge", "label": "run into the pocket"},
+            {"key": "approach:e1", "kind": "approach", "label": "move to firing range"},
+            {"key": "select_beam:base", "kind": "select_beam", "label": "switch"},
+        ]
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(keys, ["go_to_objective", "dodge:swoop"])
+        # Its own objective, or no route move offered: the fight moves stay.
+        state["goal"] = {"kind": "mini", "target": "tollwing", "room": "nexus_09"}
+        keys = [c["key"] for c in jev_request.legal(candidates, state, "go_to_objective")]
+        self.assertEqual(len(keys), 5)
+        state["goal"] = {"kind": "visit", "target": "nexus_05", "room": "nexus_05"}
+        keys = [c["key"] for c in jev_request.legal(candidates[2:], state, "dodge:swoop")]
+        self.assertEqual(len(keys), 3)
+
     def test_no_route_out_of_a_running_arena(self):
         # r6-min-s1: the route led up out of the fringe_03 beam trial and the arena aborted.
         state = self.state()
