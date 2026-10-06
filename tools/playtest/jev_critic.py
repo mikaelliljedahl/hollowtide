@@ -17,18 +17,27 @@ import http.client
 import json
 import os
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
 from typing import Any
 
 import jev_backend
-from jev_feedback import DANGER_HIGH, DANGER_LOW, HIT_WINDOW, PRICE_PER_INPUT_TOKEN
+from jev_feedback import DANGER_HIGH, DANGER_LOW, HIT_WINDOW, PRICE_PER_INPUT_TOKEN, degraded
 
 RATINGS_JSON = "ratings.json"
 RATINGS_MD = "ratings.md"
 DEFAULT_BUDGET_USD = 0.05
 TIMEOUT_MS = 5000
+# Wall seconds before each retry of a segment the service could not answer (overload, outage,
+# timeout); r10's critic lost 3 of 25 segments in run1 and 9 of 13 in run3 to one 503 or 529 each.
+RETRY_WAITS = (2.0, 5.0, 15.0)
+RETRY_STATUSES = (429, 500, 502, 503, 504, 529)
+# A segment whose damage met no answered Jev rating has no readability evidence: the question is
+# still asked with the others but its answer is left out ("n/a"). r10-run2 rated 10 of 11
+# "unclear" segments with no rated hit at all, during the outage.
+UNJUDGED = "n/a (no Jev ratings)"
 # Question id -> (short level names in order, the Score levels Jev reads).
 SCORES: dict[str, tuple[list[str], str, list[str]]] = {
     "difficulty": (
@@ -241,9 +250,14 @@ def _room(
         a for a in campaign.get("attempts", []) if a.get("room") == room and a["outcome"] != "done"
     ]
     fight_seconds = sum(end - start - WINDOW_SLACK for start, end in fights)
-    facts = {
+    facts: dict[str, Any] = {
         "seconds": round(max(0.0, float(seconds) - fight_seconds), 1),
         "visits": max(1, len(visits)),
+    }
+    stays = _stays(report, room)
+    if stays:
+        facts.update(_stay_seconds(stays, fights))
+    facts |= {
         "retries": len(failed),
         "deaths": len(deaths),
         "damage_taken": sum(h["amount"] for h in outside),
@@ -254,6 +268,45 @@ def _room(
     }
     first_t = min([float(v["t"]) for v in visits] or [0.0])
     return {"kind": "room", "id": room, "room": room, "first_t": first_t, "facts": facts}
+
+
+def _stays(report: dict[str, Any], room: str) -> list[tuple[float, float, str]]:
+    """(start, end, cause) of every stay in `room` from the campaign's room entries, where cause
+    is how she came in ("respawn" after a death, else "move"); [] for runs without entries."""
+    entries = (report.get("campaign") or {}).get("room_entries", [])
+    end_t = float(report["telemetry"].get("seconds", 0.0))
+    stays = []
+    for number, entry in enumerate(entries):
+        if entry["room"] != room:
+            continue
+        leave = float(entries[number + 1]["t"]) if number + 1 < len(entries) else end_t
+        stays.append((float(entry["t"]), max(float(entry["t"]), leave), entry.get("cause", "")))
+    return stays
+
+
+def _stay_seconds(
+    stays: list[tuple[float, float, str]], fights: list[tuple[float, float]]
+) -> dict[str, Any]:
+    """The room's pacing facts from its stays: `seconds` is the first stay she did not respawn
+    into, outside fights; walks back from a respawn and later passes are their own facts. r10 rated
+    kiln_02 too_long on 49.5 s summed over seven stays (four respawn walks to the Cinder Warden, a
+    backtrack) when its first traversal took about 12 s."""
+
+    def inside(start: float, end: float) -> float:
+        fought = sum(max(0.0, min(end, b - WINDOW_SLACK) - max(start, a)) for a, b in fights)
+        return max(0.0, end - start - fought)
+
+    first = next((stay for stay in stays if stay[2] != "respawn"), stays[0])
+    respawn = sum(
+        inside(a, b) for a, b, cause in stays if cause == "respawn" and (a, b) != first[:2]
+    )
+    later = sum(inside(a, b) for a, b, cause in stays if cause != "respawn" and (a, b) != first[:2])
+    return {
+        "seconds": round(inside(first[0], first[1]), 1),
+        "visits": len(stays),
+        "respawn_walk_seconds": round(respawn, 1),
+        "revisit_seconds": round(later, 1),
+    }
 
 
 def _stuck(telemetry: dict[str, Any], room: str, keep: Any) -> float:
@@ -307,6 +360,7 @@ def _jev_play(
         else None,
         "hits_foreseen": foreseen,
         "hits_not_foreseen": unforeseen,
+        "hits_unrated": len(hits) - foreseen - unforeseen,
     }
 
 
@@ -375,8 +429,17 @@ def parse_answer(answer: dict[str, Any]) -> dict[str, Any]:
     return ratings
 
 
-def goodness(ratings: dict[str, Any]) -> dict[str, float]:
-    """Each dimension on 0..1 where 1 is what the design wants, plus their weighted overall."""
+def unjudged(facts: dict[str, Any]) -> list[str]:
+    """Dimensions the segment holds no evidence for: readability when damage was taken but no
+    hit met an answered Jev rating."""
+    play = facts.get("jev_play") or {}
+    rated = int(play.get("hits_foreseen", 0)) + int(play.get("hits_not_foreseen", 0))
+    return ["readability"] if facts.get("damage_taken", 0) and not rated else []
+
+
+def goodness(ratings: dict[str, Any], skip: list[str] | None = None) -> dict[str, float]:
+    """Each dimension on 0..1 where 1 is what the design wants, plus their weighted overall over
+    the dimensions not in `skip`."""
     values = {
         "difficulty": ratings["difficulty"]["probabilities"].get("fair", 0.0),
         "fairness": ratings["fairness"]["score"] / 2.0,
@@ -384,20 +447,23 @@ def goodness(ratings: dict[str, Any]) -> dict[str, float]:
         "pacing": ratings["pacing"]["probabilities"].get("good", 0.0),
         "fun": ratings["fun"]["score"] / 2.0,
     }
-    values["overall"] = sum(values[k] * w for k, w in WEIGHTS.items())
+    for name in skip or []:
+        values.pop(name)
+    weight = sum(w for k, w in WEIGHTS.items() if k in values)
+    values["overall"] = sum(values[k] * w for k, w in WEIGHTS.items() if k in values) / weight
     return {k: round(v, 3) for k, v in values.items()}
 
 
-def flags(ratings: dict[str, Any]) -> list[str]:
+def flags(ratings: dict[str, Any], skip: list[str] | None = None) -> list[str]:
     """Actionable complaints: a level or problem Jev puts at least FLAG_PROBABILITY on."""
     found = []
     checks = (
-        ("too hard", ratings["difficulty"]["probabilities"].get("too hard", 0.0)),
-        ("unfair", ratings["fairness"]["probabilities"].get("no", 0.0)),
-        ("unclear", ratings["readability"]["probabilities"].get("unclear", 0.0)),
-        ("boring", ratings["pacing"]["probabilities"].get("boring", 0.0)),
+        ("difficulty", "too hard", ratings["difficulty"]["probabilities"].get("too hard", 0.0)),
+        ("fairness", "unfair", ratings["fairness"]["probabilities"].get("no", 0.0)),
+        ("readability", "unclear", ratings["readability"]["probabilities"].get("unclear", 0.0)),
+        ("pacing", "boring", ratings["pacing"]["probabilities"].get("boring", 0.0)),
     )
-    found += [name for name, p in checks if p >= FLAG_PROBABILITY]
+    found += [name for qid, name, p in checks if p >= FLAG_PROBABILITY and qid not in (skip or [])]
     problem = ratings[PROBLEM_QUESTION]
     if problem["choice"] in ACTIONABLE and problem["confidence"] >= FLAG_PROBABILITY:
         found.append(problem["choice"])
@@ -416,6 +482,8 @@ def rate_run(
     """Rates every segment of the run in `out`; writes ratings.json and ratings.md there."""
     jev_backend.require_key()
     report, records = load_run(out)
+    jev = report.get("jev") or {}
+    warning = degraded(jev["stats"]) if "stats" in jev else None
     client = jev_backend.Client(base_url, TIMEOUT_MS / 1000.0)
     rated: list[dict[str, Any]] = []
     tokens = 0
@@ -437,6 +505,8 @@ def rate_run(
         "segments": rated,
         "scorecard": scorecard(rated),
     }
+    if warning:
+        result["degraded"] = warning
     (out / RATINGS_JSON).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     (out / RATINGS_MD).write_text(to_markdown(result), encoding="utf-8")
     return result
@@ -444,13 +514,23 @@ def rate_run(
 
 def _ask(client: jev_backend.Client, request: dict[str, Any], entry: dict[str, Any]) -> int:
     body = json.dumps(request, separators=(",", ":")).encode("utf-8")
-    try:
-        status, _, payload = client.post(body)
-    except (OSError, http.client.HTTPException) as error:
-        entry["error"] = jev_backend.scrub(f"{type(error).__name__}: {error}")
-        return 0
-    if status != 200:
-        entry["error"] = f"HTTP {status}: {jev_backend.scrub(payload.decode('utf-8', 'replace'))}"
+    for retry, wait in enumerate((*RETRY_WAITS, None)):
+        entry.pop("error", None)
+        status = 0
+        try:
+            status, _, payload = client.post(body)
+        except (OSError, http.client.HTTPException) as error:
+            entry["error"] = jev_backend.scrub(f"{type(error).__name__}: {error}")
+        else:
+            if status != 200:
+                text = jev_backend.scrub(payload.decode("utf-8", "replace"))
+                entry["error"] = f"HTTP {status}: {text}"
+        transient = "error" in entry and (status == 0 or status in RETRY_STATUSES)
+        if not transient or wait is None:
+            break
+        entry["retries"] = retry + 1
+        time.sleep(wait)
+    if "error" in entry:
         return 0
     try:
         answer = json.loads(payload)
@@ -458,8 +538,11 @@ def _ask(client: jev_backend.Client, request: dict[str, Any], entry: dict[str, A
     except (ValueError, KeyError, TypeError, AttributeError) as error:
         entry["error"] = jev_backend.scrub(f"bad answer: {error}")
         return 0
-    entry["goodness"] = goodness(entry["ratings"])
-    entry["flags"] = flags(entry["ratings"])
+    skip = unjudged(entry["facts"])
+    if skip:
+        entry["unjudged"] = skip
+    entry["goodness"] = goodness(entry["ratings"], skip)
+    entry["flags"] = flags(entry["ratings"], skip)
     return int((answer.get("usage") or {}).get("input_tokens", 0))
 
 
@@ -469,12 +552,15 @@ def scorecard(rated: list[dict[str, Any]]) -> dict[str, Any]:
     for kind in ("all", "room", "ambush", "boss"):
         group = [e for e in scored if kind == "all" or e["kind"] == kind]
         if group:
-            card[kind] = {
-                key: round(sum(e["goodness"][key] for e in group) / len(group), 3)
-                for key in (*WEIGHTS, "overall")
-            }
+            card[kind] = {}
+            for key in (*WEIGHTS, "overall"):
+                values = [e["goodness"][key] for e in group if key in e["goodness"]]
+                card[kind][key] = round(sum(values) / len(values), 3) if values else None
     card["levels"] = {
-        qid: dict(Counter(e["ratings"][qid]["level"] for e in scored)) for qid in SCORES
+        qid: dict(
+            Counter(e["ratings"][qid]["level"] for e in scored if qid not in e.get("unjudged", []))
+        )
+        for qid in SCORES
     }
     card["main_problems"] = dict(Counter(e["ratings"][PROBLEM_QUESTION]["choice"] for e in scored))
     card["worst"] = [
@@ -486,9 +572,10 @@ def scorecard(rated: list[dict[str, Any]]) -> dict[str, Any]:
 
 def to_markdown(result: dict[str, Any]) -> str:
     card = result["scorecard"]
-    lines = [
-        f"# Jev ratings: {result['run']}",
-        "",
+    lines = [f"# Jev ratings: {result['run']}", ""]
+    if result.get("degraded"):
+        lines += [f"**{result['degraded']}**", ""]
+    lines += [
         f"{card['rated']} segments rated, {card['failed']} failed; "
         f"{result['input_tokens']} input tokens (${result['cost_usd_estimate']:.4f}).",
         "",
@@ -498,7 +585,9 @@ def to_markdown(result: dict[str, Any]) -> str:
     for kind in ("all", "room", "ambush", "boss"):
         if kind in card:
             row = card[kind]
-            cells = " | ".join(f"{row[key]:.2f}" for key in (*WEIGHTS, "overall"))
+            cells = " | ".join(
+                "n/a" if row[key] is None else f"{row[key]:.2f}" for key in (*WEIGHTS, "overall")
+            )
             lines.append(f"| {kind} | {cells} |")
     lines += [
         "",
@@ -520,7 +609,9 @@ def to_markdown(result: dict[str, Any]) -> str:
             continue
         ratings = entry["ratings"]
         cells = [
-            f"{ratings[q]['level']} ({ratings[q]['probabilities'][ratings[q]['level']]:.2f},"
+            UNJUDGED
+            if q in entry.get("unjudged", [])
+            else f"{ratings[q]['level']} ({ratings[q]['probabilities'][ratings[q]['level']]:.2f},"
             f" c{ratings[q]['confidence']:.2f})"
             for q in SCORES
         ]

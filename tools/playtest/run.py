@@ -308,6 +308,9 @@ def main() -> int:
     print(f"\nAGGREGATE {base / 'aggregate.md'} ({len(reports)}/{len(runs)} runs reported)")
     for finding in summary["findings"] + summary.get("jev", {}).get("findings", []):
         print(f"  - {finding}")
+    if summary.get("degraded"):
+        print(f"\n{summary['degraded']}")
+        return 3
     return 0 if len(reports) == len(runs) else 1
 
 

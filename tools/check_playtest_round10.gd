@@ -34,6 +34,7 @@ func run() -> void:
 	_test_running_takeoff_jumps()
 	await _test_heat_is_not_the_hit()
 	_test_bob_is_a_stall()
+	_test_room_entries()
 	GameState.reset_progress()
 	GameState.unlock_ability(&"beam")
 	GameState.reset_health()
@@ -209,3 +210,26 @@ func _test_bob_is_a_stall() -> void:
 	walk.detach()
 	_check(walk.stuck_episodes.is_empty(), "a walk is none (%s)" % [walk.stuck_episodes])
 	_player.global_position = home
+
+
+## r10 kiln_02: rooms_visited kept first entries only, so the critic read seven stays (four walks
+## back from a respawn) as one 49.5 s visit. Every entry is kept, a respawn's marked.
+func _test_room_entries() -> void:
+	var route: RefCounted = _campaign._route(
+		[CampaignCheck._objective(0, "pickup", "check.none", "", [], [])], []
+	)
+	GameState.reset_progress()
+	var telemetry := Telemetry.new()
+	var progress := Progress.new()
+	for step in [["kiln_02", 0.0], ["kiln_03", 25.0], ["kiln_02", 101.0], ["kiln_03", 105.0]]:
+		if step[1] == 101.0:
+			telemetry.deaths.append({"t": 99.0, "room": "kiln_03"})
+		telemetry.room = step[0]
+		progress.update(step[1], route, telemetry, -1, false)
+	var causes: Array = progress.room_entries.map(
+		func(e: Dictionary) -> String: return "%s:%s" % [e["room"], e["cause"]]
+	)
+	_check(
+		causes == ["kiln_02:move", "kiln_03:move", "kiln_02:respawn", "kiln_03:move"],
+		"every room entry is kept, a respawn's marked (%s)" % [causes]
+	)

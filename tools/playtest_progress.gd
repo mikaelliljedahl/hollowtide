@@ -23,6 +23,9 @@ var current := -1
 var attempts: Array = []
 var timeouts: Dictionary = {}
 var rooms: Array = []
+## Every room entry in order: room, t, cause ("respawn" after a death, else "move"). The critic
+## rates a room's first traversal from these, not the run's summed time in it.
+var room_entries: Array = []
 var respawns: Array = []
 var _now := 0.0
 var _open: Dictionary = {}
@@ -115,6 +118,7 @@ func finish(
 		"objectives": objectives,
 		"attempts": attempts,
 		"rooms_visited": rooms,
+		"room_entries": room_entries,
 		"deaths": respawns,
 		"end":
 		{
@@ -179,6 +183,17 @@ func _track_rooms(telemetry: RefCounted) -> void:
 		return
 	if rooms.is_empty() or not rooms.any(func(r: Dictionary) -> bool: return r["room"] == room):
 		rooms.append({"room": room, "t": snappedf(_now, 0.1)})
+	if room_entries.is_empty() or room_entries[-1]["room"] != room:
+		var died: Array = telemetry.get("deaths")
+		# The first room change after a death is the respawn's.
+		var respawn := (
+			not died.is_empty()
+			and not room_entries.is_empty()
+			and float(died[-1]["t"]) >= float(room_entries[-1]["t"])
+		)
+		room_entries.append(
+			{"room": room, "t": snappedf(_now, 0.1), "cause": "respawn" if respawn else "move"}
+		)
 	if not _open.is_empty() and not (_open["rooms"] as Array).has(room):
 		_open["rooms"].append(room)
 

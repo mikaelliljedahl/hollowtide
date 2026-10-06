@@ -134,6 +134,26 @@ class AggregateTest(unittest.TestCase):
         self.assertIn("fell back 6 times (timeout)", text)
         self.assertTrue(aggregate.to_markdown(summary).startswith("# Playtest aggregate (3 runs)"))
 
+    def test_degraded_jev_run_is_left_out(self):
+        """r10's runs fell back 92-97% during a hosted outage and were reported as Jev runs."""
+        healthy = report("defeated", 4, "stone_guardian:rockfall", 7.0)
+        healthy["jev"] = self.jev_run([{"source": "jev"}] * 9 + [{"source": "fallback:timeout"}])
+        outage = report("died", 3, "stone_guardian:fault_slam", 6.0)
+        outage["jev"] = self.jev_run([{"source": "fallback:http_503"}] * 9)
+        summary = aggregate.aggregate([healthy, outage])
+        self.assertIn("1 of 2 runs", summary["degraded"])
+        self.assertEqual(summary["jev"]["stats"]["decisions"], 10)
+        lines = aggregate.to_markdown(summary).split("\n")
+        self.assertTrue(lines[2].startswith("**RUN DEGRADED"))
+        summary = aggregate.aggregate([outage])
+        self.assertEqual(summary["jev"]["findings"], [])
+        self.assertIn("RUN DEGRADED", jev_feedback.describe(outage["jev"]["stats"], {})[0])
+
+    @staticmethod
+    def jev_run(records: list[dict]) -> dict:
+        stats = jev_feedback.stats(records)
+        return {"stats": stats, "analysis": jev_feedback.analyze(records, [], 0.35)}
+
 
 FAKE_KEY = "ts-test-key-4f1c9a"
 GAME_STATE = {

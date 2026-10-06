@@ -92,15 +92,29 @@ def aggregate(reports: list[dict[str, Any]]) -> dict[str, Any]:
         ],
     }
     if jev_runs:
-        stats = jev_feedback.merge_stats([run["stats"] for run in jev_runs])
-        analysis = jev_feedback.merge_analyses([run["analysis"] for run in jev_runs])
+        # A run Jev mostly did not play (an outage) says nothing about Jev: it is left out of the
+        # Jev findings, and the aggregate says so first.
+        valid = [run for run in jev_runs if not jev_feedback.degraded(run["stats"])]
+        used = valid or jev_runs
+        stats = jev_feedback.merge_stats([run["stats"] for run in used])
+        analysis = jev_feedback.merge_analyses([run["analysis"] for run in used])
+        found = jev_feedback.describe(stats, analysis) if valid else []
+        bad = len(jev_runs) - len(valid)
         summary["jev"] = {
             "runs": len(jev_runs),
+            "degraded_runs": bad,
             "stats": stats,
             "derived": jev_feedback.derived(stats),
             "analysis": analysis,
-            "findings": jev_feedback.describe(stats, analysis),
+            "findings": found,
         }
+        if bad:
+            summary["degraded"] = (
+                f"RUN DEGRADED: Jev was unavailable in {bad} of {len(jev_runs)} runs (over"
+                f" {jev_feedback.DEGRADED_FALLBACK_RATE:.0%} of decisions fell back); their"
+                " Jev-policy findings and critic ratings are left out. Rerun them when the"
+                " service is healthy."
+            )
     return summary
 
 
@@ -146,7 +160,10 @@ def findings(
 
 
 def to_markdown(summary: dict[str, Any]) -> str:
-    lines = [f"# Playtest aggregate ({summary['runs']} runs)", "", "## Findings", ""]
+    lines = [f"# Playtest aggregate ({summary['runs']} runs)", ""]
+    if summary.get("degraded"):
+        lines += [f"**{summary['degraded']}**", ""]
+    lines += ["## Findings", ""]
     lines += [f"- {finding}" for finding in summary["findings"]]
     lines += ["", "## End reasons", "", "| Reason | Runs |", "|---|---|"]
     lines += [f"| {reason} | {count} |" for reason, count in sorted(summary["end_reasons"].items())]
