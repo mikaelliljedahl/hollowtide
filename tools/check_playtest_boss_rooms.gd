@@ -15,7 +15,8 @@ extends Node
 ## `jump_over` curled in the alcove during a Shoulder Charge telegraph (3 contact hits, 72 damage,
 ## per run). Every move offered in those states, played through real inputs, now meets no contact.
 ## Mini-bosses (round 10): tools/check_playtest_mini.gd. Updraft stalls (round 10 review):
-## tools/check_playtest_updraft.gd.
+## tools/check_playtest_updraft.gd. Round 11 (kiln_02 ambush, refill past the Warden):
+## tools/check_playtest_round11.gd.
 
 const Actions = preload("res://tools/playtest_actions.gd")
 const Boss = preload("res://tools/playtest_boss.gd")
@@ -24,6 +25,7 @@ const State = preload("res://tools/playtest_state.gd")
 const MiniCheck = preload("res://tools/check_playtest_mini.gd")
 const ShaftCheck = preload("res://tools/check_playtest_shaft.gd")
 const UpdraftCheck = preload("res://tools/check_playtest_updraft.gd")
+const Round11Check = preload("res://tools/check_playtest_round11.gd")
 const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const CAMPAIGN_SCENE := preload("res://scenes/campaign/campaign.tscn")
 const KIT: Array[StringName] = [
@@ -97,6 +99,7 @@ func _run() -> void:
 	await MiniCheck.new(self).run()
 	await ShaftCheck.new(self).run()
 	await UpdraftCheck.new(self).run()
+	await Round11Check.new(self).run()
 	for failure in _failures:
 		print("FAIL ", failure)
 	print("playtest-boss-rooms: %s" % ("PASS" if _failures.is_empty() else "FAIL"))

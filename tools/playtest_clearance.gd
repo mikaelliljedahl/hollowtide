@@ -12,6 +12,7 @@ extends RefCounted
 ## counts, the mini-bosses' included (scripts/enemies/boss_patterns.gd `is_charge`).
 
 const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Catalog = preload("res://scripts/progression/content_catalog.gd")
 ## The boss's contact area (scenes/enemies/boss.tscn, PlayerDetector).
 const CONTACT_RADIUS := 112.0
 ## An attack from its telegraph to the end of its recovery: the body stands (a charge runs).
@@ -81,9 +82,9 @@ static func touches(feet: Vector2, centre: Vector2) -> bool:
 ## The feet positions, frame by frame, of the frame program `program` (an Array of held-action
 ## sets) played from where she stands, until she lands after it or PATH_LIMIT frames, as
 ## scripts/player/player.gd moves her: ground and air acceleration with the turn boost and apex
-## easing, a jump pressed while grounded or within coyote time of leaving the floor (a held press
-## fires on landing, as the jump buffer does), the jump cut-off and gravity, with rock stopping her
-## (her own collision shape and mask).
+## easing, a jump (higher with the Updraft Cloak) pressed while grounded or within coyote time of
+## leaving the floor (a held press fires on landing, as the jump buffer does), the jump cut-off and
+## gravity, with rock stopping her (her own collision shape and mask).
 static func path(player: Player, program: Array) -> PackedVector2Array:
 	var points := PackedVector2Array()
 	var pos := player.global_position
@@ -93,6 +94,12 @@ static func path(player: Player, program: Array) -> PackedVector2Array:
 	var airborne := 0.0 if grounded else PlayerConfig.COYOTE_TIME + delta
 	var jumped := false
 	var cut := false
+	# The Updraft Cloak raises a standing jump (scripts/player/player.gd `_resolve_jump`).
+	var impulse := (
+		Catalog.HIGH_JUMP_IMPULSE
+		if GameState.has_ability(&"high_jump") and not player.is_ball
+		else PlayerConfig.JUMP_VELOCITY
+	)
 	for index in PATH_LIMIT:
 		if index >= program.size() and grounded:
 			break
@@ -110,7 +117,7 @@ static func path(player: Player, program: Array) -> PackedVector2Array:
 			var friction := PlayerConfig.GROUND_FRICTION if grounded else PlayerConfig.AIR_FRICTION
 			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
 		if held.has(&"jump") and not jumped and airborne <= PlayerConfig.COYOTE_TIME:
-			velocity.y = -PlayerConfig.JUMP_VELOCITY
+			velocity.y = -impulse
 			grounded = false
 			jumped = true
 			cut = false

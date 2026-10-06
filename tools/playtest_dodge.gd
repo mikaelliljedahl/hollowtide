@@ -16,6 +16,7 @@ extends RefCounted
 const Programs = preload("res://tools/playtest_programs.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
 const Patterns = preload("res://scripts/enemies/boss_patterns.gd")
+const Clearance = preload("res://tools/playtest_clearance.gd")
 ## Shot speeds and origins of scripts/enemies/boss_attacks.gd (`emissions`).
 const SLAM_SPEED := 430.0
 const SLAM_ORIGIN := 70.0
@@ -79,6 +80,14 @@ const JUMP_OVER_ROOM := 240.0
 const JUMP_OVER_TAKEOFF := 230.0
 const JUMP_OVER_HOLD := 40
 const JUMP_OVER_LIMIT := 180
+## Frames after the held jump that its predicted path runs on (the path stops on landing), and
+## the frames of running ahead that must stay clear of the body.
+const JUMP_OVER_FALL := 40
+const JUMP_OVER_LOOK := 8
+## A leap over the body is tried from at most this far (px) from its centre.
+const JUMP_OVER_REACH := 420.0
+## The Warden's patrol turns this far (px) inside its arena (scripts/enemies/boss_motion.gd).
+const PATROL_EDGE := 104.0
 ## An enemy shot this close (px) and flying at her is incoming (`dash_through`).
 const PROJECTILE_ALERT := 420.0
 ## A shot this close (px) that will cross the player's column between DUCK_CLEAR and DUCK_REACH
@@ -327,15 +336,21 @@ static func _vec2(value: Array) -> Vector2:
 	return Vector2(float(value[0]), float(value[1]))
 
 
-## Runs toward `goal` (relative to the feet when built) and, once the boss body at `boss` is
-## JUMP_OVER_TAKEOFF px ahead, jumps and keeps running over it, then steers on to the goal.
+## Runs toward `goal` (relative to the feet when built) and jumps over the boss body at `boss`.
+## Each frame on the floor it predicts the body's path (the Cinder Warden's patrol turns when its
+## timer runs out, as scripts/enemies/boss_motion.gd moves it; any other boss keeps its velocity)
+## and her own (Clearance.path): she jumps once a running jump passes clear of the contact area and
+## lands past it, else runs on while that stays clear, else backs off, else stands. Round 11: the
+## old jump took off JUMP_OVER_TAKEOFF px short of where the body stood when the run began, so the
+## patrolling Warden met the arc (kiln_03 probe: contact in 4 of 5 refill runs past it).
 class JumpOver:
 	extends RefCounted
 
 	var finished := false
 	var _player: Player
+	var _boss: Node2D
 	var _goal := Vector2.ZERO
-	var _boss_x := 0.0
+	var _boss_at := Vector2.ZERO
 	var _direction := 1
 	var _jump := -1
 	var _frame := 0
@@ -343,20 +358,84 @@ class JumpOver:
 	func _init(player: Player, goal: Vector2, boss: Vector2) -> void:
 		_player = player
 		_goal = player.global_position + goal
-		_boss_x = player.global_position.x + boss.x
+		_boss_at = player.global_position + boss
 		_direction = -1 if goal.x < 0.0 else 1
+		var nearest := INF
+		for node in player.get_tree().get_nodes_in_group(&"bosses"):
+			var body := node as Node2D
+			if body != null and body.global_position.distance_to(_boss_at) < nearest:
+				nearest = body.global_position.distance_to(_boss_at)
+				_boss = body
 
 	func next() -> Array:
 		_frame += 1
 		var move := Programs.move_action(_direction)
-		var ahead := (_boss_x - _player.global_position.x) * _direction
-		if _jump < 0 and ahead <= JUMP_OVER_TAKEOFF and _player.is_on_floor():
-			_jump = _frame
+		var centre := _boss.global_position if is_instance_valid(_boss) else _boss_at
+		var ahead := (centre.x - _player.global_position.x) * _direction
+		if _jump < 0 and ahead > 0.0 and _player.is_on_floor():
+			var body := _boss_path()
+			var leap := Programs.hold([move, &"run", &"jump"], JUMP_OVER_HOLD)
+			leap.append_array(Programs.hold([move, &"run"], JUMP_OVER_FALL))
+			if ahead <= JUMP_OVER_REACH and _clear(leap, body, true):
+				_jump = _frame
+			elif not _clear(Programs.hold([move, &"run"], JUMP_OVER_LOOK), body, false):
+				finished = _frame >= JUMP_OVER_LIMIT
+				var back := Programs.move_action(-_direction)
+				var away := _clear(Programs.hold([back, &"run"], JUMP_OVER_LOOK), body, false)
+				return [back, &"run"] if away else []
 		if _jump >= 0 and _frame - _jump < JUMP_OVER_HOLD:
 			return [move, &"run", &"jump"]
 		var past := (_goal.x - _player.global_position.x) * _direction <= Programs.NEAR_TARGET
 		finished = _frame >= JUMP_OVER_LIMIT or (past and _player.is_on_floor())
 		return [move, &"run"]
+
+	## True when `program` played from here keeps her body out of the contact area on `body`;
+	## with `over`, she also ends past it.
+	func _clear(program: Array, body: PackedVector2Array, over: bool) -> bool:
+		var points := Clearance.path(_player, program)
+		if points.is_empty():
+			return true
+		for index in points.size():
+			if Clearance.touches(points[index], body[mini(index, body.size() - 1)]):
+				return false
+		var last := points.size() - 1
+		return not over or (points[last].x - body[mini(last, body.size() - 1)].x) * _direction > 0.0
+
+	## The boss centre for the next JUMP_OVER_HOLD + JUMP_OVER_FALL frames.
+	func _boss_path() -> PackedVector2Array:
+		var result := PackedVector2Array()
+		if not is_instance_valid(_boss):
+			result.append(_boss_at)
+			return result
+		var at := _boss.global_position
+		var moving: Variant = _boss.get("velocity")
+		var velocity: Vector2 = moving if moving is Vector2 else Vector2.ZERO
+		var patrol: bool = (
+			_boss.get("enemy_id") == &"furnace_mother" and _boss.get("_attack_state") == &"idle"
+		)
+		var direction := float(_boss.get("_movement_direction")) if patrol else 0.0
+		var timer := float(_boss.get("_movement_timer")) if patrol else 0.0
+		var speed := (
+			Patterns.move_speed(_boss.get("enemy_id"), int(_boss.get("stage"))) if patrol else 0.0
+		)
+		var bounds: Rect2 = _boss.get("arena_bounds") if patrol else Rect2()
+		var delta := 1.0 / Clearance.FPS
+		for _index in JUMP_OVER_HOLD + JUMP_OVER_FALL:
+			if patrol:
+				timer -= delta
+				var edge := (
+					bounds.position.x + PATROL_EDGE
+					if direction < 0.0
+					else bounds.end.x - PATROL_EDGE
+				)
+				if timer <= 0.0 or (at.x - edge) * direction >= 0.0:
+					direction = -direction
+					timer = 1.15 if int(_boss.get("phase")) == 2 else 1.55
+				at.x += direction * speed * delta
+			else:
+				at += velocity * delta
+			result.append(at)
+		return result
 
 
 ## Walks (or runs) to `offset` px from where she stands, then holds still until frame `until`.

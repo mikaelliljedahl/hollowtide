@@ -10,6 +10,7 @@ const Hazards = preload("res://tools/playtest_hazards.gd")
 const Boss = preload("res://tools/playtest_boss.gd")
 const Tide = preload("res://tools/playtest_tide.gd")
 const Crouch = preload("res://tools/playtest_crouch.gd")
+const Arena = preload("res://tools/playtest_arena.gd")
 const TILE := 64.0
 const MAX_ENEMIES := 6
 const MAX_PROJECTILES := 8
@@ -300,17 +301,10 @@ static func ambush(tree: SceneTree, feet: Vector2) -> Variant:
 			"wave": arena.wave_index + 1,
 			"waves": arena.all_waves().size(),
 			"alive": arena.alive_count(),
-			"trigger_rel": rel(feet, trigger_center(arena)),
+			"trigger_rel": rel(feet, Arena.trigger_floor(arena)),
 			"inside": arena.arena_rect_global().has_point(feet + Vector2(0, -60)),
 		}
 	return null
-
-
-## Global point that commits the player to `arena` (centre of its trigger zone).
-static func trigger_center(arena: AmbushArena) -> Vector2:
-	if arena.trigger_rect.size == Vector2.ZERO:
-		return arena.global_position
-	return arena.global_position + arena.trigger_rect.get_center()
 
 
 ## Door openings from the generated room index (none for rooms outside it, such as test rooms);
