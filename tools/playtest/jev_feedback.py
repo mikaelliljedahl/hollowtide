@@ -248,14 +248,14 @@ def degraded(summary: dict[str, Any]) -> str | None:
 
 
 def describe(summary: dict[str, Any], analysis: dict[str, Any]) -> list[str]:
-    warning = degraded(summary)
-    if warning:
-        return [warning]
     lines = []
     if summary["fatal"]:
         fatal = summary["fatal"]
         status = f"HTTP {fatal['status']}" if fatal["status"] else "not started"
         lines.append(f"Jev rejected the run ({status}): {fatal['message']}")
+    warning = degraded(summary)
+    if warning:
+        return [*lines, warning]
     lines += _hotspot_lines(analysis["hotspots"])
     lines += _danger_lines(analysis["danger"])
     lines += _disagreement_lines(analysis["disagreement"])
