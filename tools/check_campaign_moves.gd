@@ -59,6 +59,7 @@ func _run() -> void:
 	await _case_nexus_07_door_release()
 	await _case_vaults_02_shaft_curb()
 	await _case_floor_drops()
+	await _case_vaults_02_shaft_floater()
 	await _case_route_threats()
 	_release()
 	for failure in _failures:
@@ -278,6 +279,35 @@ func _case_vaults_02_shaft_curb() -> void:
 	await _hold([&"move_right"], 60)
 	await _frames(30)
 	_expect_room("vaults_02 step off the curb -> vaults_04", "vaults_04")
+
+
+## The hop over the vaults_02 shaft from its west curb, at 20 phases of the room's frost floater,
+## with her hurtable and no other enemy: the floater must never knock her into the shaft. r10: it swayed through the
+## full jump's arc over the gap, its touch threw her back over the pit, and 13 of 20 phases fell to
+## vaults_04 (a 244-step detour in run3).
+func _case_vaults_02_shaft_floater() -> void:
+	if not _wanted("vaults_02_floater"):
+		return
+	var fell: Array = []
+	_player.set("dev_invulnerable", false)
+	for phase in 20:
+		# Standing on the col 7 curb, a held full jump east over the cols 8-10 gap.
+		await _setup("vaults_02", Vector2i(7, 30), [&"beam", &"ice_beam"])
+		GameState.reset_health()
+		# Phases 8 frames apart cover the floater's sway before the room's stalker emerges at her
+		# feet (about 3 s after _setup; it is not under test).
+		await _frames(phase * 8)
+		Input.action_press(&"move_right")
+		await _jump(0, 40)
+		await _frames(60)
+		_release()
+		if _room() != "vaults_02":
+			fell.append(phase)
+	_player.set("dev_invulnerable", true)
+	if not fell.is_empty():
+		_failures.append("vaults_02 hop over the shaft fell at floater phases %s" % [fell])
+	else:
+		print("  ok  vaults_02 hop over the shaft holds at 20 floater phases")
 
 
 ## Every floor opening dropped through with no input, at both ends and the middle of the door:

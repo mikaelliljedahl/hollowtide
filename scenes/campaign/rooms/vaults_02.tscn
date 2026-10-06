@@ -104,10 +104,10 @@ bounds = Rect2(2656, 480, 384, 256)
 travel_direction = 1
 
 [node name="Enemy07" type="Marker2D" parent="Entities"]
-position = Vector2(672, 1696)
+position = Vector2(992, 1696)
 script = ExtResource("5_enemy")
 enemy_id = &"frost_floater"
-bounds = Rect2(480, 1568, 384, 256)
+bounds = Rect2(800, 1568, 384, 256)
 travel_direction = 1
 
 [node name="Enemy08" type="Marker2D" parent="Entities"]
