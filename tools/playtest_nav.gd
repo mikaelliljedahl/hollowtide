@@ -41,8 +41,9 @@ const AIR_FRAMES := 150
 const STALL_FRAMES := 30
 ## Hops looked at past the one being followed, for gates and floaters on the way.
 const LOOKAHEAD_HOPS := 3
-## Frames in the air without passing a hop cell after which the hop is given up: an updraft
-## holding her at a lip or in a column (r10: 140-580 s at the nexus_07 lip, 290 s in kiln_10).
+## Frames in the air without passing a hop cell, with none of its cells left in her room, after
+## which the hop is given up: an updraft holding her at the hop's landing (r10: 140-580 s at the
+## nexus_07 lip).
 const STALE_AIR_FRAMES := 120
 
 
@@ -63,6 +64,7 @@ class Navigator:
 	var _edge_frames := 0
 	## Frames airborne since the hop last advanced, and whether she left the ground on this hop.
 	var _stale_air := 0
+	var _stale_room := ""
 	var _left_ground := false
 	## Resting cell the hop starts from, and the side a running takeoff goes to (0: jump in place).
 	## Side of the next chimney wall after a wall jump (0 outside a climb).
@@ -104,11 +106,14 @@ class Navigator:
 			status = "off_field"
 			return status
 		if not bool(where["grounded"]):
-			# A hop with nothing left in her room, or one she has hung on in the air for
-			# STALE_AIR_FRAMES, steers nowhere: an updraft carried her off it (r10-run1 rode the
-			# kiln_05 steam into kiln_10 on a kiln_05 hop and hovered 290 s with no input; the
-			# nexus_07 lip held her 1 px off the floor 6 px from the hop's landing for 140 s).
-			if not hop.is_empty() and (_stale_air > STALE_AIR_FRAMES or not _ahead_in(where)):
+			# A hop with nothing left in her room that she has hung on to in the air for
+			# STALE_AIR_FRAMES in this room steers nowhere: an updraft holds her (r10-run1 rode
+			# the kiln_05 steam into kiln_10 on a kiln_05 hop and hovered 290 s with no input;
+			# the nexus_07 lip held her 1 px off the floor 6 px from the hop's landing for 140 s).
+			# A hop that still goes on in her room is kept however long the air takes, and so is
+			# one she will fall back onto: the kiln_01 steam lifts her into nexus_03 and drops her
+			# back, and steering her out there stranded her on the nexus_03 floor.
+			if not hop.is_empty() and _stale_air > STALE_AIR_FRAMES and passed_in(where):
 				drop_hop()
 			status = "airborne" if not hop.is_empty() else "off_field"
 			return status
@@ -151,12 +156,12 @@ class Navigator:
 		_left_ground = false
 		_stale_air = 0
 
-	## True when the hop still has a cell in her room from the last one passed on.
-	func _ahead_in(where: Dictionary) -> bool:
-		for index in range(maxi(progress - 1, 0), hop.size()):
+	## True when the hop has no cell left in her room past the ones she has passed.
+	func passed_in(where: Dictionary) -> bool:
+		for index in range(progress, hop.size()):
 			if hop[index][0] == where["room"]:
-				return true
-		return false
+				return false
+		return true
 
 	## True when the feet cell (or the row above it on a sagging floater) is one the hop being
 	## followed still passes through.
@@ -232,7 +237,9 @@ class Navigator:
 				and bool(step[3]) == ball
 			):
 				progress = index + 1
-		_stale_air = _stale_air + 1 if airborne and progress == passed else 0
+		var same_room := room == _stale_room
+		_stale_room = room
+		_stale_air = _stale_air + 1 if airborne and progress == passed and same_room else 0
 		var target: Array = hop[_target_index(room, cell, player, where["local"])]
 		var aim_x := _aim_x(target, room, where)
 		var dx := aim_x - float(where["local"].x)
@@ -563,7 +570,7 @@ class Follow:
 		if _still >= STALL_FRAMES:
 			# Held still in the air (an updraft at a lip): the same hop would only hold her there
 			# again, so the next decision reads the field or rejoins it.
-			if not _player.is_on_floor():
+			if not _player.is_on_floor() and _nav.passed_in(where):
 				_nav.drop_hop()
 			finished = true
 			return []
