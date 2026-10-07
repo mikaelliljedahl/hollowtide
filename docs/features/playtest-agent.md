@@ -1235,3 +1235,49 @@ hint is one (`_futile`, `tools/playtest/jev_backend.py`). `test_shots_that_never
 Full sweep, seed 1: the ending, 53 of 66 at 3,221.9 s, 6 deaths, every boss and mini-boss fought at
 the first attempt won but the Tollwing and Fernmaw (timed out); critic 0.70 (room 0.67, ambush 0.85,
 boss 0.72). The nexus_05 chimney loop is the largest time sink left.
+
+## 32. Harness round 13 (2026-10-07)
+
+Probes and room runs in `/Volumes/Personal/Tools/hollowtide-runs/r13harness/` (not in the repo).
+`tools/check_playtest_round13.gd` (run by the `playtest boss rooms` suite) plays every case in the
+real rooms; all 6 of its checks fail on the round 12 harness.
+
+**nexus_05 chimneys.** Both climbs north through nexus_05 pass one-tile chimneys over column 13
+(rows 24-25 and 18-19), and the body (56 px) fits in their 64 px column with 8 px to spare. A
+probe followed the full route's own programs (objective 29, the Tollwing) from the 72 resting
+cells of rows 17 to 32 until she left the room: 25 of 72 did on the round 12 harness, and 19 of 72
+toward the Long Beam (objective 61, High Jump owned). Four defects, each needed (with any one
+undone the probe falls to 25 to 44 of 72). The run off the pit lip stops on the far pit wall
+inside column 13, but the next hop cell lay in column 12, so the jump drifted her head under the
+rock beside the chimney; now, when a later hop cell lies straight above in her own column within
+a jump and the rise to it is clear, she steers for that one (`_column_ahead`,
+`tools/playtest_nav.gd`). Rising inside the chimney she drifted for the ledge beside it although
+the rise left could not reach its row; a drift now needs the rise left to reach it
+(`_rise_reaches`), so the solver's wall jump is pressed. Dropping off the lip between the pit
+walls within coyote time counted as a chimney climb and steered her out (`_wall_start`). Standing
+over the climb column with the rise clear, she jumps in place instead of running back
+(`_climb_column`), and feet up to 6 px past a column edge still read the neighbour's resting cell
+(`LIP_PX`). After: 72 of 72 for both objectives.
+
+**kiln_01 climb back.** r12-full-s2 died six times in the kiln_01 lava basin at (15 to 16, 13)
+on the way from nexus_03 to nexus_02, whose floor hole drops into the kiln_01 steam shaft. A probe
+dropped her through the hole at 16 x positions and followed the route (objective 33): 2 of 16 got
+back into nexus_03; the rest looped between the basin's west rock (14, 12), the pillar (13, 10)
+and the step (15, 7), beside the lava. From the step the route runs one column west and climbs
+column 14, but the run carried her head under the rock over column 13. When the hop's rise goes
+straight out of the room's top and the rise from where she stands is clear, she now jumps in
+place and does not drift (`_rises_out`). After: 12 of 16; the other 4 reach nexus_03 and are
+knocked back down the hole by the gargoyle there. The route's own programs took no lava damage in
+any probe, before or after, so the deaths came from moves chosen while the route stalled there.
+
+**Tollwing.** Heuristic room runs (nexus_09, the route's kit at that point, spawn (3, 15)): 0 of
+6 won, 3 deaths per run. A boss stops fighting while the player is outside its arena and drops
+its chain, so no punish window opens (`scripts/enemies/boss.gd`). The Shard Drop answer stepped to
+x 47, 17 px out of the arena through the west door: from the first window on, every chain was
+dropped and its opening never refilled. A line dodge's spot, and a Rockfall step, now keeps the
+feet 32 px inside the arena (`Tide.in_arena`, `tools/playtest_tide.gd`; `Dodge.safe_spot`). In
+stage 2 only the Harpoon in a punish window hurts it, and the Peal Lane beads take about 3 s to
+cross the room, so the lane jump waited through the 1.7 s window. A lane jump that first stands
+still for 30 frames or more is labelled "stand still, then ...", so the Harpoon is fired first
+(`Dodge.stays_put`, the heuristic and the opening interrupt already treat it so). After: 2 of 2
+room runs won in 27.7 s; with either change undone the probe fight is not won.

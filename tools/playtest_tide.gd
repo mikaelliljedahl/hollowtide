@@ -51,6 +51,9 @@ const MAX_WAIT := 7.0
 const JUMP_LEAD := 0.2
 const JUMP_HOLD := 40
 const BEAD_SPREAD := 0.14
+## A lane jump that first stands still this many frames counts as standing still: a Harpoon shot
+## takes about 8 frames, and the next decision offers the jump again.
+const STAND_SPARE_FRAMES := 30
 const FPS := 60.0
 ## A horizontal shot this many seconds from her body is answered on the way to a spot: below
 ## LANE_SPLIT px above the feet by a jump, above it (standing) by curling under.
@@ -60,6 +63,11 @@ const LOW_LANE := 1
 const HIGH_LANE := 2
 ## Shots in flight farther than this from her feet are left out of the lines.
 const IN_FLIGHT := 1600.0
+## A spot keeps her feet this far (px) inside the boss's arena: outside it the boss drops its chain
+## and opens no punish window (scripts/enemies/boss.gd). Round 13: the nexus_09 Shard Drop step
+## took her to x 47 in the west door, 17 px out of the Tollwing's arena, and in a probe the
+## fight never opened again after its first window (r12: Tollwing timed out in every full run).
+const ARENA_KEEP := 32.0
 
 
 ## True for an attack answered by its lines: the Tidal Heart's and the mini-bosses' shot attacks.
@@ -167,7 +175,13 @@ static func candidate(boss: Dictionary, player: Player) -> Dictionary:
 	var jump: Variant = _lane_jump(lines, player)
 	if jump == null:
 		return {}
-	return _entry(attack, "jump the low %s lane as its beads arrive" % _name(attack), jump)
+	var label := "jump the low %s lane as its beads arrive" % _name(attack)
+	# Waiting for far beads is standing still (Dodge.stays_put): a Harpoon fired first loses
+	# nothing. Round 13: the Tollwing's Peal Lane beads cross nexus_09 in about 3 s, and its
+	# stage 2 Harpoon window (1.7 s) passed while the jump waited, every time.
+	if (jump as LaneJump).wait_frames() >= STAND_SPARE_FRAMES:
+		label = "stand still, then %s" % label
+	return _entry(attack, label, jump)
 
 
 ## [offset px, curl] for the spot nearest her feet where no line reaches the standing body (or,
@@ -181,6 +195,8 @@ static func safe_spot(lines: Array, player: Player, boss: Dictionary) -> Variant
 			var x := float(distance * side)
 			if distance > 0 and player.test_move(player.global_transform, Vector2(x, 0)):
 				continue
+			if distance > 0 and not in_arena(boss, x):
+				continue
 			# Never past or into a low body: it floats down to 92 px above the floor.
 			var past := (x - boss_rel.x) * -boss_rel.x < 0.0
 			if low and distance > 0 and (past or absf(x - boss_rel.x) < BODY_CLEAR):
@@ -193,6 +209,14 @@ static func safe_spot(lines: Array, player: Player, boss: Dictionary) -> Variant
 				if _clear(lines, player, x, height, distance > 0):
 					return [x, height == BALL_HEIGHT]
 	return null
+
+
+## True when feet `x` px beside hers stay ARENA_KEEP inside `boss`'s arena (or it has none).
+static func in_arena(boss: Dictionary, x: float) -> bool:
+	var arena = boss.get("arena_rel")
+	if not arena is Array:
+		return true
+	return x >= float(arena[0]) + ARENA_KEEP and x <= float(arena[2]) - ARENA_KEEP
 
 
 ## True when no line reaches a body `height` tall with its feet `x` px beside hers (a spot she
@@ -393,6 +417,10 @@ class LaneJump:
 		_player = player
 		_jump_at = jump_at
 		_stand_at = stand_at
+
+	## Frames it stands still before the jump.
+	func wait_frames() -> int:
+		return _jump_at
 
 	func next() -> Array:
 		_frame += 1

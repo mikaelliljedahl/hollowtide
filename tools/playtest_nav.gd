@@ -20,6 +20,9 @@ const CAP_PROBE := 4.0
 const FLOATER_SAG := 48.0
 ## Half the body's width: feet this close to a column edge can stand on the neighbour column.
 const HALF_BODY := 28.0
+## The floor still holds her this far (px) past a lip before she drops (round 13: on the nexus_05
+## pit lip she stood with her feet 31 px past the column edge, read off the route and turned back).
+const LIP_PX := 6.0
 ## Wall jumps are pressed once the rise has slowed to this (px/s, negative is up).
 const WALL_JUMP_SPEED := -250.0
 ## A shaft wall this close (px) to the body is pushed into to start a chimney climb.
@@ -31,6 +34,8 @@ const PRESS_GRACE := 3
 const COYOTE_FRAMES := 4
 ## Rows one jump climbs (256 px); a ledge higher up is climbed to first, not drifted toward.
 const JUMP_ROWS := 4
+## Feet this close (px) under a row still count as reaching it at the top of a rise.
+const RISE_SLACK := 16.0
 ## Sideways probe (px) for an early drift toward a ledge while rising.
 const DRIFT_PROBE := 24.0
 ## Frames spent walking to an edge before a jump is taken where the player stands.
@@ -236,7 +241,7 @@ class Navigator:
 		for cell in rows:
 			for side in [lean, -lean]:
 				var edge := column * TILE if side < 0 else (column + 1) * TILE
-				if absf(x - edge) < HALF_BODY:
+				if absf(x - edge) < HALF_BODY + LIP_PX:
 					var probe: Vector2i = cell + Vector2i(side, 0)
 					var found := route.entry(objective, room, probe, ball)
 					if not found.is_empty():
@@ -297,6 +302,16 @@ class Navigator:
 				dx = _takeoff * TILE
 			elif not grounded:
 				dx = _aim_x(_landing(room), room, where) - float(where["local"].x)
+		# Rising out of the room's top along a straight rise that is clear from where she is: no
+		# drift toward the solver's column (round 13: kiln_01's step under the steam shaft; the
+		# run to column 14 put her head under the rock over column 13, and the fall back left her
+		# beside the lava basin, where r12-full-s2 died six times).
+		if (
+			airborne
+			and player.velocity.y < 0.0
+			and _rises_out(room, progress, player, float(where["local"].y))
+		):
+			dx = 0.0
 		# Climbing a chimney: after each wall jump keep going to the opposite wall and jump off it
 		# again, as long as the hop still climbs; the column target alone would pull her back into
 		# the middle and lose the height.
@@ -335,6 +350,8 @@ class Navigator:
 	## Starts a chimney climb: the jump is peaking below a target straight overhead, which only a
 	## wall jump reaches, so she is steered into the nearer wall within WALL_REACH (the solver's
 	## wall jump; standing centred in the shaft she never touches it). Sets `_climb_dir` to it.
+	## Not while a ground jump is still open (coyote time): round 13, dropping off the nexus_05
+	## pit lip between its walls, that steered her out from under the chimney.
 	func _wall_start(target: Array, where: Dictionary, player: Player) -> bool:
 		var cell: Vector2i = where["cell"]
 		if (
@@ -343,6 +360,7 @@ class Navigator:
 			or int(target[1]) != cell.x
 			or int(target[2]) >= cell.y
 			or player.velocity.y < WALL_JUMP_SPEED
+			or float(player.get("_coyote_timer")) > 0.0
 		):
 			return false
 		var near := -1 if float(where["local"].x) < (cell.x + 0.5) * TILE else 1
@@ -423,6 +441,10 @@ class Navigator:
 	func _target_index(room: String, cell: Vector2i, player: Player, local: Vector2) -> int:
 		var index := mini(progress, hop.size() - 1)
 		var next: Array = hop[index]
+		var row := int(next[2])
+		var air := not player.is_on_floor()
+		if next[0] == room and int(next[1]) != cell.x and (row < cell.y or (air and row == cell.y)):
+			return _column_ahead(index, room, cell, player, local)
 		if next[0] != room or int(next[1]) != cell.x or int(next[2]) >= cell.y:
 			return index
 		for look in range(progress, hop.size()):
@@ -430,11 +452,46 @@ class Navigator:
 			if step[0] != room:
 				break
 			if int(step[1]) != cell.x:
-				var reach := cell.y - int(step[2]) <= JUMP_ROWS
+				var reach := (
+					cell.y - int(step[2]) <= JUMP_ROWS and _rise_reaches(step, player, local)
+				)
 				if int(step[2]) >= cell.y or (reach and _drift_clear(step, player, local)):
 					index = look
 				break
 		return index
+
+	## The next hop cell rises in another column, but a later one lies straight above her body's
+	## column within a jump with the rise to it clear: steer for that one, so she climbs where she
+	## already is instead of drifting back to the solver's column first. Round 13: at the nexus_05
+	## one-tile chimney over column 13 the run stops on the pit's lip in column 13, and the solver's
+	## first rise in column 12 drifted her head into the rock beside the chimney (about 1,000 s per
+	## full run in r12-full-s2).
+	func _column_ahead(
+		index: int, room: String, cell: Vector2i, player: Player, local: Vector2
+	) -> int:
+		for look in range(index + 1, hop.size()):
+			var step: Array = hop[look]
+			if step[0] != room or cell.y - int(step[2]) > JUMP_ROWS:
+				break
+			if int(step[1]) == cell.x and int(step[2]) < cell.y:
+				# From the column's centre: at its edge the rock beside it already touches her.
+				var centred := player.global_transform
+				centred.origin.x += (cell.x + 0.5) * TILE - local.x
+				var rise := Vector2(0.0, -(local.y - (float(step[2]) + 1.0) * TILE))
+				return index if player.test_move(centred, rise) else look
+		return index
+
+	## True on the ground, or when the rise left in the air still lifts the feet to `step`'s row.
+	## Round 13: in the nexus_05 chimney over column 13 the jump peaks two rows under the ledge at
+	## (12, 23); drifting for it there pressed her into the wall and the wall jump that the solver
+	## takes at (13, 26) was never pressed (about 1,000 s per full run in r12-full-s2).
+	static func _rise_reaches(step: Array, player: Player, local: Vector2) -> bool:
+		if player.is_on_floor():
+			return true
+		var rise := 0.0
+		if player.velocity.y < 0.0:
+			rise = player.velocity.y * player.velocity.y / (2.0 * PlayerConfig.GRAVITY_RISING)
+		return local.y - rise <= (float(step[2]) + 1.0) * TILE + RISE_SLACK
 
 	## True when drifting toward `step` now keeps the rise to its row free: nothing overhead in the
 	## next column over (a wall beside her only slides her up; a ceiling would end the jump).
@@ -465,6 +522,20 @@ class Navigator:
 				side = signi(int(step[1]) - _from.x)
 		if top >= _from.y or first.is_empty():
 			return 0
+		var rise := Vector2(0.0, -(_from.y - top) * TILE)
+		# Already over the column the hop climbs, with the rise clear: jump where she stands. Round
+		# 13: on the lip of the nexus_05 chimney at (13, 23) her feet read as (14, 23), and the run
+		# back toward column 13 drifted her head under the rock beside it, round after round.
+		var climb := _climb_column(room)
+		if (
+			climb >= 0
+			and local_x - HALF_BODY >= climb * TILE
+			and local_x + HALF_BODY <= (climb + 1) * TILE
+			and not player.test_move(player.global_transform, rise)
+		):
+			return 0
+		if _rises_out(room, 0, player, (_from.y + 1) * TILE):
+			return 0
 		# Not curled: the ball rolls at 580 px/s, so a run off the edge carries it under whatever
 		# lies past the edge before the coyote jump takes. Round 12: kiln_06 (12, 21) rolled under
 		# the west door's ledge and jumped into its underside, round after round (r11-full-s2 chose
@@ -474,7 +545,6 @@ class Navigator:
 			return (
 				0 if player.test_move(player.global_transform, Vector2(side * 8.0, 0.0)) else side
 			)
-		var rise := Vector2(0.0, -(_from.y - top) * TILE)
 		if not player.test_move(player.global_transform, rise):
 			return 0
 		# Blocked from where she stands but clear from the resting cell's centre (her body
@@ -485,6 +555,33 @@ class Navigator:
 			_center = true
 			return 0
 		return side
+
+	## True when the hop's cells in `room` from `first` on climb one column straight out of the
+	## room's top and the body can rise `rise` px from where it is without touching rock.
+	func _rises_out(room: String, first: int, player: Player, rise: float) -> bool:
+		var column := -1
+		var last_row := -1
+		for index in range(first, hop.size()):
+			var step: Array = hop[index]
+			if step[0] != room:
+				break
+			last_row = int(step[2])
+			if last_row < _from.y:
+				if column >= 0 and int(step[1]) != column:
+					return false
+				column = int(step[1])
+		if column < 0 or last_row != 0:
+			return false
+		return not player.test_move(player.global_transform, Vector2(0.0, -rise))
+
+	## Column of the hop's first cell above its start (the column the jump rises in), or -1.
+	func _climb_column(room: String) -> int:
+		for step in hop:
+			if step[0] != room:
+				return -1
+			if int(step[2]) < _from.y:
+				return int(step[1])
+		return -1
 
 	## The hop's last cell in `room`: where it lands, or the exit it leaves by.
 	func _landing(room: String) -> Array:

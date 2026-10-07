@@ -17,7 +17,8 @@ extends Node
 ## Mini-bosses (round 10): tools/check_playtest_mini.gd. Updraft stalls (round 10 review):
 ## tools/check_playtest_updraft.gd. Round 11 (kiln_02 ambush, refill past the Warden):
 ## tools/check_playtest_round11.gd. Round 12 (Rockfall after the Fault Slam, kiln_06 west door,
-## kiln_03 wall and lava pit, kiln_08 slab): tools/check_playtest_round12.gd.
+## kiln_03 wall and lava pit, kiln_08 slab): tools/check_playtest_round12.gd. Round 13 (nexus_05
+## chimneys, kiln_01 climb back, Tollwing): tools/check_playtest_round13.gd.
 
 const Actions = preload("res://tools/playtest_actions.gd")
 const Boss = preload("res://tools/playtest_boss.gd")
@@ -28,6 +29,7 @@ const ShaftCheck = preload("res://tools/check_playtest_shaft.gd")
 const UpdraftCheck = preload("res://tools/check_playtest_updraft.gd")
 const Round11Check = preload("res://tools/check_playtest_round11.gd")
 const Round12Check = preload("res://tools/check_playtest_round12.gd")
+const Round13Check = preload("res://tools/check_playtest_round13.gd")
 const Rooms = preload("res://scripts/campaign/campaign_rooms.gd")
 const CAMPAIGN_SCENE := preload("res://scenes/campaign/campaign.tscn")
 const KIT: Array[StringName] = [
@@ -103,6 +105,7 @@ func _run() -> void:
 	await UpdraftCheck.new(self).run()
 	await Round11Check.new(self).run()
 	await Round12Check.new(self).run()
+	await Round13Check.new(self).run()
 	for failure in _failures:
 		print("FAIL ", failure)
 	print("playtest-boss-rooms: %s" % ("PASS" if _failures.is_empty() else "FAIL"))
