@@ -62,6 +62,8 @@ func _run() -> void:
 	await _case_floor_drops()
 	await _case_vaults_02_shaft_floater()
 	await _case_route_threats()
+	await _case_kiln_02_stack_pocket()
+	await _case_depths_sump_drop()
 	_release()
 	for failure in _failures:
 		push_error("FAIL: " + failure)
@@ -418,6 +420,79 @@ func _case_route_threats() -> void:
 			)
 		else:
 			print("  ok  %s threat reaches %s (%.0f px)" % [room_id, cell, nearest])
+
+
+## Round 13: depths_01's south opening was filled by the lift's water current under a rock roof two
+## rows up, so a step in from the floor was held there for good and depths_05 to depths_10 could
+## not be entered that way (tools/campaign_updrafts.py). The sump's lifts now end above the floor
+## below them: a step into either floor opening drops through to the floor of the room below, and a
+## jump from that floor catches the lift, whose door boost lifts her beside the opening above.
+func _case_depths_sump_drop() -> void:
+	if not _wanted("depths_sump"):
+		return
+	var kit: Array[StringName] = [&"beam", &"missiles", &"undertow_dash"]
+	for drop in [
+		["depths_01", Vector2i(35, 31), "depths_05"], ["depths_05", Vector2i(29, 13), "depths_10"]
+	]:
+		await _setup(drop[0], drop[1], kit)
+		await _walk(1, drop[1] + Vector2i(2, 0))
+		await _track(240)
+		var label := "%s step into the floor opening -> %s floor" % [drop[0], drop[2]]
+		if _room() != drop[2] or not _player.is_on_floor():
+			_failures.append("%s: in %s at %s" % [label, _room(), _cell()])
+		else:
+			print("  ok  ", label)
+	for lift in [
+		["depths_05", Vector2i(37, 13), "depths_01", 39],
+		["depths_10", Vector2i(31, 14), "depths_05", 33]
+	]:
+		await _setup(lift[0], lift[1], kit)
+		Input.action_press(&"jump")
+		for frame in 360:
+			await get_tree().physics_frame
+			if frame == 20:
+				Input.action_release(&"jump")
+			if _room() == lift[2]:
+				Input.action_press(&"move_right")
+			if _room() == lift[2] and _player.is_on_floor():
+				break
+		_release()
+		await _frames(30)
+		var label := "%s jump into the lift -> %s floor east of the opening" % [lift[0], lift[2]]
+		if _room() != lift[2] or _cell().x < lift[3] or not _player.is_on_floor():
+			_failures.append("%s: in %s at %s" % [label, _room(), _cell()])
+		else:
+			print("  ok  ", label)
+
+
+## Round 13: kiln_02's stack steam pins her under the shut stack door. Standing, she can shoot its
+## switch; curled up she could not, and the pocket's walls held the ball there for good. A cell west
+## of the steam now lets her roll out of it.
+func _case_kiln_02_stack_pocket() -> void:
+	if not _wanted("kiln_02_pocket"):
+		return
+	await _setup("kiln_02", Vector2i(5, 6), [&"beam", &"slipstream"])
+	await _tap(&"slipstream")
+	await _frames(20)
+	await _hold([&"move_left", &"jump"], 20)
+	await _track(120)
+	var pinned := _cell()
+	await _hold([&"move_left"], 60)
+	await _track(90)
+	if _room() != "kiln_02" or pinned.y > 2 or _cell().y < 4 or not _player.is_on_floor():
+		_failures.append(
+			"kiln_02 ball out of the stack steam: pinned at %s, then at %s" % [pinned, _cell()]
+		)
+	else:
+		print("  ok  kiln_02 ball rolls out of the stack steam")
+
+
+## Let physics run with no input, printing the cell and vertical speed with --trace.
+func _track(frames: int) -> void:
+	for frame in frames:
+		await get_tree().physics_frame
+		if _trace and frame % 10 == 0:
+			print("    t%d %s %s vy=%.0f" % [frame, _room(), _cell(), _player.velocity.y])
 
 
 # --- helpers ----------------------------------------------------------------------------------

@@ -2,8 +2,9 @@ id: depths_05
 area: depths
 name: Sump Crossing
 origin: 135 119
-current: 30 13 3 4 dir=up strength=520 kind=water
-current: 36 0 3 14 dir=up strength=520 kind=water
+# Both lifts end out of the floor openings' way: a drop through either sinks past them, a jump from
+# the floor below catches them (round 13; depths_10 holds the lower lift).
+current: 36 0 3 10 dir=up strength=520 kind=water
 current: 2 9 20 5 dir=right strength=200 kind=water
 legend:
   v stalactite

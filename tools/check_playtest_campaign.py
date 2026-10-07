@@ -101,9 +101,9 @@ class CampaignRouteTest(unittest.TestCase):
         for pickup_id, _kind in self.world.pickups.values():
             self.assertTrue(pickup_id in taken or pickup_id in self.route["unreached"], pickup_id)
         minis = [o for o in self.objectives if o["kind"] == "mini"]
-        # Three since round 12: Lanternjaw's depths_08 lies past depths_01's south opening, which
-        # the game's updraft never lets a body sink through (RouteSolver).
-        self.assertGreaterEqual(len(minis), 3, [o["target"] for o in minis])
+        # Four again since round 13: depths_01's south opening no longer holds her in a current,
+        # so Lanternjaw's depths_08 is back on the route (Rimeweaver's vaults_08 is not).
+        self.assertGreaterEqual(len(minis), 4, [o["target"] for o in minis])
         for mini in self.world.minis:
             self.assertTrue(mini in taken or f"mini:{mini}" in self.route["unreached"], mini)
         for objective in minis:
@@ -219,8 +219,8 @@ class CampaignRouteTest(unittest.TestCase):
                     break  # the hop ends on the objective's cell in mid-air
                 steps, hop = field[position]
             self.assertTrue(steps == 0 or position not in field, f"objective {index} not reached")
-        # 39 since round 12: depths_05 to depths_10 lie past depths_01's updraft (RouteSolver).
-        self.assertGreaterEqual(len(rooms), 39, sorted(set(self.world.rooms) - rooms))
+        # 40 again since round 13: depths_05 to depths_10 can be dropped into from depths_01.
+        self.assertGreaterEqual(len(rooms), 40, sorted(set(self.world.rooms) - rooms))
 
     def test_route_solver_curls_only_on_a_floor(self):
         solver = RouteSolver(self.world, {"slipstream", "beam"}, set(), set(), breaks=False)
@@ -232,14 +232,14 @@ class CampaignRouteTest(unittest.TestCase):
 
     def test_route_solver_never_sinks_in_a_strong_updraft(self):
         # r12-full-s1b hung 1,400 s in the current over depths_01's south opening on a planned
-        # drop into depths_05; the game's updraft only ever lifts a body inside it.
+        # drop into depths_05; the game's updraft only ever lifts a body inside it. Round 13 took
+        # that current out of the opening; depths_05's lift below it holds a body the same way.
         solver = RouteSolver(self.world, {"slipstream", "beam"}, set(), set(), breaks=False)
-        state = ("depths_01", 37, 30, False, 0, 0)
+        state = ("depths_05", 37, 8, False, 0, 0)
         self.assertTrue(solver._lifted(state))
         moves = solver.neighbours(state)
         self.assertTrue(moves)
-        self.assertFalse([nxt for nxt in moves if nxt[0] == "depths_01" and nxt[2] > 30])
-        self.assertNotIn("depths_05", [o["target"] for o in self.objectives])
+        self.assertFalse([nxt for nxt in moves if nxt[0] == "depths_05" and nxt[2] > 8])
 
     def test_runner_hands_the_route_to_the_game(self):
         args = argparse.Namespace(

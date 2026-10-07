@@ -368,11 +368,11 @@ func _case_depths_01_alcove() -> void:
 func _case_depths_01_undertow_door() -> void:
 	if not _wanted("depths_01_undertow_door"):
 		return
-	await _setup("depths_01", Vector2i(37, 31), [&"high_jump"], BOSSES_DOWN)
+	await _setup("depths_01", Vector2i(39, 31), [&"high_jump"], BOSSES_DOWN)
 	await _jump(1)
 	await _hold([&"move_right"], 60)
 	_expect_room("depths_01 undertow door holds without Undertow Dash", "depths_01")
-	await _setup("depths_01", Vector2i(37, 31), [&"high_jump", &"undertow_dash"], BOSSES_DOWN)
+	await _setup("depths_01", Vector2i(39, 31), [&"high_jump", &"undertow_dash"], BOSSES_DOWN)
 	await _jump(1)
 	await _dash_hold(1, 60)
 	_expect_room("depths_01 Undertow Dash opens the door -> depths_02", "depths_02")

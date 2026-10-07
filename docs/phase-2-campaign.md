@@ -154,6 +154,24 @@ that a hop from a ledge beside it still reaches, and fringe_06 joins the route w
 | `kiln_01` Glow Passage | The steam lift ends at row 2, inside its shaft (was row 5); a one-cell rock step at (15, 8) right under the shaft | A full hop over the lava pit no longer touches it. The lift is still Loop B's only way up from kiln_01 into nexus_03 (bigger-world.md): a jump from the step rides it (route from the return step: 16 steps; without the step, 365 round through kiln_06). |
 | `fringe_06` Skylight Atrium | Hopper on the low block (18, 13); Spitter on the west ledge (10, 10) | The walk from the water lift to the fringe_01 tunnel met only the bat swarm overhead; a ground threat on the landing and a ranged one on the next ledge cover the same stretch, both in sight from the lift. |
 
+Round 13 (2026-10-07): depths_01's south opening sat under the lift's water current with rock two
+rows above it. In the game an upward current brakes a falling body at 560 px/s^2 (its pull of 5,200
+against gravity's 4,640) whatever its strength, so a step in from the floor was held there for good:
+depths_05 to depths_10 and Lanternjaw were reachable only by a long drop from vaults_10's upper
+ledges into depths_07. The graph solver let a body fall through any current and missed it. It now
+holds a body touching an upward current and lets one sink through only on a `plunge` from far enough
+above, from the game's constants (`tools/campaign_updrafts.py`), and `drop_errors` needs every floor
+opening of a reached room to be droppable unless it is a listed one-way lift; both fail on the old
+layout. The same model found a ball pinned for good under kiln_02's shut stack door. Real input:
+`depths_sump` and `kiln_02_pocket` in `tools/check_campaign_moves.gd`, each failing on the old rooms.
+
+| Room | Change | Why |
+|---|---|---|
+| `depths_01` Pressure Descent | No current in the south opening | A step in drops into depths_05 at about 1,200 px/s and sinks past its lift to the floor. |
+| `depths_05` Sump Crossing | The lift ends at row 9 (was row 13); the current over the south opening is gone | A jump from the floor catches the lift, which carries her up beside depths_01's opening; walking the floor no longer lifts her; the south opening drops into depths_10. |
+| `depths_10` Sump Gauge | The lift ends at row 10 (was row 14) | The same jump-to-catch lift back up into depths_05, out of the way of the drop. |
+| `kiln_02` Furnace Shaft | One air cell west of the stack steam, under the shut door (1, 2) | Curled up she cannot shoot the door's switch; the pocket held the ball there for good. Now she rolls out. |
+
 ## Saving, death, resources, and map
 
 - At least one safe save/refill point per area; an accessible save point comes before each boss.

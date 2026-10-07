@@ -83,9 +83,9 @@ position = Vector2(2592, 128)
 script = ExtResource("6_stalactite")
 
 [node name="Current01" type="Area2D" parent="Entities"]
-position = Vector2(2016, 480)
+position = Vector2(2016, 352)
 script = ExtResource("7_current")
-zone_size = Vector2(320, 960)
+zone_size = Vector2(320, 704)
 direction = Vector2(0, -1)
 strength = 520
 kind = &"water"
