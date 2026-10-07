@@ -28,8 +28,11 @@ import run  # noqa: E402
 from campaign_layout import load_rooms  # noqa: E402
 from route_graph import RouteSolver  # noqa: E402
 
-# Round 9's planner took over two minutes on the 48-room world.
-BUILD_LIMIT = 20.0
+# Round 9's planner took over two minutes on the 48-room world; the limit guards against that
+# class of regression, not against machine load. Round 13: the 72-objective route (depths cluster
+# reachable) took 19.0 to 30.8 s of CPU on this laptop at load average 6 to 15 (another agent's
+# Godot running), 14.5 s for 66 objectives on a quieter machine, so 20 s failed on load alone.
+BUILD_LIMIT = 40.0
 
 
 def landed(field: dict, key: str) -> str:
