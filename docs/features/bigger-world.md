@@ -75,7 +75,8 @@ with a `switch door=<char>` (shootable; needs an air cell and a reachable standi
 [permanent]`, `stalactite` (hangs from rock), `crusher` (rectangle with rock above). Zone lines:
 `heat: x y w h`, `ambush: x y w h wave=a,b [wave2= wave3= trigger= spawns= id=]`, `current: x y w h
 dir=... strength=... [kind=water|wind|steam]` (side strength at most 360; upward at 500 or more lets the
-body climb), `rising: x y w h kind=lava|water speed<=180 safe>=3` (h at least 8, stop line leaves air).
+body climb; any upward current holds a body that steps or hops into it, and only a fall from far
+enough above sinks through, so a floor opening needs one clear of current or a fall above it), `rising: x y w h kind=lava|water speed<=180 safe>=3` (h at least 8, stop line leaves air).
 Enemy ids: use only `ENEMY_IDS` in `tools/campaign_layout.py`. Boss ids are `BOSS_IDS`.
 
 Doors: an air cell on the room boundary is a door opening. A boundary opening needs the mirrored
@@ -161,7 +162,9 @@ is named only when the gate itself needs it.
 ### Depths (+7: 04 to 10)
 
 All depths rooms hang off depths_01 (the boss room depths_02 and the ending room depths_03 stay sealed
-from them) so nothing needs anything beyond Undertow Dash, which depths_01 supplies.
+from them) so nothing needs anything beyond Undertow Dash, which depths_01 supplies. Since round 13
+the floor openings 01 to 05 and 05 to 10 carry no current: a step in drops through, and the lifts
+in depths_05 and depths_10 end above their floors, caught with a jump, to carry her back up.
 
 | Id | Origin, size | Attaches to | Gate | Purpose | Holds |
 |---|---|---|---|---|---|

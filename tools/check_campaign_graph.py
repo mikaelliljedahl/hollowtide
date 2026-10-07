@@ -17,6 +17,8 @@ Each branch boss room must hold a shortcut back to the hub: a flag gate on that 
 door into a hub room, sealed before the fight and walkable once the boss is down.
 Intended sequence breaks (tools/campaign_breaks.py) join the solver as explicit edges; the campaign
 must also finish without them, and their reward pickups may only be reachable through them.
+Every floor opening of a reached room can be dropped through unless it is a listed one-way lift
+(tools/campaign_updrafts.py).
 Optional mini-bosses are fights like the bosses: entering a mini-boss arena with a quiver sets
 `mini:<id>` and opens its reward gate. The no-optional run fights none (nothing required sits behind
 a `mini:` gate); the any-order run must reach every pickup, and names any mini-boss arena it never
@@ -31,7 +33,9 @@ passable on the rhythm); crumble tiles carry the player but can also drop her th
 count as already gone, with a second softlock pass where they are still present); a timed door is
 solid until a reachable standing spot can shoot one of its switches and then reach the door within
 its countdown (about five cells per second), after which it stays open (it latches in game); strong
-updrafts (strength >= 500) let the body climb, downward currents cap jumps to one cell. Stalactites,
+updrafts (strength >= 500) let the body climb, downward currents cap jumps to one cell. An upward
+current of any strength holds a body up; only a fall from far enough above sinks on through it
+(tools/campaign_updrafts.py, the game's brake against gravity). Stalactites,
 floods and ambush arenas never block movement (an arena only seals when the wave can be beaten).
 """
 
@@ -55,6 +59,7 @@ from campaign_layout import (  # noqa: E402
 from campaign_lifts import lift_errors  # noqa: E402
 from campaign_pacing import dodge_room_errors, pacing_errors, revisit_errors  # noqa: E402
 from campaign_shortcuts import shortcut_errors  # noqa: E402
+from campaign_updrafts import drop_errors, plunge, up_cells, up_runs  # noqa: E402
 from campaign_walk_in import lava_errors  # noqa: E402
 
 JUMP = 3
@@ -117,6 +122,15 @@ class World:
         self.downdraft: dict[str, set[tuple[int, int]]] = {}
         self.permanent_crumbles = False
         self.breaks = break_edges()
+        # Upward currents of any strength: per room the local cells that hold a body up, per
+        # world column the runs a fast fall can sink through (tools/campaign_updrafts.py).
+        up = up_cells(rooms)
+        self.up_runs = up_runs(up)
+        self.held: dict[str, set[tuple[int, int]]] = {room_id: set() for room_id in rooms}
+        for wx, wy in up:
+            room = room_at_world(rooms, wx, wy)
+            if room is not None:
+                self.held[room.room_id].add((wx - room.origin[0], wy - room.origin[1]))
         for room in rooms.values():
             self.updraft[room.room_id] = set()
             self.downdraft[room.room_id] = set()
@@ -195,6 +209,7 @@ class Solver:
         self.blocked_areas = blocked_areas
         self.crumble_gone = crumble_gone
         self.jump = HIGH_JUMP if "high_jump" in abilities else JUMP
+        self.plunges: dict[tuple[str, int, int, bool], list] = {}
 
     # --- terrain ---------------------------------------------------------------------------
     def solid(self, room: Room, x: int, y: int) -> bool:
@@ -266,9 +281,13 @@ class Solver:
         room_id, x, y, ball, up, side = state
         room = self.world.rooms[room_id]
         result = []
+        lifting = self.world.held[room_id]
+        held = bool(lifting) and any((x, row) in lifting for row in self.body_rows(y, ball))
         exit_state = self.exit(state)
         if exit_state is not None and exit_state != "blocked":
-            return [exit_state]
+            if not (held and self.sinks(state, exit_state)):
+                return [exit_state]
+            exit_state = None
         supported = self.platform(room, x, y + 1) or (
             y == room.height - 1 and exit_state == "blocked" and up == 0
         )
@@ -309,6 +328,8 @@ class Solver:
                 if self.body_clear(room, x + dx, y, ball):
                     result.append((room_id, x + dx, y, ball, 0, 0))
         else:
+            if not held and room.origin[0] + x in self.world.up_runs:
+                result += self.plunge(room, x, y, ball)
             if self.body_clear(room, x, y + 1, ball):
                 result.append((room_id, x, y + 1, ball, 0, 0))
             for dx in (-1, 1):
@@ -323,7 +344,40 @@ class Solver:
                 result.append((room_id, x, y, False, 0 if up == 0 else up, side))
         elif "slipstream" in self.abilities:
             result.append((room_id, x, y, True, 0 if up == 0 else min(up, BALL_JUMP), side))
+        if held:
+            # The current brakes her fall to a rise (tools/campaign_updrafts.py).
+            result = [nxt for nxt in result if not self.sinks(state, nxt)]
         return result
+
+    def plunge(self, room: Room, x: int, y: int, ball: bool) -> list:
+        """A fall from here through an upward current below, if it is fast enough to sink."""
+        key = (room.room_id, x, y, ball)
+        if key not in self.plunges:
+            self.plunges[key] = []
+            wx, wy = room.origin[0] + x, room.origin[1] + y
+            out = plunge(self.world.up_runs, self.world_blocked, wx, wy, ball)
+            target = None if out is None else room_at_world(self.world.rooms, wx, out)
+            if target is not None and target.area not in self.blocked_areas:
+                tx, ty = wx - target.origin[0], out - target.origin[1]
+                if self.body_clear(target, tx, ty, ball):
+                    self.plunges[key] = [(target.room_id, tx, ty, ball, 0, 0)]
+        return self.plunges[key]
+
+    def world_blocked(self, wx: int, wy: int) -> bool:
+        room = room_at_world(self.world.rooms, wx, wy)
+        if room is None:
+            return True
+        x, y = wx - room.origin[0], wy - room.origin[1]
+        return self.solid(room, x, y) or self.hot(room, x, y)
+
+    @staticmethod
+    def body_rows(y: int, ball: bool) -> tuple[int, ...]:
+        return (y,) if ball else (y, y - 1, y - 2)
+
+    def sinks(self, state, nxt) -> bool:
+        """True if `nxt` lies lower in the world than `state` (falling, or a floor door)."""
+        rooms = self.world.rooms
+        return rooms[nxt[0]].origin[1] + nxt[2] > rooms[state[0]].origin[1] + state[2]
 
     def exit(self, state):
         room_id, x, y, ball, up, side = state
@@ -673,6 +727,7 @@ def main() -> int:
         errors += softlock_errors(world, stages, label)
         errors += shortcut_errors(world, stages, label, REGIONAL, covered_cells)
         if label == "any-order":
+            errors += drop_errors(rooms, world.held, stages[-1][3], stages[-1][4], label)
             missing = sorted(all_pickups - collected)
             if missing:
                 errors.append(f"[{label}] unreachable pickups: {missing}")

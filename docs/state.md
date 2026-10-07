@@ -44,9 +44,12 @@ hand-balanced or playtested with Jev yet**. The graph solver treats `mini:*` fla
 except when it checks that every pickup is reachable once the fights are won.
 
 Up-current climbs that need hand-play (the solver models them, nobody has climbed them with real
-input): depths_01 (35,29), depths_05 (36,0), depths_07 (4,2), depths_10 (29,0), kiln_01 (14,0),
-kiln_02 (2,0), kiln_04 (2,11) and (13,0), and the shafts in kiln_05, kiln_06, kiln_07, kiln_08,
-kiln_09 and kiln_10. The vaults_08 to fringe_01 shortcut is effectively one-way. Visuals of the new
+input): depths_07 (4,2), kiln_01 (14,0), kiln_02 (2,0), kiln_04 (2,11) and (13,0), and the shafts in
+kiln_05, kiln_06, kiln_07, kiln_08, kiln_09 and kiln_10. The depths sump (depths_01 down to depths_10
+and both lifts back up) has real-input cases since round 13 (phase-2-campaign.md). The vaults_08 to
+fringe_01 shortcut is effectively one-way. Rimeweaver's vaults_08 cannot be entered from below:
+rock fills vaults_06's row 1 under their shared opening (13 to 15, 0), so the solver warns that its
+arena is never reached. Visuals of the new
 rooms and mini-bosses have never been viewed.
 
 ## Start and controls

@@ -3,7 +3,8 @@ area: depths
 name: Pressure Descent
 origin: 135 85
 current: 14 27 12 5 dir=left strength=160 kind=water
-current: 35 29 5 5 dir=up strength=520 kind=water
+# sump_drop: no current fills the south opening, so a step in drops into depths_05 fast enough to
+# sink through the lift there; the lift's door boost carries her back up beside it (round 13).
 # undertow_hall: the lower hall by the Undertow Dash seals the entry shaft and the east door.
 ambush: 1 5 43 27 wave=energy_parasite,energy_parasite wave2=shard_turret,energy_parasite,energy_parasite trigger=1,27,10,5 spawns=11,22,18,10 id=undertow_hall
 # break undertow_gap: the hidden corridor gap needs a hop and an air Undertow Dash.
