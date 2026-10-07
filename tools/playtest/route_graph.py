@@ -19,7 +19,6 @@ from campaign_layout import room_at_world  # noqa: E402
 from check_campaign_graph import GATE_NEEDS, Solver, World, timed_flag  # noqa: E402
 
 State = tuple[str, int, int, bool, int, int]
-Edge = tuple[State, int]
 # Kit items every room feels: the jump height and the curl.
 GLOBAL_ITEMS = frozenset({"high_jump", "slipstream"})
 UNREACHED = 1 << 30
@@ -85,18 +84,33 @@ def resting(solver: Solver, state: State) -> bool:
     return up == 0 and side == 0 and solver.platform(solver.world.rooms[room_id], x, y + 1)
 
 
-def step_cost(solver: Solver, state: State, nxt: State) -> int:
+def step_cost(solver: Solver, state: State, nxt: State, lava: set | None = None) -> int:
     """Solver steps weighted the way a player moves: Slipstream form only where it is needed (it
-    cannot shoot), and never along a lava basin when there is another way."""
+    cannot shoot), and never along a lava basin when there is another way. `lava`: the lava
+    cells of `nxt`'s room (`lava_cells`), when the caller has them."""
     cost = 1
     if nxt[3]:
         cost += BALL_COST
     if nxt[3] != state[3]:
         cost += TOGGLE_COST
-    room = solver.world.rooms[nxt[0]]
-    if solver.lava(room, nxt[1], nxt[2] + 1) or solver.lava(room, nxt[1], nxt[2]):
+    if lava is None:
+        room = solver.world.rooms[nxt[0]]
+        if solver.lava(room, nxt[1], nxt[2] + 1) or solver.lava(room, nxt[1], nxt[2]):
+            cost += LAVA_COST
+    elif (nxt[1], nxt[2] + 1) in lava or (nxt[1], nxt[2]) in lava:
         cost += LAVA_COST
     return cost
+
+
+def lava_cells(world: World, room_id: str) -> set[tuple[int, int]]:
+    """Cells of `room_id` whose legend entry is lava (Solver.lava)."""
+    room = world.rooms[room_id]
+    return {
+        (x, y)
+        for y in range(room.height)
+        for x in range(room.width)
+        if (entry := room.entry(x, y)) is not None and entry.kind == "lava"
+    }
 
 
 def _room_items(world: World, room_id: str) -> set[str]:
@@ -146,9 +160,23 @@ class RouteGraph:
         self.own: dict[str, frozenset[str]] = {
             room_id: frozenset(_room_items(world, room_id)) for room_id in world.rooms
         }
-        self._tables: dict[tuple[str, frozenset[str]], dict[State, tuple[Edge, ...]]] = {}
+        # Every state any kit has met gets one number; the successor tables hold numbers, so a
+        # kit's search compares ints instead of hashing a six-field tuple on every move (round
+        # 13: the 72-objective route took 17 to 22 s against the 20 s check limit).
+        self.ids: dict[State, int] = {}
+        self.by_id: list[State] = []
+        self._tables: dict[tuple[str, frozenset[str]], dict[int, tuple[tuple[int, int], ...]]] = {}
         self._terrain: dict[tuple[str, frozenset[str]], dict] = {}
+        self.lava = {room_id: lava_cells(world, room_id) for room_id in world.rooms}
+        self.sizes = {room_id: (room.width, room.height) for room_id, room in world.rooms.items()}
         self.felt = frozenset().union(*self.items.values())
+
+    def id_of(self, state: State) -> int:
+        found = self.ids.get(state)
+        if found is None:
+            found = self.ids[state] = len(self.by_id)
+            self.by_id.append(state)
+        return found
 
     def kit(self, abilities: set[str], flags: set[str]) -> Kit:
         return Kit(self, abilities, flags)
@@ -191,41 +219,54 @@ class Kit:
         self._before: list[list[tuple[int, int]]] = []
         self._rooms: dict[str, list[int]] = {}
 
-    def successors(self, state: State) -> tuple[Edge, ...]:
-        table = self._tables[state[0]]
-        found = table.get(state)
-        if found is None:
-            solver = self.solver
-            found = tuple(
-                (nxt, step_cost(solver, state, nxt))
-                for nxt in solver.neighbours(state)
-                if solver.inside(nxt)
-            )
-            table[state] = found
-        return found
+    def _moves(self, state: State) -> tuple[tuple[int, int], ...]:
+        """(next state id, weighted cost) for every solver move from `state`."""
+        solver = self.solver
+        graph = self.graph
+        moves = []
+        for nxt in solver.neighbours(state):
+            width, height = graph.sizes[nxt[0]]
+            if 0 <= nxt[1] < width and 0 <= nxt[2] < height:
+                cost = step_cost(solver, state, nxt, graph.lava[nxt[0]])
+                moves.append((graph.id_of(nxt), cost))
+        return tuple(moves)
 
     def reach(self, start: State) -> list[State]:
         """States reachable from `start`, numbered in `index`, with numbered moves both ways and
         `rest` (feet on a floor); built once per kit."""
         if self.states:
             return self.states
-        states = [start]
-        index = {start: 0}
+        # The hottest loop of the route build: ints and locals only.
+        graph = self.graph
+        by_id = graph.by_id
+        tables = self._tables
+        first = graph.id_of(start)
+        ids = [first]
+        local = {first: 0}
         after: list[list[tuple[int, int]]] = []
         before: list[list[tuple[int, int]]] = [[]]
         position = 0
-        while position < len(states):
+        while position < len(ids):
+            here = ids[position]
+            state = by_id[here]
+            table = tables[state[0]]
+            edges = table.get(here)
+            if edges is None:
+                edges = table[here] = self._moves(state)
             moves = []
-            for nxt, cost in self.successors(states[position]):
-                number = index.get(nxt)
+            for nxt, cost in edges:
+                number = local.get(nxt)
                 if number is None:
-                    number = index[nxt] = len(states)
-                    states.append(nxt)
-                    before.append([])
-                before[number].append((position, cost))
+                    number = local[nxt] = len(ids)
+                    ids.append(nxt)
+                    before.append([(position, cost)])
+                else:
+                    before[number].append((position, cost))
                 moves.append((number, cost))
             after.append(moves)
             position += 1
+        states = [by_id[number] for number in ids]
+        index = {state: number for number, state in enumerate(states)}
         self.states = states
         self.index = index
         self._after = after

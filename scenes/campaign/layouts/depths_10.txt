@@ -2,7 +2,7 @@ id: depths_10
 area: depths
 name: Sump Gauge
 origin: 135 136
-current: 29 0 5 15 dir=up strength=520 kind=water
+current: 29 0 5 11 dir=up strength=520 kind=water
 current: 2 10 25 5 dir=left strength=200 kind=water
 legend:
   v stalactite

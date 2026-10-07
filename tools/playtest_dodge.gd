@@ -142,7 +142,7 @@ static func candidate(boss: Dictionary, player: Player, grounded: bool) -> Dicti
 				return {}
 			var name := "Rockfall" if attack == "rockfall" else "Vent Burst"
 			var frames := roundi(landed * FPS) + SETTLE_FRAMES
-			var spot: Variant = safe_spot(boss.get("columns_rel", []), rel.x, player)
+			var spot: Variant = safe_spot(boss.get("columns_rel", []), rel.x, player, boss)
 			if spot is float:
 				var step := StepTo.new(player, float(spot), frames)
 				return _entry(
@@ -248,14 +248,17 @@ static func stays_put(entry: Dictionary) -> bool:
 
 
 ## The feet x offset nearest the player that keeps clear of every locked column and of the boss
-## body, on her floor, with nothing solid in the way on the walk there; null when there is none.
-static func safe_spot(columns: Array, boss_x: float, player: Player) -> Variant:
+## body, on her floor and inside its arena (Tide.in_arena), with nothing solid in the way on the
+## walk there; null when there is none.
+static func safe_spot(
+	columns: Array, boss_x: float, player: Player, boss: Dictionary = {}
+) -> Variant:
 	if columns.is_empty():
 		return null
 	for distance in range(0, SPOT_SCAN + 1, SPOT_STEP):
 		for side in [-1, 1]:
 			var x := float(distance * side)
-			if absf(x - boss_x) < BODY_CLEAR:
+			if absf(x - boss_x) < BODY_CLEAR or (distance > 0 and not Tide.in_arena(boss, x)):
 				continue
 			if columns.any(func(c: int) -> bool: return absf(x - float(c)) < COLUMN_CLEAR):
 				continue
